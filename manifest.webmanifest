@@ -1,0 +1,15 @@
+{
+  "name": "남성초등학교 출결관리 시스템",
+  "short_name": "남성초 출결",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#174a7c",
+  "icons": [
+    {
+      "src": "logo.svg",
+      "sizes": "96x96",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function email() {
+      return request.auth.token.email;
+    }
+
+    function isAdmin() {
+      return signedIn() && email() == 'leens@nsworld.net';
+    }
+
+    function isTeacher() {
+      return signedIn() && email().matches('.*@nsworld[.]net$');
+    }
+
+    function accessPath() {
+      return /databases/$(database)/documents/access/$(email());
+    }
+
+    function isCoach() {
+      return signedIn() && exists(accessPath()) && get(accessPath()).data.role == 'coach';
+    }
+
+    function isHomeroomTeacher() {
+      return isTeacher() && exists(accessPath()) && get(accessPath()).data.role == 'teacher';
+    }
+
+    function ownsClass(data) {
+      return isHomeroomTeacher()
+        && data.grade == get(accessPath()).data.grade
+        && data.classNo == get(accessPath()).data.classNo;
+    }
+
+    function validStudent(data) {
+      return data.keys().hasOnly(['name', 'grade', 'classNo', 'number', 'department'])
+        && data.name is string
+        && data.grade is string
+        && data.classNo is string
+        && data.number is string
+        && data.department is string;
+    }
+
+    function coachDepartment() {
+      return get(accessPath()).data.department;
+    }
+
+    function contactsVisible() {
+      return get(/databases/$(database)/documents/settings/public).data.contactVisible == true;
+    }
+
+    match /settings/public {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /access/{accountEmail} {
+      allow read: if isAdmin() || (signedIn() && accountEmail == email());
+      allow write: if isAdmin();
+    }
+
+    match /students/{studentId} {
+      allow read: if isTeacher() || isAdmin() || (isCoach() && resource.data.department == coachDepartment());
+      allow create: if validStudent(request.resource.data) && (isAdmin() || ownsClass(request.resource.data));
+      allow update: if validStudent(request.resource.data) && (isAdmin() || (ownsClass(resource.data) && ownsClass(request.resource.data)));
+      allow delete: if isAdmin() || ownsClass(resource.data);
+    }
+
+    match /contacts/{studentId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /attendance/{recordId} {
+      allow read: if isTeacher() || isAdmin() || (isCoach() && resource.data.department == coachDepartment());
+      allow create, update: if (isTeacher() || isAdmin())
+        && request.resource.data.updatedBy == email()
+        && request.resource.data.studentId is string
+        && request.resource.data.date is string
+        && request.resource.data.department is string;
+      allow delete: if isTeacher() || isAdmin();
+    }
+  }
+}
