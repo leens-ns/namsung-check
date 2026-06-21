@@ -172,7 +172,11 @@
           <div class="settings-layout">
             <section>
               <h2 id="settings-title">학생 명단 가져오기</h2>
-              <p class="subtle">구글 문서/시트를 웹에 게시한 CSV 주소를 붙여넣으면 학생 명단을 가져옵니다.</p>
+              <p class="subtle">내려받은 CSV 파일을 선택하거나 공개 CSV 주소를 입력해 학생 명단을 가져옵니다.</p>
+              <label>
+                CSV 파일
+                <input id="csvFileInput" type="file" accept=".csv,text/csv" />
+              </label>
               <label>
                 CSV 주소
                 <input id="csvUrlInput" type="url" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv" />
@@ -181,7 +185,7 @@
                 <button id="importBtn" class="primary" type="button">가져오기</button>
                 <button id="loadSampleBtn" type="button">예시 명단 사용</button>
               </div>
-              <p class="note">권장 열: 이름, 학년, 반, 번호, 부서, 학부모연락처</p>
+              <p class="note">필수 열: 이름, 학년, 반, 번호, 부서 · 선택 열: 학부모연락처</p>
             </section>
 
             <section>
@@ -255,7 +259,7 @@
             <label>반<input id="studentClassInput" type="number" min="1" max="20" /></label>
             <label>번호<input id="studentNumberInput" type="number" min="1" max="99" /></label>
           </div>
-          <label>부서<input id="studentDepartmentInput" type="text" autocomplete="off" /></label>
+          <label>부서<input id="studentDepartmentInput" type="text" placeholder="축구, 바이올린" autocomplete="off" /></label>
         </div>
         <footer><button value="cancel" type="submit">취소</button><button id="saveStudentBtn" class="primary" value="default" type="button">저장</button></footer>
       </form>

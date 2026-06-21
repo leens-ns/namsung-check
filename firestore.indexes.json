@@ -4,7 +4,16 @@
       "collectionGroup": "attendance",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "department", "order": "ASCENDING" },
+        { "fieldPath": "departments", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "grade", "order": "ASCENDING" },
+        { "fieldPath": "classNo", "order": "ASCENDING" },
         { "fieldPath": "date", "order": "ASCENDING" }
       ]
     }

@@ -46,7 +46,7 @@ const els = Object.fromEntries([
   "logoutBtn", "todayText", "notificationCenterBtn", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "statisticsTab", "settingsTab", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "lookupDate", "lookupDepartment",
   "lookupTable", "contactControl", "contactToggle", "refreshLookupBtn", "csvUrlInput", "importBtn", "loadSampleBtn", "morningTime", "testPopupBtn",
-  "enableNotificationsBtn", "maskContactDefault", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachList", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList",
+  "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachList", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList",
   "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentDepartmentInput", "saveStudentBtn",
   "statisticsMonth", "statisticsClassFilter", "statisticsScope", "refreshStatisticsBtn", "printStatisticsBtn", "printStatisticsMeta", "printConfirmDialog", "executePrintBtn", "statisticsTable", "classStatisticsPanel", "studentStatisticsPanel", "classStatisticsMatrix", "previousStatsWeekBtn", "nextStatsWeekBtn", "statsWeekLabel", "mobileStatisticsMatrix", "statsPresent", "statsAbsent", "statsLate", "statsEarly", "statsRate",
   "presentCount", "lateCount", "absentCount", "unsetCount"
@@ -183,11 +183,17 @@ async function loadCloudData() {
   else if (isAdmin()) await setDoc(doc(db, "settings", "public"), state.settings);
 
   const studentsRef = collection(db, "students");
-  const studentsQuery = session.role === "coach"
-    ? query(studentsRef, where("department", "==", session.department))
-    : studentsRef;
-  const studentsSnapshot = await getDocs(studentsQuery);
-  state.students = studentsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+  if (session.role === "teacher" && !hasHomeroom()) {
+    state.students = [];
+  } else {
+    const studentsQuery = session.role === "coach"
+      ? query(studentsRef, where("departments", "array-contains", session.department))
+      : session.role === "teacher"
+        ? query(studentsRef, where("grade", "==", session.grade), where("classNo", "==", session.classNo))
+        : studentsRef;
+    const studentsSnapshot = await getDocs(studentsQuery);
+    state.students = studentsSnapshot.docs.map((item) => ({ id: item.id, ...item.data(), departments: normalizeDepartments(item.data().departments || item.data().department) }));
+  }
 
   await loadRecords(todayKey());
   await loadContacts();
@@ -196,10 +202,16 @@ async function loadCloudData() {
 
 async function loadRecords(date) {
   if (!db || !session) return;
+  if (session.role === "teacher" && !hasHomeroom()) {
+    state.records[date] = {};
+    return;
+  }
   const attendanceRef = collection(db, "attendance");
   const attendanceQuery = session.role === "coach"
-    ? query(attendanceRef, where("department", "==", session.department), where("date", "==", date))
-    : query(attendanceRef, where("date", "==", date));
+    ? query(attendanceRef, where("departments", "array-contains", session.department), where("date", "==", date))
+    : session.role === "teacher"
+      ? query(attendanceRef, where("grade", "==", session.grade), where("classNo", "==", session.classNo), where("date", "==", date))
+      : query(attendanceRef, where("date", "==", date));
   const snapshot = await getDocs(attendanceQuery);
   state.records[date] = {};
   snapshot.forEach((item) => { state.records[date][item.data().studentId] = item.data(); });
@@ -256,13 +268,16 @@ function hasHomeroom() { return session?.role === "teacher" && session.grade && 
 function canManageStudent(student) { return isAdmin() || Boolean(hasHomeroom() && String(student.grade) === String(session.grade) && String(student.classNo) === String(session.classNo)); }
 
 function refreshDepartments() {
-  const departments = [...new Set(state.students.map((student) => student.department).filter(Boolean))].sort();
+  const departments = [...new Set(state.students.flatMap((student) => studentDepartments(student)))].sort();
   fillSelect(els.lookupDepartment, ["전체", ...departments], session.role === "coach" ? session.department : "전체");
   fillSelect(els.coachDepartmentInput, departments, departments[0] || "");
-  const selectedClass = els.classFilter.value || "전체";
+  const assignedClass = hasHomeroom() ? `${session.grade}학년 ${session.classNo}반` : "";
+  const selectedClass = assignedClass || els.classFilter.value || "전체";
   const classes = [...new Set(state.students.map((student) => `${student.grade}학년 ${student.classNo}반`))]
     .sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
-  fillSelect(els.classFilter, ["전체", ...classes], classes.includes(selectedClass) ? selectedClass : "전체");
+  const attendanceClasses = assignedClass ? [assignedClass] : ["전체", ...classes];
+  fillSelect(els.classFilter, attendanceClasses, attendanceClasses.includes(selectedClass) ? selectedClass : attendanceClasses[0]);
+  els.classFilter.disabled = Boolean(assignedClass);
   const allClasses = Array.from({ length: 6 }, (_, grade) => Array.from({ length: 10 }, (_, classIndex) => `${grade + 1}-${classIndex + 1}`)).flat();
   fillSelect(els.teacherClassSelect, allClasses, els.teacherClassSelect.value || "1-1");
   const statsSelected = els.statisticsClassFilter.value;
@@ -331,7 +346,7 @@ function renderStudents() {
     card.className = "student-card";
     const showMemo = record.status !== "present" && record.status !== "unset" || record.memo;
     const tools = canManageStudent(student) ? `<div class="student-tools"><button type="button" data-edit-student aria-label="${escapeAttr(student.name)} 수정">수정</button><button type="button" data-delete-student aria-label="${escapeAttr(student.name)} 삭제">삭제</button></div>` : "";
-    card.innerHTML = `<header><div><h3>${escapeHtml(student.name)}</h3><p class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)} · ${escapeHtml(student.department)}</p></div>${tools}</header><div class="attendance-options">${["present", "absent", "late", "early"].map((status) => `<button type="button" data-status="${status}" class="${record.status === status ? "is-selected" : ""}">${statusLabel[status]}</button>`).join("")}</div>${showMemo ? `<input class="memo-input" type="text" placeholder="특이사항 (선택)" value="${escapeAttr(record.memo)}" />` : ""}`;
+    card.innerHTML = `<header><div><h3>${escapeHtml(student.name)}</h3><p class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)} · ${escapeHtml(departmentLabel(student))}</p></div>${tools}</header><div class="attendance-options">${["present", "absent", "late", "early"].map((status) => `<button type="button" data-status="${status}" class="${record.status === status ? "is-selected" : ""}">${statusLabel[status]}</button>`).join("")}</div>${showMemo ? `<input class="memo-input" type="text" placeholder="특이사항 (선택)" value="${escapeAttr(record.memo)}" />` : ""}`;
     card.querySelectorAll("[data-status]").forEach((button) => button.addEventListener("click", () => {
       record.status = button.dataset.status; record.saved = false; renderStudents(); renderCounts();
     }));
@@ -350,7 +365,7 @@ function openStudentDialog(student = null) {
   els.studentGradeInput.value = student?.grade || session.grade || "";
   els.studentClassInput.value = student?.classNo || session.classNo || "";
   els.studentNumberInput.value = student?.number || "";
-  els.studentDepartmentInput.value = student?.department || "";
+  els.studentDepartmentInput.value = student ? departmentLabel(student) : "";
   els.studentGradeInput.disabled = !isAdmin();
   els.studentClassInput.disabled = !isAdmin();
   els.studentDialog.showModal();
@@ -364,12 +379,12 @@ async function saveStudent() {
     grade: String(isAdmin() ? els.studentGradeInput.value : session.grade),
     classNo: String(isAdmin() ? els.studentClassInput.value : session.classNo),
     number: String(els.studentNumberInput.value),
-    department: els.studentDepartmentInput.value.trim()
+    departments: normalizeDepartments(els.studentDepartmentInput.value)
   };
-  if (!student.name || !student.grade || !student.classNo || !student.number) return alert("이름, 학년, 반, 번호를 확인해 주세요.");
+  if (!student.name || !student.grade || !student.classNo || !student.number || !student.departments.length) return alert("이름, 학년, 반, 번호, 부서를 확인해 주세요.");
   if (editingStudentId && !confirm(`${student.name} 학생 정보를 수정할까요?`)) return;
   try {
-    await setDoc(doc(db, "students", student.id), { name: student.name, grade: student.grade, classNo: student.classNo, number: student.number, department: student.department });
+    await setDoc(doc(db, "students", student.id), { name: student.name, grade: student.grade, classNo: student.classNo, number: student.number, departments: student.departments });
     const index = state.students.findIndex((item) => item.id === student.id);
     if (index >= 0) state.students[index] = student;
     else state.students.push(student);
@@ -396,9 +411,9 @@ async function deleteStudent(student) {
 
 function getScopedStudents() {
   const queryText = els.studentSearch.value.trim().toLowerCase();
-  const selectedClass = els.classFilter.value || "전체";
+  const selectedClass = hasHomeroom() ? `${session.grade}학년 ${session.classNo}반` : els.classFilter.value || "전체";
   return state.students.filter((student) => {
-    const text = `${student.name} ${student.department} ${student.grade}-${student.classNo}`.toLowerCase();
+    const text = `${student.name} ${departmentLabel(student)} ${student.grade}-${student.classNo}`.toLowerCase();
     const className = `${student.grade}학년 ${student.classNo}반`;
     return (!queryText || text.includes(queryText)) && (selectedClass === "전체" || selectedClass === className);
   }).sort((a, b) => Number(a.grade) - Number(b.grade) || Number(a.classNo) - Number(b.classNo) || Number(a.number) - Number(b.number));
@@ -407,7 +422,7 @@ function getScopedStudents() {
 function renderCounts() {
   const records = state.records[todayKey()] || {};
   const counts = { present: 0, late: 0, absent: 0, unset: 0 };
-  state.students.forEach((student) => {
+  getScopedStudents().forEach((student) => {
     const status = records[student.id]?.status || "unset";
     if (status === "present") counts.present += 1;
     else if (status === "late") counts.late += 1;
@@ -419,9 +434,11 @@ function renderCounts() {
 
 function openReview() {
   if (!canEdit()) return;
-  els.reviewList.innerHTML = state.students.map((student) => {
+  const students = getScopedStudents();
+  if (!students.length) return alert(hasHomeroom() ? "현재 학급에 등록된 학생이 없습니다." : "담당 학급을 먼저 배정해 주세요.");
+  els.reviewList.innerHTML = students.map((student) => {
     const record = getTodayRecord(student.id);
-    return `<div class="review-item"><div><strong>${escapeHtml(student.name)}</strong><span class="student-meta">${escapeHtml(student.department)} · ${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div class="status-${record.status}">${statusLabel[record.status] || statusLabel.unset}${record.memo ? ` · ${escapeHtml(record.memo)}` : ""}</div></div>`;
+    return `<div class="review-item"><div><strong>${escapeHtml(student.name)}</strong><span class="student-meta">${escapeHtml(departmentLabel(student))} · ${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div class="status-${record.status}">${statusLabel[record.status] || statusLabel.unset}${record.memo ? ` · ${escapeHtml(record.memo)}` : ""}</div></div>`;
   }).join("");
   els.reviewDialog.showModal();
 }
@@ -430,11 +447,16 @@ async function confirmSave() {
   if (!canEdit()) return;
   els.confirmSaveBtn.disabled = true;
   try {
+    const students = getScopedStudents().filter((student) => !getTodayRecord(student.id).saved);
+    if (!students.length) {
+      els.reviewDialog.close();
+      return;
+    }
     const batch = writeBatch(db);
-    state.students.forEach((student) => {
+    students.forEach((student) => {
       const record = getTodayRecord(student.id);
       batch.set(doc(db, "attendance", `${todayKey()}_${student.id}`), {
-        studentId: student.id, date: todayKey(), department: student.department,
+        studentId: student.id, date: todayKey(), grade: String(student.grade), classNo: String(student.classNo), departments: studentDepartments(student),
         status: record.status, memo: record.memo || "", updatedBy: session.email, updatedAt: serverTimestamp()
       });
       record.saved = true;
@@ -451,7 +473,12 @@ async function confirmSave() {
 
 async function clearToday() {
   if (!canEdit() || !confirm("오늘 출결 기록을 초기화할까요?")) return;
-  const snapshot = await getDocs(query(collection(db, "attendance"), where("date", "==", todayKey())));
+  if (session.role === "teacher" && !hasHomeroom()) return alert("담당 학급을 먼저 배정해 주세요.");
+  const attendanceRef = collection(db, "attendance");
+  const attendanceQuery = session.role === "teacher"
+    ? query(attendanceRef, where("grade", "==", session.grade), where("classNo", "==", session.classNo), where("date", "==", todayKey()))
+    : query(attendanceRef, where("date", "==", todayKey()));
+  const snapshot = await getDocs(attendanceQuery);
   const batch = writeBatch(db);
   snapshot.forEach((item) => batch.delete(item.ref));
   await batch.commit();
@@ -466,13 +493,13 @@ function renderLookup() {
   if (coach) els.lookupDepartment.value = session.department;
   const department = coach ? session.department : els.lookupDepartment.value;
   const records = state.records[els.lookupDate.value || todayKey()] || {};
-  const students = state.students.filter((student) => department === "전체" || student.department === department);
+  const students = state.students.filter((student) => department === "전체" || studentDepartments(student).includes(department));
   const adminView = isAdmin();
   els.lookupTable.classList.toggle("no-contact", !adminView);
   els.lookupTable.innerHTML = `<div class="table-row table-head"><div>학생</div><div>부서</div><div>출결</div><div>특이사항</div>${adminView ? "<div>학부모 연락처</div>" : ""}</div>${students.map((student) => {
     const record = records[student.id] || { status: "unset", memo: "" };
     const phone = state.settings.contactVisible ? state.contacts[student.id] || "-" : "비공개";
-    return `<div class="table-row"><div data-label="학생"><strong>${escapeHtml(student.name)}</strong> <span class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div data-label="부서">${escapeHtml(student.department)}</div><div data-label="출결" class="status-${record.status}">${statusLabel[record.status] || statusLabel.unset}</div><div data-label="특이사항">${record.memo ? escapeHtml(record.memo) : "-"}</div>${adminView ? `<div data-label="학부모 연락처">${escapeHtml(phone)}</div>` : ""}</div>`;
+    return `<div class="table-row"><div data-label="학생"><strong>${escapeHtml(student.name)}</strong> <span class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div data-label="부서">${escapeHtml(departmentLabel(student))}</div><div data-label="출결" class="status-${record.status}">${statusLabel[record.status] || statusLabel.unset}</div><div data-label="특이사항">${record.memo ? escapeHtml(record.memo) : "-"}</div>${adminView ? `<div data-label="학부모 연락처">${escapeHtml(phone)}</div>` : ""}</div>`;
   }).join("")}`;
 }
 
@@ -481,7 +508,11 @@ async function loadMonthlyStatistics() {
   const month = els.statisticsMonth.value || todayKey().slice(0, 7);
   els.refreshStatisticsBtn.disabled = true;
   try {
-    const snapshot = await getDocs(query(collection(db, "attendance"), where("date", ">=", `${month}-01`), where("date", "<=", `${month}-31`)));
+    const attendanceRef = collection(db, "attendance");
+    const statisticsQuery = session.role === "teacher"
+      ? query(attendanceRef, where("grade", "==", session.grade), where("classNo", "==", session.classNo), where("date", ">=", `${month}-01`), where("date", "<=", `${month}-31`))
+      : query(attendanceRef, where("date", ">=", `${month}-01`), where("date", "<=", `${month}-31`));
+    const snapshot = await getDocs(statisticsQuery);
     state.monthlyRecords = snapshot.docs.map((item) => item.data());
     renderMonthlyStatistics();
   } catch (error) {
@@ -748,12 +779,15 @@ function renderTeacherList() {
 async function uploadStudents(students) {
   if (!isAdmin()) return;
   try {
-    const batch = writeBatch(db);
-    students.forEach(({ parentPhone, id, ...student }) => {
-      batch.set(doc(db, "students", id), student);
-      batch.set(doc(db, "contacts", id), { parentPhone: parentPhone || "", department: student.department });
-    });
-    await batch.commit();
+    for (let start = 0; start < students.length; start += 200) {
+      const batch = writeBatch(db);
+      students.slice(start, start + 200).forEach(({ parentPhone, id, ...student }) => {
+        const departments = normalizeDepartments(student.departments || student.department);
+        batch.set(doc(db, "students", id), { name: student.name, grade: String(student.grade), classNo: String(student.classNo), number: String(student.number), departments });
+        batch.set(doc(db, "contacts", id), { parentPhone: parentPhone || "" });
+      });
+      await batch.commit();
+    }
     await loadCloudData();
     refreshDepartments();
     renderAll();
@@ -766,21 +800,53 @@ async function uploadStudents(students) {
 async function importCsv() {
   if (!isAdmin()) return;
   const url = els.csvUrlInput.value.trim();
-  if (!url) return alert("CSV 주소를 입력해 주세요.");
+  const file = els.csvFileInput.files?.[0];
+  if (!file && !url) return alert("CSV 파일을 선택하거나 CSV 주소를 입력해 주세요.");
   try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("CSV를 가져오지 못했습니다.");
-    const rows = parseCsv(await response.text());
+    let csvText = "";
+    if (file) {
+      csvText = await file.text();
+    } else {
+      const response = await fetch(normalizeCsvUrl(url));
+      if (!response.ok) throw new Error("CSV를 가져오지 못했습니다.");
+      csvText = await response.text();
+    }
+    const rows = parseCsv(csvText.replace(/^\uFEFF/, ""));
     const headers = rows.shift().map((header) => header.trim());
     const students = rows.filter((row) => row.some(Boolean)).map((row, index) => {
       const item = Object.fromEntries(headers.map((header, headerIndex) => [header, row[headerIndex] || ""]));
-      return { id: item.id || `csv-${Date.now()}-${index}`, name: item["이름"] || item.name || "", grade: item["학년"] || item.grade || "", classNo: item["반"] || item.class || "", number: item["번호"] || item.number || "", department: item["부서"] || item.department || "", parentPhone: item["학부모연락처"] || item.parentPhone || "" };
-    }).filter((student) => student.name && student.department);
-    if (!students.length) throw new Error("가져올 학생 정보가 없습니다.");
+      return { id: item.id || `csv-${Date.now()}-${index}`, name: item["이름"] || item.name || "", grade: item["학년"] || item.grade || "", classNo: item["반"] || item.class || "", number: item["번호"] || item.number || "", departments: normalizeDepartments(item["부서"] || item.departments || item.department), parentPhone: item["학부모연락처"] || item.parentPhone || "" };
+    }).filter((student) => student.name && student.departments.length);
+    if (!students.length) throw new Error("이름과 부서가 포함된 학생 정보가 없습니다.");
     await uploadStudents(students);
   } catch (error) {
     alert(`가져오기 실패: ${readableError(error)}`);
   }
+}
+
+function normalizeCsvUrl(value) {
+  try {
+    const url = new URL(value);
+    const match = url.pathname.match(/\/spreadsheets\/d\/([^/]+)/);
+    if (!match || url.searchParams.get("output") === "csv" || url.pathname.includes("/export")) return value;
+    const gid = url.searchParams.get("gid") || "0";
+    return `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv&gid=${gid}`;
+  } catch {
+    return value;
+  }
+}
+
+function normalizeDepartments(value) {
+  const values = Array.isArray(value) ? value : String(value || "").split(/[|,;/]/);
+  return [...new Set(values.map((item) => String(item).trim()).filter(Boolean))];
+}
+
+function studentDepartments(student) {
+  return normalizeDepartments(student.departments || student.department);
+}
+
+function departmentLabel(student) {
+  return studentDepartments(student).join(", ");
 }
 
 function parseCsv(csv) {
