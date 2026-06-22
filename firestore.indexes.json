@@ -16,15 +16,6 @@
         { "fieldPath": "classNo", "order": "ASCENDING" },
         { "fieldPath": "date", "order": "ASCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "attendanceSummaries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "grade", "order": "ASCENDING" },
-        { "fieldPath": "classNo", "order": "ASCENDING" },
-        { "fieldPath": "date", "order": "ASCENDING" }
-      ]
     }
   ],
   "fieldOverrides": []

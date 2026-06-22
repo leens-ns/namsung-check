@@ -22,10 +22,9 @@ const DEFAULT_AFTERSCHOOL_COURSES = {
 };
 
 const state = {
-  students: [], records: {}, contacts: {}, admins: { [ADMIN_EMAIL]: {} }, coaches: {}, teachers: {}, monthlyRecords: [],
-  settings: { morningTime: "08:30", reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3, contactVisible: false, afterschoolCourses: structuredClone(DEFAULT_AFTERSCHOOL_COURSES) }
+  students: [], records: {}, contacts: {}, admins: { [ADMIN_EMAIL]: {} }, coaches: {}, teachers: {},
+  settings: { morningTime: "08:30", reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3, attendanceDays: [1, 5], maxClassesPerGrade: 3, contactVisible: false, afterschoolCourses: structuredClone(DEFAULT_AFTERSCHOOL_COURSES) }
 };
-const monthlyStatisticsCache = new Map();
 const loadedRecordKeys = new Set();
 const alarms = loadAlarms();
 let activeFilter = "all";
@@ -33,11 +32,6 @@ let session = null;
 let auth = null;
 let db = null;
 let editingStudentId = null;
-let activeStatsMode = "class";
-let mobileStatsWeeks = [];
-let mobileStatsWeekIndex = 0;
-let mobileStatsContext = null;
-let mobileStatsMonth = "";
 let notificationRegistration = null;
 let messaging = null;
 let pushTokenActive = false;
@@ -46,13 +40,12 @@ let accessCatalogLoaded = false;
 
 const els = Object.fromEntries([
   "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "userPicture", "userName", "userEmail", "userRole",
-  "logoutBtn", "todayText", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "statisticsTab", "settingsTab", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
+  "logoutBtn", "todayText", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "lookupDate", "lookupDepartment",
-  "lookupTable", "contactControl", "contactToggle", "refreshLookupBtn", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
-  "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList",
+  "lookupTable", "refreshLookupBtn", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
+  "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList",
   "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn",
-  "statisticsMonth", "statisticsClassFilter", "statisticsScope", "refreshStatisticsBtn", "printStatisticsBtn", "printStatisticsMeta", "printConfirmDialog", "executePrintBtn", "statisticsTable", "classStatisticsPanel", "studentStatisticsPanel", "classStatisticsMatrix", "previousStatsWeekBtn", "nextStatsWeekBtn", "statsWeekLabel", "mobileStatisticsMatrix", "statsPresent", "statsAbsent", "statsLate", "statsEarly", "statsRate",
-  "presentCount", "lateCount", "absentCount", "unsetCount"
+  "statusStrip", "presentCountItem", "lateCountItem", "earlyCountItem", "absentCountItem", "unsetCountItem", "presentCount", "lateCount", "earlyCount", "absentCount", "unsetCount"
 ].map((id) => [id, document.getElementById(id)]));
 
 init();
@@ -60,7 +53,6 @@ init();
 async function init() {
   els.todayText.textContent = new Intl.DateTimeFormat("ko-KR", { dateStyle: "full" }).format(new Date());
   els.lookupDate.value = todayKey();
-  els.statisticsMonth.value = todayKey().slice(0, 7);
   bindEvents();
   alarms.notifications ||= [];
   notificationRegistration = await registerNotificationWorker();
@@ -107,10 +99,9 @@ function bindEvents() {
   els.reviewBtn.addEventListener("click", openReview);
   els.confirmSaveBtn.addEventListener("click", confirmSave);
   els.clearTodayBtn.addEventListener("click", clearToday);
-  els.lookupDate.addEventListener("change", async () => { await loadRecords(els.lookupDate.value); renderLookup(); });
+  els.lookupDate.addEventListener("change", async () => { await loadRecords(els.lookupDate.value); renderLookup(); renderCounts(); });
   els.lookupDepartment.addEventListener("change", renderLookup);
   els.refreshLookupBtn.addEventListener("click", refreshLookup);
-  els.contactToggle.addEventListener("change", updateContactVisibility);
   els.maskContactDefault.addEventListener("change", () => setContactVisibility(!els.maskContactDefault.checked));
   els.importBtn.addEventListener("click", importCsv);
   els.morningTime.addEventListener("change", updateMorningTime);
@@ -125,14 +116,8 @@ function bindEvents() {
   els.addFridayDepartmentBtn.addEventListener("click", () => addAfterschoolCourse("friday"));
   els.addTeacherBtn.addEventListener("click", addTeacherAssignment);
   els.bulkAssignTeachersBtn.addEventListener("click", bulkAssignTeachers);
-  els.statisticsMonth.addEventListener("change", () => loadMonthlyStatistics());
-  els.statisticsClassFilter.addEventListener("change", () => loadMonthlyStatistics());
-  els.refreshStatisticsBtn.addEventListener("click", () => loadMonthlyStatistics(true));
-  els.printStatisticsBtn.addEventListener("click", openPrintConfirmation);
-  els.executePrintBtn.addEventListener("click", printClassStatistics);
-  els.previousStatsWeekBtn.addEventListener("click", () => changeMobileStatsWeek(-1));
-  els.nextStatsWeekBtn.addEventListener("click", () => changeMobileStatsWeek(1));
-  document.querySelectorAll("[data-stats-mode]").forEach((button) => button.addEventListener("click", () => switchStatsMode(button.dataset.statsMode)));
+  document.querySelectorAll("[data-attendance-day]").forEach((input) => input.addEventListener("change", updateAttendanceDays));
+  els.maxClassesPerGrade.addEventListener("change", updateMaxClassesPerGrade);
   els.notificationCenterBtn.addEventListener("click", openNotificationCenter);
   els.clearNotificationsBtn.addEventListener("click", clearNotifications);
 }
@@ -202,8 +187,8 @@ async function loadCloudData() {
     const mergedSettings = { ...state.settings, ...savedSettings };
     if (Number(savedSettings.notificationSettingsVersion || 0) < 3) Object.assign(mergedSettings, { reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3 });
     state.settings = normalizeSettings(mergedSettings);
-    if (isAdmin() && Number(savedSettings.notificationSettingsVersion || 0) < 3) {
-      await setDoc(doc(db, "settings", "public"), { reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3, updatedAt: serverTimestamp() }, { merge: true });
+    if (isAdmin() && (Number(savedSettings.notificationSettingsVersion || 0) < 3 || !Array.isArray(savedSettings.attendanceDays) || !savedSettings.maxClassesPerGrade)) {
+      await setDoc(doc(db, "settings", "public"), { reviewTime: state.settings.reviewTime, coachReviewTime: state.settings.coachReviewTime, notificationSettingsVersion: 3, attendanceDays: state.settings.attendanceDays, maxClassesPerGrade: state.settings.maxClassesPerGrade, updatedAt: serverTimestamp() }, { merge: true });
     }
   }
   else if (isAdmin()) await setDoc(doc(db, "settings", "public"), state.settings);
@@ -269,16 +254,18 @@ function applySession() {
   const admin = isAdmin();
   els.attendanceTab.classList.toggle("is-hidden", session.role === "coach");
   els.lookupTab.classList.toggle("is-hidden", session.role === "teacher");
-  els.statisticsTab.classList.toggle("is-hidden", session.role === "coach" || (session.role === "teacher" && !session.grade));
   els.settingsTab.classList.toggle("is-hidden", !admin);
-  els.contactToggle.disabled = !admin;
-  els.contactControl.classList.toggle("is-hidden", !admin);
-  els.contactToggle.checked = state.settings.contactVisible;
   els.maskContactDefault.checked = !state.settings.contactVisible;
   els.morningTime.value = state.settings.morningTime;
   els.reviewTime.value = state.settings.reviewTime;
   els.coachReviewTime.value = state.settings.coachReviewTime;
+  els.maxClassesPerGrade.value = state.settings.maxClassesPerGrade;
+  document.querySelectorAll("[data-attendance-day]").forEach((input) => { input.checked = state.settings.attendanceDays.includes(Number(input.dataset.attendanceDay)); });
   els.addStudentBtn.classList.toggle("is-hidden", !isAdmin() && !hasHomeroom());
+  const coachView = session.role === "coach";
+  els.lateCountItem.classList.toggle("is-hidden", coachView);
+  els.earlyCountItem.classList.toggle("is-hidden", coachView);
+  els.statusStrip.classList.toggle("coach-summary", coachView);
   updateNotificationPermissionUi();
   if (canReceiveNotifications() && "Notification" in window && Notification.permission === "granted") registerPushToken().catch(() => {});
   refreshDepartments();
@@ -290,18 +277,19 @@ function switchView(viewId) {
   if (!session || !canAccessView(viewId)) return;
   document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("is-active", tab.dataset.view === viewId));
   document.querySelectorAll(".view").forEach((view) => view.classList.toggle("is-visible", view.id === viewId));
-  if (viewId === "statisticsView") { switchStatsMode("class"); loadMonthlyStatistics(); }
   if (viewId === "lookupView" && isAdmin() && state.settings.contactVisible && !contactsLoaded) loadContacts().then(renderLookup).catch(() => {});
   if (viewId === "settingsView" && isAdmin() && !accessCatalogLoaded) loadCoachList().then(renderAll).catch((error) => alert(`계정 목록 조회 실패: ${readableError(error)}`));
 }
 
 function canAccessView(viewId) {
   if (session.role === "admin") return true;
-  if (session.role === "teacher") return viewId === "attendanceView" || (viewId === "statisticsView" && Boolean(session.grade));
+  if (session.role === "teacher") return viewId === "attendanceView";
   return session.role === "coach" && viewId === "lookupView";
 }
 
 function canEdit() { return session?.role === "admin" || session?.role === "teacher"; }
+function isAttendanceDay(date = new Date()) { return state.settings.attendanceDays.includes(date.getDay()); }
+function canEnterAttendanceToday() { return canEdit() && isAttendanceDay(); }
 function isAdmin() { return session?.role === "admin"; }
 function hasHomeroom() { return Boolean(session && ["admin", "teacher"].includes(session.role) && session.grade && session.classNo); }
 function notificationAudiences() {
@@ -314,7 +302,6 @@ function canManageStudent(student) { return isAdmin() || Boolean(hasHomeroom() &
 
 function resetSessionCache() {
   loadedRecordKeys.clear();
-  monthlyStatisticsCache.clear();
   state.records = {};
   state.contacts = {};
   contactsLoaded = false;
@@ -338,15 +325,9 @@ function refreshDepartments() {
   const attendanceClasses = assignedClass ? [assignedClass] : ["전체", ...classes];
   fillSelect(els.classFilter, attendanceClasses, attendanceClasses.includes(selectedClass) ? selectedClass : attendanceClasses[0]);
   els.classFilter.disabled = Boolean(assignedClass);
-  const allClasses = Array.from({ length: 6 }, (_, grade) => Array.from({ length: 10 }, (_, classIndex) => `${grade + 1}-${classIndex + 1}`)).flat();
+  const allClasses = Array.from({ length: 6 }, (_, grade) => Array.from({ length: state.settings.maxClassesPerGrade }, (_, classIndex) => `${grade + 1}-${classIndex + 1}`)).flat();
   fillSelect(els.teacherClassSelect, allClasses, els.teacherClassSelect.value || "1-1");
-  const statsSelected = els.statisticsClassFilter.value;
-  const classValues = classes.map((value) => value.replace("학년 ", "-").replace("반", ""));
-  const statsClasses = session.role === "teacher" && session.grade ? [`${session.grade}-${session.classNo}`] : classValues;
-  const homeroomClass = hasHomeroom() ? `${session.grade}-${session.classNo}` : "";
-  const defaultStatsClass = statsClasses.includes(homeroomClass) ? homeroomClass : statsClasses[0] || "";
-  fillSelect(els.statisticsClassFilter, statsClasses, statsClasses.includes(statsSelected) ? statsSelected : defaultStatsClass);
-  els.statisticsClassFilter.disabled = session.role === "teacher";
+  els.studentClassInput.max = String(state.settings.maxClassesPerGrade);
 }
 
 function fillSelect(select, values, selected) {
@@ -374,7 +355,7 @@ function getTodayRecord(studentId) {
 }
 
 function markStudentsPresent(overwrite) {
-  if (!canEdit()) return;
+  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
   const students = getScopedStudents();
   const hasExceptions = students.some((student) => ["late", "absent", "early"].includes(getTodayRecord(student.id).status));
   if (overwrite && hasExceptions && !confirm("기존 지각·결석·조퇴 기록도 모두 출석으로 바꿀까요?")) return;
@@ -391,6 +372,10 @@ function markStudentsPresent(overwrite) {
 
 function renderStudents() {
   if (!canEdit()) return;
+  const enabled = isAttendanceDay();
+  const dayNames = state.settings.attendanceDays.map((day) => ["", "월", "화", "수", "목", "금"][day]).join("·");
+  els.attendanceDayNotice.textContent = enabled ? `오늘은 출결 입력일입니다. 운영 요일: ${dayNames}` : `오늘은 출결 입력일이 아닙니다. 운영 요일: ${dayNames}`;
+  els.attendanceDayNotice.classList.toggle("is-disabled", !enabled);
   const scopedStudents = getScopedStudents();
   const students = scopedStudents.filter((student) => {
     const record = getTodayRecord(student.id);
@@ -399,7 +384,10 @@ function renderStudents() {
   const unset = scopedStudents.filter((student) => getTodayRecord(student.id).status === "unset").length;
   els.currentRosterCount.textContent = `현재 명단 ${scopedStudents.length}명 · 미입력 ${unset}명`;
   els.markUnsetPresentBtn.textContent = unset ? `미입력 ${unset}명 모두 출석` : "미입력 완료";
-  els.markUnsetPresentBtn.disabled = unset === 0;
+  els.markUnsetPresentBtn.disabled = unset === 0 || !enabled;
+  els.markAllPresentBtn.disabled = !enabled;
+  els.reviewBtn.disabled = !enabled;
+  els.clearTodayBtn.disabled = !enabled;
   els.studentGrid.innerHTML = "";
   students.forEach((student) => {
     const record = getTodayRecord(student.id);
@@ -408,7 +396,7 @@ function renderStudents() {
     card.className = `student-card${afterschool ? " has-afterschool" : ""}${afterschool && record.status === "unset" ? " needs-afterschool-check" : ""}`;
     const showMemo = record.status !== "present" && record.status !== "unset" || record.memo;
     const tools = canManageStudent(student) ? `<div class="student-tools"><button type="button" data-edit-student aria-label="${escapeAttr(student.name)} 수정">수정</button><button type="button" data-delete-student aria-label="${escapeAttr(student.name)} 삭제">삭제</button></div>` : "";
-    card.innerHTML = `<header><div><h3>${escapeHtml(student.name)}</h3><p class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)} · ${escapeHtml(departmentLabel(student))}</p></div>${tools}</header><div class="attendance-options">${["present", "absent", "late", "early"].map((status) => `<button type="button" data-status="${status}" class="${record.status === status ? "is-selected" : ""}">${statusLabel[status]}</button>`).join("")}</div>${showMemo ? `<input class="memo-input" type="text" placeholder="특이사항 (선택)" value="${escapeAttr(record.memo)}" />` : ""}`;
+    card.innerHTML = `<header><div><h3>${escapeHtml(student.name)}</h3><p class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)} · ${escapeHtml(departmentLabel(student))}</p></div>${tools}</header><div class="attendance-options">${["present", "absent", "late", "early"].map((status) => `<button type="button" data-status="${status}" class="${record.status === status ? "is-selected" : ""}"${enabled ? "" : " disabled"}>${statusLabel[status]}</button>`).join("")}</div>${showMemo ? `<input class="memo-input" type="text" placeholder="특이사항 (선택)" value="${escapeAttr(record.memo)}"${enabled ? "" : " disabled"} />` : ""}`;
     card.querySelectorAll("[data-status]").forEach((button) => button.addEventListener("click", () => {
       record.status = button.dataset.status; record.saved = false; renderStudents(); renderCounts();
     }));
@@ -496,6 +484,7 @@ async function saveStudent() {
     departments
   };
   if (!student.name || !student.grade || !student.classNo || !student.number) return alert("이름, 학년, 반, 번호를 확인해 주세요.");
+  if (Number(student.classNo) > state.settings.maxClassesPerGrade) return alert(`현재 학년별 최대 반 수는 ${state.settings.maxClassesPerGrade}반입니다.`);
   if (editingStudentId && !confirm(`${student.name} 학생 정보를 수정할까요?`)) return;
   try {
     await setDoc(doc(db, "students", student.id), { name: student.name, grade: student.grade, classNo: student.classNo, number: student.number, departments: student.departments });
@@ -534,12 +523,15 @@ function getScopedStudents() {
 }
 
 function renderCounts() {
-  const records = state.records[todayKey()] || {};
-  const counts = { present: 0, late: 0, absent: 0, unset: 0 };
-  getScopedStudents().forEach((student) => {
+  const records = state.records[session?.role === "coach" ? els.lookupDate.value || todayKey() : todayKey()] || {};
+  const counts = { present: 0, late: 0, early: 0, absent: 0, unset: 0 };
+  const students = session?.role === "coach" ? state.students : getScopedStudents();
+  students.forEach((student) => {
     const status = records[student.id]?.status || "unset";
     if (status === "present") counts.present += 1;
+    else if (session?.role === "coach" && ["absent", "late", "early"].includes(status)) counts.absent += 1;
     else if (status === "late") counts.late += 1;
+    else if (status === "early") counts.early += 1;
     else if (status === "absent") counts.absent += 1;
     else counts.unset += 1;
   });
@@ -547,7 +539,7 @@ function renderCounts() {
 }
 
 function openReview() {
-  if (!canEdit()) return;
+  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
   const students = getScopedStudents();
   if (!students.length) return alert(hasHomeroom() ? "현재 학급에 등록된 학생이 없습니다." : "담당 학급을 먼저 배정해 주세요.");
   els.reviewList.innerHTML = students.map((student) => {
@@ -558,7 +550,7 @@ function openReview() {
 }
 
 async function confirmSave() {
-  if (!canEdit()) return;
+  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
   els.confirmSaveBtn.disabled = true;
   try {
     const students = getScopedStudents().filter((student) => !getTodayRecord(student.id).saved);
@@ -575,9 +567,7 @@ async function confirmSave() {
       });
       record.saved = true;
     });
-    addAttendanceSummaryWrites(batch, getScopedStudents(), todayKey());
     await batch.commit();
-    invalidateMonthlyStatistics(todayKey().slice(0, 7), students);
     els.reviewDialog.close();
     renderAll();
   } catch (error) {
@@ -588,7 +578,8 @@ async function confirmSave() {
 }
 
 async function clearToday() {
-  if (!canEdit() || !confirm("오늘 출결 기록을 초기화할까요?")) return;
+  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
+  if (!confirm("오늘 출결 기록을 초기화할까요?")) return;
   if (session.role === "teacher" && !hasHomeroom()) return alert("담당 학급을 먼저 배정해 주세요.");
   const attendanceRef = collection(db, "attendance");
   const scopedStudents = getScopedStudents();
@@ -599,9 +590,7 @@ async function clearToday() {
   const snapshot = await getDocs(attendanceQuery);
   const batch = writeBatch(db);
   snapshot.forEach((item) => batch.delete(item.ref));
-  batch.delete(doc(db, "attendanceSummaries", attendanceSummaryId(todayKey(), grade, classNo)));
   await batch.commit();
-  invalidateMonthlyStatistics(todayKey().slice(0, 7), scopedStudents);
   state.records[todayKey()] ||= {};
   scopedStudents.forEach((student) => delete state.records[todayKey()][student.id]);
   renderAll();
@@ -619,244 +608,11 @@ function renderLookup() {
   els.lookupTable.classList.toggle("no-contact", !adminView);
   els.lookupTable.innerHTML = `<div class="table-row table-head"><div>학생</div><div>부서</div><div>출결</div><div>특이사항</div>${adminView ? "<div>학부모 연락처</div>" : ""}</div>${students.map((student) => {
     const record = records[student.id] || { status: "unset", memo: "" };
+    const displayStatus = coach && ["late", "early"].includes(record.status) ? "absent" : record.status;
     const phone = state.settings.contactVisible ? state.contacts[student.id] || "-" : "비공개";
-    return `<div class="table-row"><div data-label="학생"><strong>${escapeHtml(student.name)}</strong> <span class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div data-label="부서">${escapeHtml(departmentLabel(student))}</div><div data-label="출결" class="status-${record.status}">${statusLabel[record.status] || statusLabel.unset}</div><div data-label="특이사항">${record.memo ? escapeHtml(record.memo) : "-"}</div>${adminView ? `<div data-label="학부모 연락처">${escapeHtml(phone)}</div>` : ""}</div>`;
+    const visibleDepartment = department === "전체" ? departmentLabel(student) : department;
+    return `<div class="table-row"><div data-label="학생"><strong>${escapeHtml(student.name)}</strong> <span class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div data-label="부서">${escapeHtml(visibleDepartment)}</div><div data-label="출결" class="status-${displayStatus}">${statusLabel[displayStatus] || statusLabel.unset}</div><div data-label="특이사항">${record.memo ? escapeHtml(record.memo) : "-"}</div>${adminView ? `<div data-label="학부모 연락처">${escapeHtml(phone)}</div>` : ""}</div>`;
   }).join("")}`;
-}
-
-async function loadMonthlyStatistics(forceRefresh = false) {
-  if (!session || session.role === "coach") return;
-  const month = els.statisticsMonth.value || todayKey().slice(0, 7);
-  const selectedClass = session.role === "teacher" ? `${session.grade}-${session.classNo}` : els.statisticsClassFilter.value;
-  const [grade, classNo] = String(selectedClass || "").split("-");
-  if (!grade || !classNo) {
-    state.monthlyRecords = [];
-    renderMonthlyStatistics();
-    return;
-  }
-  const cacheKey = `${month}_${grade}-${classNo}`;
-  if (!forceRefresh && monthlyStatisticsCache.has(cacheKey)) {
-    state.monthlyRecords = monthlyStatisticsCache.get(cacheKey);
-    renderMonthlyStatistics();
-    return;
-  }
-  els.refreshStatisticsBtn.disabled = true;
-  try {
-    const migrationRef = doc(db, "attendanceSummaryMonths", `${month}_${grade}-${classNo}`);
-    const migration = await getDoc(migrationRef);
-    if (!migration.exists()) {
-      state.monthlyRecords = await migrateMonthlyStatistics(month, grade, classNo, migrationRef);
-    } else {
-      const summariesQuery = query(
-        collection(db, "attendanceSummaries"),
-        where("grade", "==", grade),
-        where("classNo", "==", classNo),
-        where("date", ">=", `${month}-01`),
-        where("date", "<=", `${month}-31`)
-      );
-      const snapshot = await getDocs(summariesQuery);
-      state.monthlyRecords = snapshot.docs.flatMap((item) => expandAttendanceSummary(item.data()));
-    }
-    monthlyStatisticsCache.set(cacheKey, state.monthlyRecords);
-    renderMonthlyStatistics();
-  } catch (error) {
-    alert(`통계 조회 실패: ${readableError(error)}`);
-  } finally {
-    els.refreshStatisticsBtn.disabled = false;
-  }
-}
-
-async function migrateMonthlyStatistics(month, grade, classNo, migrationRef) {
-  const legacyQuery = query(
-    collection(db, "attendance"),
-    where("grade", "==", grade),
-    where("classNo", "==", classNo),
-    where("date", ">=", `${month}-01`),
-    where("date", "<=", `${month}-31`)
-  );
-  const snapshot = await getDocs(legacyQuery);
-  const records = snapshot.docs.map((item) => item.data());
-  const recordsByDate = new Map();
-  records.forEach((record) => {
-    if (!recordsByDate.has(record.date)) recordsByDate.set(record.date, {});
-    recordsByDate.get(record.date)[record.studentId] = record.status;
-  });
-  const batch = writeBatch(db);
-  recordsByDate.forEach((dailyRecords, date) => {
-    batch.set(doc(db, "attendanceSummaries", attendanceSummaryId(date, grade, classNo)), {
-      date, grade, classNo, records: dailyRecords, updatedBy: session.email, updatedAt: serverTimestamp()
-    });
-  });
-  batch.set(migrationRef, { month, grade, classNo, complete: true, updatedBy: session.email, updatedAt: serverTimestamp() });
-  await batch.commit();
-  return records;
-}
-
-function expandAttendanceSummary(summary) {
-  return Object.entries(summary.records || {}).map(([studentId, status]) => ({
-    studentId, date: summary.date, grade: summary.grade, classNo: summary.classNo, status
-  }));
-}
-
-function addAttendanceSummaryWrites(batch, students, date) {
-  const groups = new Map();
-  students.forEach((student) => {
-    const key = `${student.grade}-${student.classNo}`;
-    if (!groups.has(key)) groups.set(key, { grade: String(student.grade), classNo: String(student.classNo), records: {} });
-    groups.get(key).records[student.id] = getTodayRecord(student.id).status;
-  });
-  groups.forEach(({ grade, classNo, records }) => {
-    batch.set(doc(db, "attendanceSummaries", attendanceSummaryId(date, grade, classNo)), {
-      date, grade, classNo, records, updatedBy: session.email, updatedAt: serverTimestamp()
-    }, { merge: true });
-  });
-}
-
-function attendanceSummaryId(date, grade, classNo) {
-  return `${date}_${grade}-${classNo}`;
-}
-
-function uniqueStudentClasses(students) {
-  return [...new Map(students.map((student) => [`${student.grade}-${student.classNo}`, {
-    grade: String(student.grade), classNo: String(student.classNo)
-  }])).values()];
-}
-
-function invalidateMonthlyStatistics(month, students) {
-  uniqueStudentClasses(students).forEach(({ grade, classNo }) => monthlyStatisticsCache.delete(`${month}_${grade}-${classNo}`));
-}
-
-function renderMonthlyStatistics() {
-  if (!session || session.role === "coach") return;
-  const selectedClass = session.role === "teacher" ? `${session.grade}-${session.classNo}` : els.statisticsClassFilter.value || "";
-  const students = state.students.filter((student) => `${student.grade}-${student.classNo}` === selectedClass);
-  const studentIds = new Set(students.map((student) => student.id));
-  const records = state.monthlyRecords.filter((record) => studentIds.has(record.studentId));
-  const totals = { present: 0, absent: 0, late: 0, early: 0 };
-  records.forEach((record) => { if (record.status in totals) totals[record.status] += 1; });
-  const attended = totals.present + totals.late + totals.early;
-  const total = attended + totals.absent;
-  els.statsPresent.textContent = totals.present;
-  els.statsAbsent.textContent = totals.absent;
-  els.statsLate.textContent = totals.late;
-  els.statsEarly.textContent = totals.early;
-  els.statsRate.textContent = total ? `${Math.round(attended / total * 100)}%` : "0%";
-  els.statisticsScope.textContent = selectedClass ? `${selectedClass.replace("-", "학년 ")}반 · ${students.length}명` : "학급 없음";
-
-  renderClassStatisticsMatrix(students, records, els.statisticsMonth.value || todayKey().slice(0, 7));
-
-  els.statisticsTable.innerHTML = `<div class="stats-row stats-head"><div>학생</div><div>기록일</div><div>출석</div><div>결석</div><div>지각</div><div>조퇴</div><div>출석률</div></div>${students.map((student) => {
-    const studentRecords = records.filter((record) => record.studentId === student.id);
-    const count = { present: 0, absent: 0, late: 0, early: 0 };
-    studentRecords.forEach((record) => { if (record.status in count) count[record.status] += 1; });
-    const studentAttended = count.present + count.late + count.early;
-    const studentTotal = studentAttended + count.absent;
-    const rate = studentTotal ? Math.round(studentAttended / studentTotal * 100) : 0;
-    return `<div class="stats-row"><div data-label="학생"><strong>${escapeHtml(student.name)}</strong><span>${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div data-label="기록일">${studentTotal}</div><div data-label="출석">${count.present}</div><div data-label="결석">${count.absent}</div><div data-label="지각">${count.late}</div><div data-label="조퇴">${count.early}</div><div data-label="출석률"><strong>${rate}%</strong></div></div>`;
-  }).join("")}`;
-}
-
-function switchStatsMode(mode) {
-  activeStatsMode = mode;
-  document.querySelectorAll("[data-stats-mode]").forEach((button) => button.classList.toggle("is-active", button.dataset.statsMode === mode));
-  els.classStatisticsPanel.classList.toggle("is-visible", mode === "class");
-  els.studentStatisticsPanel.classList.toggle("is-visible", mode === "student");
-}
-
-function renderClassStatisticsMatrix(students, records, month) {
-  const days = getSchoolDays(month);
-  const recordMap = new Map(records.map((record) => [`${record.studentId}_${record.date}`, record.status]));
-  const statusSymbol = { present: "출", absent: "결", late: "지", early: "조" };
-  const weekday = ["일", "월", "화", "수", "목", "금", "토"];
-  const width = 150 + days.length * 42 + 72;
-  els.classStatisticsMatrix.innerHTML = `<table class="attendance-matrix" style="min-width:${width}px"><thead><tr><th class="matrix-student">학생</th>${days.map((date) => { const value = new Date(`${date}T00:00:00`); return `<th>${Number(date.slice(-2))}<small>${weekday[value.getDay()]}</small></th>`; }).join("")}<th>월계</th></tr></thead><tbody>${students.map((student) => {
-    let recorded = 0;
-    const cells = days.map((date) => {
-      const status = recordMap.get(`${student.id}_${date}`);
-      if (status) recorded += 1;
-      return `<td class="${status ? `matrix-${status}` : "matrix-empty"}" title="${status ? statusLabel[status] : "미기록"}">${statusSymbol[status] || "·"}</td>`;
-    }).join("");
-    return `<tr><th class="matrix-student"><strong>${escapeHtml(student.name)}</strong><small>${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</small></th>${cells}<td><strong>${recorded}</strong></td></tr>`;
-  }).join("")}</tbody><tfoot><tr><th class="matrix-student">일별 출석률</th>${days.map((date) => {
-    const daily = students.map((student) => recordMap.get(`${student.id}_${date}`)).filter(Boolean);
-    const attendedCount = daily.filter((status) => status === "present" || status === "late" || status === "early").length;
-    return `<td>${daily.length ? Math.round(attendedCount / daily.length * 100) : "-"}${daily.length ? "%" : ""}</td>`;
-  }).join("")}<td>-</td></tr></tfoot></table>`;
-  prepareMobileWeekStatistics(students, recordMap, statusSymbol, days, month);
-  switchStatsMode(activeStatsMode);
-}
-
-function prepareMobileWeekStatistics(students, recordMap, statusSymbol, days, month) {
-  const weeks = [];
-  let currentWeek = [];
-  days.forEach((date) => {
-    const day = new Date(`${date}T00:00:00`).getDay();
-    if (day === 1 && currentWeek.length) { weeks.push(currentWeek); currentWeek = []; }
-    currentWeek.push(date);
-  });
-  if (currentWeek.length) weeks.push(currentWeek);
-  mobileStatsWeeks = weeks;
-  mobileStatsContext = { students, recordMap, statusSymbol };
-  if (mobileStatsMonth !== month) {
-    mobileStatsMonth = month;
-    const today = todayKey();
-    const todayWeek = weeks.findIndex((week) => week.includes(today));
-    mobileStatsWeekIndex = todayWeek >= 0 ? todayWeek : Math.max(0, weeks.length - 1);
-  } else {
-    mobileStatsWeekIndex = Math.min(mobileStatsWeekIndex, Math.max(0, weeks.length - 1));
-  }
-  renderMobileWeekStatistics();
-}
-
-function changeMobileStatsWeek(direction) {
-  const nextIndex = mobileStatsWeekIndex + direction;
-  if (nextIndex < 0 || nextIndex >= mobileStatsWeeks.length) return;
-  mobileStatsWeekIndex = nextIndex;
-  renderMobileWeekStatistics();
-}
-
-function renderMobileWeekStatistics() {
-  if (!mobileStatsContext || !mobileStatsWeeks.length) {
-    els.statsWeekLabel.textContent = "표시할 날짜 없음";
-    els.mobileStatisticsMatrix.innerHTML = "";
-    return;
-  }
-  const days = mobileStatsWeeks[mobileStatsWeekIndex];
-  const { students, recordMap, statusSymbol } = mobileStatsContext;
-  const weekday = ["일", "월", "화", "수", "목", "금", "토"];
-  const formatDate = (date) => `${Number(date.slice(5, 7))}.${Number(date.slice(8, 10))}`;
-  els.statsWeekLabel.textContent = `${formatDate(days[0])} - ${formatDate(days[days.length - 1])}`;
-  els.previousStatsWeekBtn.disabled = mobileStatsWeekIndex === 0;
-  els.nextStatsWeekBtn.disabled = mobileStatsWeekIndex === mobileStatsWeeks.length - 1;
-  els.mobileStatisticsMatrix.innerHTML = `<table class="mobile-attendance-table"><thead><tr><th>학생</th>${days.map((date) => `<th><strong>${Number(date.slice(-2))}</strong><small>${weekday[new Date(`${date}T00:00:00`).getDay()]}</small></th>`).join("")}</tr></thead><tbody>${students.map((student) => `<tr><th><strong>${escapeHtml(student.name)}</strong><small>${escapeHtml(student.number)}번</small></th>${days.map((date) => { const status = recordMap.get(`${student.id}_${date}`); return `<td class="${status ? `matrix-${status}` : "matrix-empty"}">${statusSymbol[status] || "·"}</td>`; }).join("")}</tr>`).join("")}</tbody><tfoot><tr><th>출석률</th>${days.map((date) => { const daily = students.map((student) => recordMap.get(`${student.id}_${date}`)).filter(Boolean); const attended = daily.filter((status) => status === "present" || status === "late" || status === "early").length; return `<td>${daily.length ? Math.round(attended / daily.length * 100) : "-"}${daily.length ? "%" : ""}</td>`; }).join("")}</tr></tfoot></table>`;
-}
-
-function getSchoolDays(month) {
-  const [year, monthNumber] = month.split("-").map(Number);
-  const lastDay = new Date(year, monthNumber, 0).getDate();
-  const today = new Date();
-  const limit = today.getFullYear() === year && today.getMonth() + 1 === monthNumber ? Math.min(lastDay, today.getDate()) : lastDay;
-  const days = [];
-  for (let day = 1; day <= limit; day += 1) {
-    const date = new Date(year, monthNumber - 1, day);
-    if (date.getDay() === 0 || date.getDay() === 6) continue;
-    days.push(`${year}-${String(monthNumber).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
-  }
-  return days;
-}
-
-function openPrintConfirmation() {
-  switchStatsMode("class");
-  const [year, month] = (els.statisticsMonth.value || todayKey().slice(0, 7)).split("-");
-  els.printStatisticsMeta.textContent = `${year}년 ${Number(month)}월 · ${els.statisticsScope.textContent}`;
-  els.printConfirmDialog.showModal();
-}
-
-function printClassStatistics() {
-  els.printConfirmDialog.close();
-  document.body.classList.add("printing-statistics");
-  window.addEventListener("afterprint", () => document.body.classList.remove("printing-statistics"), { once: true });
-  setTimeout(() => window.print(), 0);
 }
 
 async function refreshLookup() {
@@ -866,6 +622,7 @@ async function refreshLookup() {
     await loadRecords(els.lookupDate.value || todayKey(), true);
     if (isAdmin() && state.settings.contactVisible) await loadContacts();
     renderLookup();
+    renderCounts();
   } catch (error) {
     alert(`조회 실패: ${readableError(error)}`);
   } finally {
@@ -876,16 +633,10 @@ async function refreshLookup() {
 async function setContactVisibility(visible) {
   if (!isAdmin()) return;
   state.settings.contactVisible = visible;
-  els.contactToggle.checked = visible;
   els.maskContactDefault.checked = !visible;
   await setDoc(doc(db, "settings", "public"), { ...state.settings, updatedAt: serverTimestamp() }, { merge: true });
   if (visible) await loadContacts();
   renderLookup();
-}
-
-function updateContactVisibility() {
-  if (!isAdmin()) { els.contactToggle.checked = state.settings.contactVisible; return; }
-  setContactVisibility(els.contactToggle.checked);
 }
 
 async function updateMorningTime() {
@@ -916,6 +667,30 @@ async function updateCoachReviewTime() {
   }
   state.settings.coachReviewTime = els.coachReviewTime.value;
   await setDoc(doc(db, "settings", "public"), { coachReviewTime: state.settings.coachReviewTime, notificationSettingsVersion: 3, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+async function updateAttendanceDays() {
+  if (!isAdmin()) return;
+  const selected = [...document.querySelectorAll("[data-attendance-day]:checked")].map((input) => Number(input.dataset.attendanceDay)).sort();
+  if (!selected.length) {
+    document.querySelectorAll("[data-attendance-day]").forEach((input) => { input.checked = state.settings.attendanceDays.includes(Number(input.dataset.attendanceDay)); });
+    return alert("방과후 운영 요일을 한 개 이상 선택해 주세요.");
+  }
+  state.settings.attendanceDays = selected;
+  await setDoc(doc(db, "settings", "public"), { attendanceDays: selected, updatedAt: serverTimestamp() }, { merge: true });
+  renderStudents();
+}
+
+async function updateMaxClassesPerGrade() {
+  if (!isAdmin()) return;
+  const value = Math.trunc(Number(els.maxClassesPerGrade.value));
+  if (value < 1 || value > 10) {
+    els.maxClassesPerGrade.value = state.settings.maxClassesPerGrade;
+    return alert("학년별 반 수는 1~10 사이로 입력해 주세요.");
+  }
+  state.settings.maxClassesPerGrade = value;
+  await setDoc(doc(db, "settings", "public"), { maxClassesPerGrade: value, updatedAt: serverTimestamp() }, { merge: true });
+  refreshDepartments();
 }
 
 function isFiveMinuteTime(value) {
@@ -1125,7 +900,7 @@ function parseTeacherAssignments(text) {
   return text.split(/\r?\n/).map((line) => {
     const email = line.match(/[\w.+-]+@nsworld\.net/i)?.[0]?.toLowerCase();
     const classMatch = line.replace(email || "", "").match(/([1-6])\D+(10|[1-9])/);
-    return email && classMatch ? { email, grade: classMatch[1], classNo: classMatch[2] } : null;
+    return email && classMatch && Number(classMatch[2]) <= state.settings.maxClassesPerGrade ? { email, grade: classMatch[1], classNo: classMatch[2] } : null;
   }).filter(Boolean);
 }
 
@@ -1197,11 +972,15 @@ function normalizeDepartments(value) {
 function normalizeSettings(settings) {
   const savedCourses = settings.afterschoolCourses || {};
   const currentNotificationSettings = Number(settings.notificationSettingsVersion || 0) >= 3;
+  const attendanceDays = [...new Set((Array.isArray(settings.attendanceDays) ? settings.attendanceDays : [1, 5]).map(Number).filter((day) => day >= 1 && day <= 5))].sort();
+  const maxClassesPerGrade = Math.min(10, Math.max(1, Math.trunc(Number(settings.maxClassesPerGrade) || 3)));
   return {
     ...settings,
     reviewTime: currentNotificationSettings ? settings.reviewTime || "14:05" : "14:05",
     coachReviewTime: currentNotificationSettings ? settings.coachReviewTime || "14:10" : "14:10",
     notificationSettingsVersion: 3,
+    attendanceDays: attendanceDays.length ? attendanceDays : [1, 5],
+    maxClassesPerGrade,
     afterschoolCourses: {
       monday: [...new Set((savedCourses.monday || DEFAULT_AFTERSCHOOL_COURSES.monday).map((value) => String(value).trim()).filter(Boolean))],
       friday: [...new Set((savedCourses.friday || DEFAULT_AFTERSCHOOL_COURSES.friday).map((value) => String(value).trim()).filter(Boolean))]
@@ -1245,13 +1024,14 @@ function scheduleChecks() { setInterval(checkAlarms, 30 * 1000); checkAlarms(); 
 function checkAlarms() {
   if (!session || pushTokenActive || !canReceiveNotifications()) return;
   const now = new Date(), date = todayKey(), hhmm = now.toTimeString().slice(0, 5);
+  if (!isAttendanceDay(now)) return;
   if (notificationAudiences().includes("input") && hhmm >= state.settings.morningTime && alarms.lastMorning !== date) {
     alarms.lastMorning = date; addNotification("아침 출결 입력", "오늘 학생 출결을 입력해 주세요."); notify("아침 출결 입력 시간입니다", "오늘 학생 출결을 입력해 주세요.");
   }
-  if ((now.getDay() === 1 || now.getDay() === 5) && notificationAudiences().includes("review") && hhmm >= state.settings.reviewTime && alarms.lastReview !== date) {
+  if (notificationAudiences().includes("review") && hhmm >= state.settings.reviewTime && alarms.lastReview !== date) {
     alarms.lastReview = date; saveAlarms(); showReviewAlarm("review");
   }
-  if ((now.getDay() === 1 || now.getDay() === 5) && notificationAudiences().includes("coach-review") && hhmm >= state.settings.coachReviewTime && alarms.lastCoachReview !== date) {
+  if (notificationAudiences().includes("coach-review") && hhmm >= state.settings.coachReviewTime && alarms.lastCoachReview !== date) {
     alarms.lastCoachReview = date; saveAlarms(); showReviewAlarm("coach-review");
   }
 }

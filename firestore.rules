@@ -68,24 +68,6 @@ service cloud.firestore {
         && data.updatedBy == email();
     }
 
-    function validAttendanceSummary(data) {
-      return data.keys().hasOnly(['date', 'grade', 'classNo', 'records', 'updatedBy', 'updatedAt'])
-        && data.date is string
-        && data.grade is string
-        && data.classNo is string
-        && data.records is map
-        && data.updatedBy == email();
-    }
-
-    function validSummaryMonth(data) {
-      return data.keys().hasOnly(['month', 'grade', 'classNo', 'complete', 'updatedBy', 'updatedAt'])
-        && data.month is string
-        && data.grade is string
-        && data.classNo is string
-        && data.complete == true
-        && data.updatedBy == email();
-    }
-
     function coachDepartment() {
       return get(accessPath()).data.department;
     }
@@ -137,20 +119,6 @@ service cloud.firestore {
       allow create, update: if validAttendance(request.resource.data)
         && (isAdmin() || ownsAttendance(request.resource.data));
       allow delete: if isAdmin() || ownsAttendance(resource.data);
-    }
-
-    match /attendanceSummaries/{summaryId} {
-      allow read: if isAdmin() || ownsClass(resource.data);
-      allow create, update: if validAttendanceSummary(request.resource.data)
-        && (isAdmin() || ownsClass(request.resource.data));
-      allow delete: if isAdmin() || ownsClass(resource.data);
-    }
-
-    match /attendanceSummaryMonths/{summaryMonthId} {
-      allow read: if isAdmin() || isHomeroomTeacher();
-      allow create, update: if validSummaryMonth(request.resource.data)
-        && (isAdmin() || ownsClass(request.resource.data));
-      allow delete: if isAdmin() || ownsClass(resource.data);
     }
 
     match /notificationTokens/{tokenId} {

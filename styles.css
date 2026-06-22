@@ -374,9 +374,13 @@ h1 {
 
 .status-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(74px, 1fr));
+  grid-template-columns: repeat(5, minmax(68px, 1fr));
   gap: 8px;
   min-width: 360px;
+}
+
+.status-strip.coach-summary {
+  grid-template-columns: repeat(3, minmax(74px, 1fr));
 }
 
 .status-strip span {
@@ -451,6 +455,62 @@ h1 {
   top: 8px;
   z-index: 5;
   box-shadow: 0 5px 18px rgb(20 35 55 / 10%);
+}
+
+.attendance-day-notice {
+  margin: 0 0 12px;
+  padding: 11px 14px;
+  border: 1px solid #9ac9b1;
+  border-radius: 7px;
+  color: #185b3e;
+  background: #edf8f2;
+  font-weight: 700;
+}
+
+.attendance-day-notice.is-disabled {
+  border-color: #d6dde4;
+  color: #596775;
+  background: #f2f5f7;
+}
+
+.weekday-selector {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(44px, 1fr));
+  gap: 8px;
+  margin: 14px 0;
+  padding: 0;
+  border: 0;
+}
+
+.weekday-selector legend {
+  grid-column: 1 / -1;
+  margin-bottom: 7px;
+  font-weight: 700;
+}
+
+.weekday-selector label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  font-weight: 700;
+}
+
+.weekday-selector input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.max-class-setting {
+  display: grid;
+  grid-template-columns: 1fr 90px;
+  align-items: center;
+  gap: 12px;
 }
 
 .bulk-actions button {
@@ -593,6 +653,17 @@ h1 {
   border-color: var(--bad);
   background: #fdeaea;
   color: var(--bad);
+}
+
+.attendance-options button.is-selected[data-status="early"] {
+  border-color: #7356a8;
+  background: #f0eafb;
+  color: #5d428e;
+}
+
+.status-early {
+  color: #5d428e;
+  font-weight: 700;
 }
 
 .memo-input {
@@ -1343,6 +1414,10 @@ dialog h2 {
 
   .status-strip {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .status-strip.coach-summary {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .topbar-tools {

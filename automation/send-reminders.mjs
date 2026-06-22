@@ -13,17 +13,18 @@ const savedSettings = await readSettings();
 const settings = {
   morningTime: savedSettings.morningTime || "08:30",
   reviewTime: savedSettings.notificationSettingsVersion >= 3 ? savedSettings.reviewTime || "14:05" : "14:05",
-  coachReviewTime: savedSettings.notificationSettingsVersion >= 3 ? savedSettings.coachReviewTime || "14:10" : "14:10"
+  coachReviewTime: savedSettings.notificationSettingsVersion >= 3 ? savedSettings.coachReviewTime || "14:10" : "14:10",
+  attendanceDays: savedSettings.attendanceDays?.length ? savedSettings.attendanceDays : [1, 5]
 };
 
 const reminders = [];
-if (isWeekday(current.weekday) && isDue(current.hhmm, settings.morningTime)) {
+if (settings.attendanceDays.includes(current.weekday) && isDue(current.hhmm, settings.morningTime)) {
   reminders.push({ type: "morning", audience: "input", title: "아침 출결 입력", body: "오늘 학생 출결을 입력해 주세요." });
 }
-if (["Mon", "Fri"].includes(current.weekday) && isDue(current.hhmm, settings.reviewTime)) {
+if (settings.attendanceDays.includes(current.weekday) && isDue(current.hhmm, settings.reviewTime)) {
   reminders.push({ type: "review", audience: "review", title: "출결 재확인", body: "오늘 입력한 학생 출결을 한 번 더 확인해 주세요." });
 }
-if (["Mon", "Fri"].includes(current.weekday) && isDue(current.hhmm, settings.coachReviewTime)) {
+if (settings.attendanceDays.includes(current.weekday) && isDue(current.hhmm, settings.coachReviewTime)) {
   reminders.push({ type: "coach-review", audience: "coach-review", title: "방과후 출결 확인", body: "오늘 방과후 수강 학생의 출결을 확인해 주세요." });
 }
 
@@ -38,7 +39,8 @@ async function readSettings() {
     morningTime: stringField(document, "morningTime"),
     reviewTime: stringField(document, "reviewTime"),
     coachReviewTime: stringField(document, "coachReviewTime"),
-    notificationSettingsVersion: integerField(document, "notificationSettingsVersion")
+    notificationSettingsVersion: integerField(document, "notificationSettingsVersion"),
+    attendanceDays: arrayIntegerField(document, "attendanceDays")
   };
 }
 
@@ -165,12 +167,8 @@ function currentSeoulTime(date) {
   return {
     date: `${parts.year}-${parts.month}-${parts.day}`,
     hhmm: `${parts.hour}:${parts.minute}`,
-    weekday: new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, weekday: "short" }).format(date)
+    weekday: { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, weekday: "short" }).format(date)]
   };
-}
-
-function isWeekday(weekday) {
-  return ["Mon", "Tue", "Wed", "Thu", "Fri"].includes(weekday);
 }
 
 function isDue(currentTime, targetTime) {
@@ -190,6 +188,10 @@ function integerField(document, field) {
 
 function arrayStringField(document, field) {
   return (document?.fields?.[field]?.arrayValue?.values || []).map((value) => value.stringValue).filter(Boolean);
+}
+
+function arrayIntegerField(document, field) {
+  return (document?.fields?.[field]?.arrayValue?.values || []).map((value) => Number(value.integerValue)).filter((value) => Number.isInteger(value));
 }
 
 function firestoreDocument(values) {

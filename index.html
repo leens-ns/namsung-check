@@ -13,7 +13,7 @@
         <img src="logo.svg" alt="" />
         <p class="eyebrow">남성초등학교</p>
         <h1 id="login-title">출결관리 시스템</h1>
-        <p>학교 Google 계정으로 로그인해 주세요.</p>
+        <p>관리자가 등록한 이메일과 동일한 Google 계정으로 로그인해 주세요.</p>
         <button id="googleSignInButton" class="google-signin-button" type="button">Google 계정으로 로그인</button>
         <div id="googleSetupNotice" class="setup-notice is-hidden">
           Google OAuth 클라이언트 ID 설정이 필요합니다.
@@ -47,7 +47,6 @@
         <nav class="tabs" aria-label="주요 메뉴">
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
-          <button id="statisticsTab" class="tab" data-view="statisticsView" type="button">월별 통계</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
           <a class="tab manual-link" href="manual.html" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
@@ -65,16 +64,18 @@
               <span id="notificationButtonLabel">알림 켜기</span>
               <strong id="notificationBadge" class="notification-badge is-hidden">0</strong>
             </button>
-            <div class="status-strip">
-              <span><strong id="presentCount">0</strong>출석</span>
-              <span><strong id="lateCount">0</strong>지각</span>
-              <span><strong id="absentCount">0</strong>결석</span>
-              <span><strong id="unsetCount">0</strong>미입력</span>
+            <div id="statusStrip" class="status-strip">
+              <span id="presentCountItem"><strong id="presentCount">0</strong>출석</span>
+              <span id="lateCountItem"><strong id="lateCount">0</strong>지각</span>
+              <span id="earlyCountItem"><strong id="earlyCount">0</strong>조퇴</span>
+              <span id="absentCountItem"><strong id="absentCount">0</strong>결석</span>
+              <span id="unsetCountItem"><strong id="unsetCount">0</strong>미입력</span>
             </div>
           </div>
         </header>
 
         <section id="attendanceView" class="view is-visible" aria-labelledby="attendance-title">
+          <p id="attendanceDayNotice" class="attendance-day-notice"></p>
           <div class="toolbar">
             <div class="search-box">
               <input id="studentSearch" type="search" placeholder="학생 이름 또는 부서 검색" />
@@ -109,12 +110,8 @@
           <div class="section-heading">
             <div>
               <h2 id="lookup-title">방과후강사 조회</h2>
-              <p>강사는 자기 부서 학생만 조회됩니다.</p>
+              <p>강사는 자기 부서 학생의 방과후 출석·결석만 조회합니다.</p>
             </div>
-            <label id="contactControl" class="toggle">
-              <input id="contactToggle" type="checkbox" />
-              <span>학부모 연락처 표시</span>
-            </label>
           </div>
           <div class="toolbar">
             <label>
@@ -128,45 +125,6 @@
             <button id="refreshLookupBtn" class="refresh-button" type="button">↻ 최신 출결 새로고침</button>
           </div>
           <div id="lookupTable" class="table"></div>
-        </section>
-
-        <section id="statisticsView" class="view" aria-labelledby="statistics-title">
-          <div class="print-only print-statistics-heading"><h1>남성초등학교 월별 출결 현황</h1><p id="printStatisticsMeta"></p></div>
-          <div class="section-heading">
-            <div><h2 id="statistics-title">월별 출결 통계</h2><p id="statisticsScope"></p></div>
-            <div class="statistics-controls">
-              <label>조회 월<input id="statisticsMonth" type="month" /></label>
-              <label>학급<select id="statisticsClassFilter"></select></label>
-              <button id="refreshStatisticsBtn" class="refresh-button" type="button">↻ 통계 새로고침</button>
-              <button id="printStatisticsBtn" class="print-button" type="button">월별 통계 A4 인쇄</button>
-            </div>
-          </div>
-          <div class="statistics-summary">
-            <div><strong id="statsPresent">0</strong><span>출석</span></div>
-            <div><strong id="statsAbsent">0</strong><span>결석</span></div>
-            <div><strong id="statsLate">0</strong><span>지각</span></div>
-            <div><strong id="statsEarly">0</strong><span>조퇴</span></div>
-            <div><strong id="statsRate">0%</strong><span>출석률</span></div>
-          </div>
-          <div class="stats-mode-tabs" role="tablist" aria-label="통계 보기 방식">
-            <button class="is-active" data-stats-mode="class" type="button">반 전체 현황</button>
-            <button data-stats-mode="student" type="button">학생별 통계</button>
-          </div>
-          <section id="classStatisticsPanel" class="stats-panel is-visible">
-            <div class="attendance-legend"><span class="matrix-present">출</span> 출석 <span class="matrix-absent">결</span> 결석 <span class="matrix-late">지</span> 지각 <span class="matrix-early">조</span> 조퇴</div>
-            <div id="classStatisticsMatrix" class="matrix-wrap desktop-month-matrix"></div>
-            <div class="mobile-week-statistics">
-              <div class="week-navigation">
-                <button id="previousStatsWeekBtn" type="button" aria-label="이전 주">‹</button>
-                <strong id="statsWeekLabel"></strong>
-                <button id="nextStatsWeekBtn" type="button" aria-label="다음 주">›</button>
-              </div>
-              <div id="mobileStatisticsMatrix" class="mobile-week-matrix"></div>
-            </div>
-          </section>
-          <section id="studentStatisticsPanel" class="stats-panel">
-            <div id="statisticsTable" class="table statistics-table"></div>
-          </section>
         </section>
 
         <section id="settingsView" class="view" aria-labelledby="settings-title">
@@ -195,7 +153,7 @@
 
             <section>
               <h2>방과후강사 계정</h2>
-              <p class="subtle">Google 계정과 담당 부서를 등록하면 해당 부서 학생만 조회할 수 있습니다.</p>
+              <p class="subtle">이메일 등록만으로는 접속할 수 없습니다. 강사가 같은 이메일의 Google 계정으로 인증해야 해당 부서 학생만 조회됩니다.</p>
               <label>
                 강사 이메일
                 <input id="coachEmailInput" type="email" placeholder="coach@example.com" />
@@ -235,6 +193,23 @@
             </section>
 
             <section>
+              <h2>운영 범위</h2>
+              <p class="subtle">선택한 요일에만 담임교사가 출결을 입력하고 교직원·강사 알림이 발송됩니다.</p>
+              <fieldset class="weekday-selector">
+                <legend>방과후 운영 요일</legend>
+                <label><input type="checkbox" data-attendance-day="1" />월</label>
+                <label><input type="checkbox" data-attendance-day="2" />화</label>
+                <label><input type="checkbox" data-attendance-day="3" />수</label>
+                <label><input type="checkbox" data-attendance-day="4" />목</label>
+                <label><input type="checkbox" data-attendance-day="5" />금</label>
+              </fieldset>
+              <label class="max-class-setting">
+                학년별 최대 반 수
+                <input id="maxClassesPerGrade" type="number" min="1" max="10" value="3" />
+              </label>
+            </section>
+
+            <section>
               <h2>담임교사 학급 배정</h2>
               <div class="teacher-quick-assign">
                 <input id="teacherEmailInput" type="email" aria-label="교사 이메일" placeholder="teacher@nsworld.net" />
@@ -251,21 +226,21 @@
               <div class="setting-row">
                 <div>
                   <strong>아침 출결 입력 알림</strong>
-                  <span>매일 오전 지정 시간에 브라우저 알림</span>
+                  <span>선택한 운영 요일 오전 · 관리자와 담임교사</span>
                 </div>
                 <input id="morningTime" type="time" value="08:30" step="300" />
               </div>
               <div class="setting-row">
                 <div>
                   <strong>교직원 재확인 알림</strong>
-                  <span>매주 월요일, 금요일 · 관리자와 담임교사</span>
+                  <span>선택한 운영 요일 · 관리자와 담임교사</span>
                 </div>
                 <input id="reviewTime" type="time" value="14:05" step="300" />
               </div>
               <div class="setting-row">
                 <div>
                   <strong>방과후강사 확인 알림</strong>
-                  <span>매주 월요일, 금요일 · 방과후강사</span>
+                  <span>선택한 운영 요일 · 방과후강사</span>
                 </div>
                 <input id="coachReviewTime" type="time" value="14:10" step="300" />
               </div>
@@ -317,14 +292,6 @@
           </fieldset>
         </div>
         <footer><button value="cancel" type="submit">취소</button><button id="saveStudentBtn" class="primary" value="default" type="button">저장</button></footer>
-      </form>
-    </dialog>
-
-    <dialog id="printConfirmDialog">
-      <form method="dialog">
-        <header><h2>월별 통계 A4 인쇄</h2><button value="cancel" aria-label="닫기" type="submit">×</button></header>
-        <p>반 전체 월별 출결표를 A4 가로 한 장에 맞춰 인쇄합니다.</p>
-        <footer><button value="cancel" type="submit">취소</button><button id="executePrintBtn" class="primary" value="default" type="button">인쇄 창 열기</button></footer>
       </form>
     </dialog>
 
