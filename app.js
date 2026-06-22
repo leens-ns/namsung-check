@@ -301,6 +301,19 @@ function notificationAudiences() {
 function canReceiveNotifications() { return notificationAudiences().length > 0; }
 function canManageStudent(student) { return isAdmin() || Boolean(hasHomeroom() && String(student.grade) === String(session.grade) && String(student.classNo) === String(session.classNo)); }
 
+function syncCurrentHomeroom(email, grade = "", classNo = "") {
+  if (!session || session.email !== email) return;
+  session.grade = grade ? String(grade) : "";
+  session.classNo = classNo ? String(classNo) : "";
+  attendanceClassInitialized = false;
+  els.userRole.textContent = hasHomeroom()
+    ? `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반 담임`
+    : roleLabel[session.role];
+  refreshDepartments();
+  renderStudents();
+  renderCounts();
+}
+
 function resetSessionCache() {
   loadedRecordKeys.clear();
   state.records = {};
@@ -815,6 +828,8 @@ async function loadCoachList() {
     if (item.data().role === "coach") state.coaches[item.id] = item.data().department;
     if (item.data().role === "teacher") state.teachers[item.id] = { grade: String(item.data().grade), classNo: String(item.data().classNo) };
   });
+  const currentAssignment = state.admins[session.email] || state.teachers[session.email] || {};
+  if (currentAssignment.grade && currentAssignment.classNo) syncCurrentHomeroom(session.email, currentAssignment.grade, currentAssignment.classNo);
   accessCatalogLoaded = true;
 }
 
@@ -875,6 +890,7 @@ async function addTeacherAssignment() {
   await setDoc(doc(db, "access", email), { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
   state.teachers[email] = { grade, classNo };
   if (role === "admin") state.admins[email] = { grade, classNo };
+  syncCurrentHomeroom(email, grade, classNo);
   els.teacherEmailInput.value = "";
   renderAdminList();
   renderTeacherList();
@@ -894,6 +910,8 @@ async function bulkAssignTeachers() {
     if (role === "admin") state.admins[email] = { grade, classNo };
   });
   await batch.commit();
+  const currentAssignment = assignments.find(({ email }) => email === session.email);
+  if (currentAssignment) syncCurrentHomeroom(currentAssignment.email, currentAssignment.grade, currentAssignment.classNo);
   els.teacherBulkInput.value = "";
   renderAdminList();
   renderTeacherList();
@@ -922,6 +940,7 @@ function renderTeacherList() {
       await deleteDoc(doc(db, "access", email));
     }
     delete state.teachers[email];
+    syncCurrentHomeroom(email);
     renderAdminList();
     renderTeacherList();
   }));
