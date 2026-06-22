@@ -7,5 +7,7 @@ window.NSWORLD_CONFIG = {
     storageBucket: "namsung-check.firebasestorage.app",
     messagingSenderId: "36959618515",
     appId: "1:36959618515:web:e1a710ed17b8508ad19b26"
-  }
+  },
+  // Firebase Console > 프로젝트 설정 > Cloud Messaging > 웹 푸시 인증서의 공개 키
+  webPushVapidKey: ""
 };

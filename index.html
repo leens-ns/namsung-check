@@ -49,6 +49,7 @@
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="statisticsTab" class="tab" data-view="statisticsView" type="button">월별 통계</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
+          <a class="tab manual-link" href="manual.html" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -61,7 +62,7 @@
           <div class="topbar-tools">
             <button id="notificationCenterBtn" class="notification-button" type="button" aria-label="알림함">
               <span aria-hidden="true">🔔</span>
-              <span>알림</span>
+              <span id="notificationButtonLabel">알림 켜기</span>
               <strong id="notificationBadge" class="notification-badge is-hidden">0</strong>
             </button>
             <div class="status-strip">
@@ -171,7 +172,16 @@
         <section id="settingsView" class="view" aria-labelledby="settings-title">
           <div class="settings-layout">
             <section>
-              <h2 id="settings-title">학생 명단 가져오기</h2>
+              <h2 id="settings-title">관리자 계정</h2>
+              <div class="settings-inline-action">
+                <input id="adminEmailInput" type="email" aria-label="추가 관리자 이메일" placeholder="admin@nsworld.net" />
+                <button id="addAdminBtn" class="primary" type="button">추가</button>
+              </div>
+              <div id="adminList" class="coach-list"></div>
+            </section>
+
+            <section>
+              <h2>학생 명단 가져오기</h2>
               <p class="subtle">관리자 기기에 저장된 CSV 파일만 사용할 수 있습니다.</p>
               <label>
                 CSV 파일
@@ -195,7 +205,33 @@
                 <select id="coachDepartmentInput"></select>
               </label>
               <button id="addCoachBtn" class="primary" type="button">강사 등록</button>
+              <div class="file-action">
+                <input id="coachCsvFileInput" type="file" accept=".csv,text/csv" aria-label="방과후강사 CSV 파일" />
+                <button id="importCoachesBtn" type="button">CSV 일괄 등록</button>
+              </div>
               <div id="coachList" class="coach-list"></div>
+            </section>
+
+            <section class="department-settings-section">
+              <h2>방과후 부서 목록</h2>
+              <div class="department-settings-grid">
+                <div class="department-day-editor">
+                  <strong>월요일</strong>
+                  <div class="settings-inline-action">
+                    <input id="mondayDepartmentInput" type="text" aria-label="월요일 부서명" placeholder="부서명" />
+                    <button id="addMondayDepartmentBtn" type="button">추가</button>
+                  </div>
+                  <div id="mondayDepartmentList" class="department-list"></div>
+                </div>
+                <div class="department-day-editor">
+                  <strong>금요일</strong>
+                  <div class="settings-inline-action">
+                    <input id="fridayDepartmentInput" type="text" aria-label="금요일 부서명" placeholder="부서명" />
+                    <button id="addFridayDepartmentBtn" type="button">추가</button>
+                  </div>
+                  <div id="fridayDepartmentList" class="department-list"></div>
+                </div>
+              </div>
             </section>
 
             <section>
@@ -217,15 +253,23 @@
                   <strong>아침 출결 입력 알림</strong>
                   <span>매일 오전 지정 시간에 브라우저 알림</span>
                 </div>
-                <input id="morningTime" type="time" value="08:30" />
+                <input id="morningTime" type="time" value="08:30" step="300" />
               </div>
               <div class="setting-row">
                 <div>
-                  <strong>재확인 팝업</strong>
-                  <span>매주 월요일, 금요일 14:05</span>
+                  <strong>교직원 재확인 알림</strong>
+                  <span>매주 월요일, 금요일 · 관리자와 담임교사</span>
                 </div>
-                <button id="testPopupBtn" type="button">팝업 테스트</button>
+                <input id="reviewTime" type="time" value="14:05" step="300" />
               </div>
+              <div class="setting-row">
+                <div>
+                  <strong>방과후강사 확인 알림</strong>
+                  <span>매주 월요일, 금요일 · 방과후강사</span>
+                </div>
+                <input id="coachReviewTime" type="time" value="14:10" step="300" />
+              </div>
+              <button id="testPopupBtn" type="button">알림 테스트</button>
               <button id="enableNotificationsBtn" class="primary" type="button">브라우저 알림 켜기</button>
             </section>
 
@@ -236,7 +280,7 @@
                 <span>학부모 연락처 비공개</span>
               </label>
               <p class="security-note">
-                관리자 계정은 leens@nsworld.net으로 고정됩니다. 운영 배포에서는 서버의 Google 토큰 검증과 암호화 저장소를 사용해야 합니다.
+                leens@nsworld.net은 기본 관리자이며 삭제할 수 없습니다.
               </p>
             </section>
           </div>
@@ -301,10 +345,10 @@
     <dialog id="alarmDialog">
       <form method="dialog">
         <header>
-          <h2>출결 재확인 알림</h2>
+          <h2 id="alarmDialogTitle">출결 확인 알림</h2>
           <button value="ok" aria-label="닫기" type="submit">×</button>
         </header>
-        <p>오늘 입력된 출결 기록을 한 번 더 확인해 주세요.</p>
+        <p id="alarmDialogBody">오늘 학생 출결을 확인해 주세요.</p>
         <footer>
           <button value="ok" class="primary" type="submit">확인하기</button>
         </footer>

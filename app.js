@@ -7,22 +7,26 @@ import {
   collection, deleteDoc, doc, getDoc, getDocs, getFirestore,
   query, serverTimestamp, setDoc, where, writeBatch
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import {
+  getMessaging, getToken, isSupported as isMessagingSupported, onMessage
+} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
 
 const ADMIN_EMAIL = "leens@nsworld.net";
 const ALARM_KEY = "nsworld-alarm-state";
 const ORIGINAL_TITLE = document.title;
 const statusLabel = { present: "출석", late: "지각", absent: "결석", early: "조퇴", unset: "미입력" };
 const roleLabel = { admin: "관리자", teacher: "교사", coach: "방과후강사" };
-const AFTERSCHOOL_COURSES = [
-  "AI Makers", "Book Club", "C.E.(Conver~)", "D&D", "D&D(원어민)", "English STEAM", "Musical", "STEAM", "Speech", "TED",
-  "교육마술", "그래비트랙스", "대화영어", "로봇 & 코딩", "무용", "미디어 스타", "바이올린", "배구", "스케이트보드", "스페인어",
-  "영화(영상)제작", "창의미술", "창의요리", "첼로", "치어리딩", "클라리넷", "클레이", "프랑스(L.F.E)", "프랑스어", "플루트"
-];
+const DEFAULT_AFTERSCHOOL_COURSES = {
+  monday: ["교육마술", "로봇 & 코딩", "무용", "미디어 스타", "바이올린", "배구", "스페인어", "창의미술", "창의요리", "첼로", "클라리넷", "프랑스(L.F.E)", "프랑스어", "플루트", "AI Makers", "Book Club", "English STEAM", "Musical", "STEAM"],
+  friday: ["그래비트랙스", "대화영어", "로봇 & 코딩", "바이올린", "배구", "스케이트보드", "영화(영상)제작", "첼로", "치어리딩", "클라리넷", "클레이", "플루트", "C.E.(Conver~)", "D&D", "D&D(원어민)", "English STEAM", "Speech", "STEAM", "TED"]
+};
 
 const state = {
-  students: [], records: {}, contacts: {}, coaches: {}, teachers: {}, monthlyRecords: [],
-  settings: { morningTime: "08:30", contactVisible: false }
+  students: [], records: {}, contacts: {}, admins: { [ADMIN_EMAIL]: {} }, coaches: {}, teachers: {}, monthlyRecords: [],
+  settings: { morningTime: "08:30", reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3, contactVisible: false, afterschoolCourses: structuredClone(DEFAULT_AFTERSCHOOL_COURSES) }
 };
+const monthlyStatisticsCache = new Map();
+const loadedRecordKeys = new Set();
 const alarms = loadAlarms();
 let activeFilter = "all";
 let session = null;
@@ -34,13 +38,18 @@ let mobileStatsWeeks = [];
 let mobileStatsWeekIndex = 0;
 let mobileStatsContext = null;
 let mobileStatsMonth = "";
+let notificationRegistration = null;
+let messaging = null;
+let pushTokenActive = false;
+let contactsLoaded = false;
+let accessCatalogLoaded = false;
 
 const els = Object.fromEntries([
   "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "userPicture", "userName", "userEmail", "userRole",
-  "logoutBtn", "todayText", "notificationCenterBtn", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "statisticsTab", "settingsTab", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
-  "clearTodayBtn", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "lookupDate", "lookupDepartment",
-  "lookupTable", "contactControl", "contactToggle", "refreshLookupBtn", "importBtn", "morningTime", "testPopupBtn",
-  "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachList", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList",
+  "logoutBtn", "todayText", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "statisticsTab", "settingsTab", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
+  "clearTodayBtn", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "lookupDate", "lookupDepartment",
+  "lookupTable", "contactControl", "contactToggle", "refreshLookupBtn", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
+  "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList",
   "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn",
   "statisticsMonth", "statisticsClassFilter", "statisticsScope", "refreshStatisticsBtn", "printStatisticsBtn", "printStatisticsMeta", "printConfirmDialog", "executePrintBtn", "statisticsTable", "classStatisticsPanel", "studentStatisticsPanel", "classStatisticsMatrix", "previousStatsWeekBtn", "nextStatsWeekBtn", "statsWeekLabel", "mobileStatisticsMatrix", "statsPresent", "statsAbsent", "statsLate", "statsEarly", "statsRate",
   "presentCount", "lateCount", "absentCount", "unsetCount"
@@ -54,6 +63,8 @@ async function init() {
   els.statisticsMonth.value = todayKey().slice(0, 7);
   bindEvents();
   alarms.notifications ||= [];
+  notificationRegistration = await registerNotificationWorker();
+  updateNotificationPermissionUi();
   updateNotificationBadge();
   scheduleChecks();
 
@@ -68,6 +79,7 @@ async function init() {
     const app = initializeApp(config);
     auth = getAuth(app);
     db = getFirestore(app);
+    await setupMessaging(app);
     await getRedirectResult(auth);
     onAuthStateChanged(auth, handleAuthChange);
   } catch (error) {
@@ -102,14 +114,20 @@ function bindEvents() {
   els.maskContactDefault.addEventListener("change", () => setContactVisibility(!els.maskContactDefault.checked));
   els.importBtn.addEventListener("click", importCsv);
   els.morningTime.addEventListener("change", updateMorningTime);
-  els.enableNotificationsBtn.addEventListener("click", enableNotifications);
-  els.testPopupBtn.addEventListener("click", showReviewAlarm);
+  els.reviewTime.addEventListener("change", updateReviewTime);
+  els.coachReviewTime.addEventListener("change", updateCoachReviewTime);
+  els.enableNotificationsBtn.addEventListener("click", () => enableNotifications(true));
+  els.testPopupBtn.addEventListener("click", () => showReviewAlarm("review"));
+  els.addAdminBtn.addEventListener("click", addAdmin);
   els.addCoachBtn.addEventListener("click", addCoach);
+  els.importCoachesBtn.addEventListener("click", importCoachesCsv);
+  els.addMondayDepartmentBtn.addEventListener("click", () => addAfterschoolCourse("monday"));
+  els.addFridayDepartmentBtn.addEventListener("click", () => addAfterschoolCourse("friday"));
   els.addTeacherBtn.addEventListener("click", addTeacherAssignment);
   els.bulkAssignTeachersBtn.addEventListener("click", bulkAssignTeachers);
-  els.statisticsMonth.addEventListener("change", loadMonthlyStatistics);
-  els.statisticsClassFilter.addEventListener("change", renderMonthlyStatistics);
-  els.refreshStatisticsBtn.addEventListener("click", loadMonthlyStatistics);
+  els.statisticsMonth.addEventListener("change", () => loadMonthlyStatistics());
+  els.statisticsClassFilter.addEventListener("change", () => loadMonthlyStatistics());
+  els.refreshStatisticsBtn.addEventListener("click", () => loadMonthlyStatistics(true));
   els.printStatisticsBtn.addEventListener("click", openPrintConfirmation);
   els.executePrintBtn.addEventListener("click", printClassStatistics);
   els.previousStatsWeekBtn.addEventListener("click", () => changeMobileStatsWeek(-1));
@@ -134,6 +152,7 @@ async function loginWithGoogle() {
 
 async function handleAuthChange(user) {
   if (!user) {
+    resetSessionCache();
     session = null;
     document.body.classList.remove("is-authenticated");
     els.loginScreen.classList.remove("is-hidden");
@@ -141,6 +160,7 @@ async function handleAuthChange(user) {
   }
 
   try {
+    resetSessionCache();
     const access = await resolveAccess(user);
     if (!access) {
       await signOut(auth);
@@ -160,21 +180,32 @@ async function handleAuthChange(user) {
 
 async function resolveAccess(user) {
   const email = user.email?.toLowerCase() || "";
-  if (email === ADMIN_EMAIL) return { role: "admin" };
   const access = await getDoc(doc(db, "access", email));
+  const data = access.exists() ? access.data() : {};
+  if (email === ADMIN_EMAIL || data.role === "admin") {
+    return { role: "admin", grade: data.grade ? String(data.grade) : "", classNo: data.classNo ? String(data.classNo) : "" };
+  }
   if (email.endsWith("@nsworld.net")) {
-    return access.exists() && access.data().role === "teacher"
-      ? { role: "teacher", grade: String(access.data().grade), classNo: String(access.data().classNo) }
+    return access.exists() && data.role === "teacher"
+      ? { role: "teacher", grade: String(data.grade), classNo: String(data.classNo) }
       : { role: "teacher" };
   }
-  return access.exists() && access.data().role === "coach"
-    ? { role: "coach", department: access.data().department }
+  return access.exists() && data.role === "coach"
+    ? { role: "coach", department: data.department }
     : null;
 }
 
 async function loadCloudData() {
   const settingsSnapshot = await getDoc(doc(db, "settings", "public"));
-  if (settingsSnapshot.exists()) state.settings = { ...state.settings, ...settingsSnapshot.data() };
+  if (settingsSnapshot.exists()) {
+    const savedSettings = settingsSnapshot.data();
+    const mergedSettings = { ...state.settings, ...savedSettings };
+    if (Number(savedSettings.notificationSettingsVersion || 0) < 3) Object.assign(mergedSettings, { reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3 });
+    state.settings = normalizeSettings(mergedSettings);
+    if (isAdmin() && Number(savedSettings.notificationSettingsVersion || 0) < 3) {
+      await setDoc(doc(db, "settings", "public"), { reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3, updatedAt: serverTimestamp() }, { merge: true });
+    }
+  }
   else if (isAdmin()) await setDoc(doc(db, "settings", "public"), state.settings);
 
   const studentsRef = collection(db, "students");
@@ -191,16 +222,16 @@ async function loadCloudData() {
   }
 
   await loadRecords(todayKey());
-  await loadContacts();
-  if (isAdmin()) await loadCoachList();
 }
 
-async function loadRecords(date) {
+async function loadRecords(date, forceRefresh = false) {
   if (!db || !session) return;
   if (session.role === "teacher" && !hasHomeroom()) {
     state.records[date] = {};
     return;
   }
+  const recordKey = `${session.role}_${session.department || ""}_${session.grade || ""}-${session.classNo || ""}_${date}`;
+  if (!forceRefresh && loadedRecordKeys.has(recordKey)) return;
   const attendanceRef = collection(db, "attendance");
   const attendanceQuery = session.role === "coach"
     ? query(attendanceRef, where("departments", "array-contains", session.department), where("date", "==", date))
@@ -210,14 +241,17 @@ async function loadRecords(date) {
   const snapshot = await getDocs(attendanceQuery);
   state.records[date] = {};
   snapshot.forEach((item) => { state.records[date][item.data().studentId] = item.data(); });
+  loadedRecordKeys.add(recordKey);
 }
 
 async function loadContacts() {
+  if (contactsLoaded) return;
   state.contacts = {};
   if (!isAdmin()) return;
   const contactsRef = collection(db, "contacts");
   const snapshot = await getDocs(contactsRef);
   snapshot.forEach((item) => { state.contacts[item.id] = item.data().parentPhone || ""; });
+  contactsLoaded = true;
 }
 
 function applySession() {
@@ -225,7 +259,11 @@ function applySession() {
   els.loginScreen.classList.add("is-hidden");
   els.userName.textContent = session.name;
   els.userEmail.textContent = session.email;
-  els.userRole.textContent = session.role === "coach" ? `${roleLabel[session.role]} · ${session.department}` : session.role === "teacher" && session.grade ? `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반 담임` : roleLabel[session.role];
+  els.userRole.textContent = session.role === "coach"
+    ? `${roleLabel[session.role]} · ${session.department}`
+    : hasHomeroom()
+      ? `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반 담임`
+      : roleLabel[session.role];
   els.userPicture.src = session.picture || "logo.svg";
 
   const admin = isAdmin();
@@ -238,7 +276,11 @@ function applySession() {
   els.contactToggle.checked = state.settings.contactVisible;
   els.maskContactDefault.checked = !state.settings.contactVisible;
   els.morningTime.value = state.settings.morningTime;
+  els.reviewTime.value = state.settings.reviewTime;
+  els.coachReviewTime.value = state.settings.coachReviewTime;
   els.addStudentBtn.classList.toggle("is-hidden", !isAdmin() && !hasHomeroom());
+  updateNotificationPermissionUi();
+  if (canReceiveNotifications() && "Notification" in window && Notification.permission === "granted") registerPushToken().catch(() => {});
   refreshDepartments();
   switchView(session.role === "coach" ? "lookupView" : "attendanceView");
   renderAll();
@@ -249,6 +291,8 @@ function switchView(viewId) {
   document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("is-active", tab.dataset.view === viewId));
   document.querySelectorAll(".view").forEach((view) => view.classList.toggle("is-visible", view.id === viewId));
   if (viewId === "statisticsView") { switchStatsMode("class"); loadMonthlyStatistics(); }
+  if (viewId === "lookupView" && isAdmin() && state.settings.contactVisible && !contactsLoaded) loadContacts().then(renderLookup).catch(() => {});
+  if (viewId === "settingsView" && isAdmin() && !accessCatalogLoaded) loadCoachList().then(renderAll).catch((error) => alert(`계정 목록 조회 실패: ${readableError(error)}`));
 }
 
 function canAccessView(viewId) {
@@ -258,15 +302,36 @@ function canAccessView(viewId) {
 }
 
 function canEdit() { return session?.role === "admin" || session?.role === "teacher"; }
-function isAdmin() { return session?.email === ADMIN_EMAIL && session?.role === "admin"; }
-function hasHomeroom() { return session?.role === "teacher" && session.grade && session.classNo; }
+function isAdmin() { return session?.role === "admin"; }
+function hasHomeroom() { return Boolean(session && ["admin", "teacher"].includes(session.role) && session.grade && session.classNo); }
+function notificationAudiences() {
+  if (session?.role === "admin" || (session?.role === "teacher" && hasHomeroom())) return ["input", "review"];
+  if (session?.role === "coach") return ["coach-review"];
+  return [];
+}
+function canReceiveNotifications() { return notificationAudiences().length > 0; }
 function canManageStudent(student) { return isAdmin() || Boolean(hasHomeroom() && String(student.grade) === String(session.grade) && String(student.classNo) === String(session.classNo)); }
 
+function resetSessionCache() {
+  loadedRecordKeys.clear();
+  monthlyStatisticsCache.clear();
+  state.records = {};
+  state.contacts = {};
+  contactsLoaded = false;
+  accessCatalogLoaded = false;
+  pushTokenActive = false;
+}
+
 function refreshDepartments() {
-  const departments = [...new Set(state.students.flatMap((student) => studentDepartments(student)))].sort();
+  const catalogDepartments = [
+    ...state.settings.afterschoolCourses.monday.map((course) => `월요:${course}`),
+    ...state.settings.afterschoolCourses.friday.map((course) => `금요:${course}`)
+  ];
+  const departments = [...new Set([...catalogDepartments, ...state.students.flatMap((student) => studentDepartments(student))])]
+    .filter((department) => !["방과후 미수강", "미수강", "없음", "-"].includes(department)).sort((a, b) => a.localeCompare(b, "ko"));
   fillSelect(els.lookupDepartment, ["전체", ...departments], session.role === "coach" ? session.department : "전체");
   fillSelect(els.coachDepartmentInput, departments, departments[0] || "");
-  const assignedClass = hasHomeroom() ? `${session.grade}학년 ${session.classNo}반` : "";
+  const assignedClass = !isAdmin() && hasHomeroom() ? `${session.grade}학년 ${session.classNo}반` : "";
   const selectedClass = assignedClass || els.classFilter.value || "전체";
   const classes = [...new Set(state.students.map((student) => `${student.grade}학년 ${student.classNo}반`))]
     .sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
@@ -277,8 +342,9 @@ function refreshDepartments() {
   fillSelect(els.teacherClassSelect, allClasses, els.teacherClassSelect.value || "1-1");
   const statsSelected = els.statisticsClassFilter.value;
   const classValues = classes.map((value) => value.replace("학년 ", "-").replace("반", ""));
-  const statsClasses = session.role === "teacher" && session.grade ? [`${session.grade}-${session.classNo}`] : ["전체", ...classValues];
-  const defaultStatsClass = session.role === "teacher" ? statsClasses[0] : classValues[0] || "전체";
+  const statsClasses = session.role === "teacher" && session.grade ? [`${session.grade}-${session.classNo}`] : classValues;
+  const homeroomClass = hasHomeroom() ? `${session.grade}-${session.classNo}` : "";
+  const defaultStatsClass = statsClasses.includes(homeroomClass) ? homeroomClass : statsClasses[0] || "";
   fillSelect(els.statisticsClassFilter, statsClasses, statsClasses.includes(statsSelected) ? statsSelected : defaultStatsClass);
   els.statisticsClassFilter.disabled = session.role === "teacher";
 }
@@ -292,7 +358,7 @@ function fillSelect(select, values, selected) {
 }
 
 function renderAll() {
-  renderStudents(); renderLookup(); renderCounts(); renderCoachList(); renderTeacherList();
+  renderStudents(); renderLookup(); renderCounts(); renderAdminList(); renderCoachList(); renderTeacherList(); renderDepartmentLists();
 }
 
 function todayKey() {
@@ -362,8 +428,8 @@ function openStudentDialog(student = null) {
   els.studentClassInput.value = student?.classNo || session.classNo || "";
   els.studentNumberInput.value = student?.number || "";
   const selection = readAfterschoolSelection(student);
-  fillAfterschoolCourseSelect(els.studentMondayDepartment, selection.monday);
-  fillAfterschoolCourseSelect(els.studentFridayDepartment, selection.friday);
+  fillAfterschoolCourseSelect(els.studentMondayDepartment, "monday", selection.monday);
+  fillAfterschoolCourseSelect(els.studentFridayDepartment, "friday", selection.friday);
   els.studentAfterschoolNone.checked = Boolean(student && !selection.enrolled);
   els.studentAfterschoolEnrolled.checked = selection.enrolled;
   els.studentMondayToggle.checked = Boolean(selection.monday);
@@ -374,11 +440,13 @@ function openStudentDialog(student = null) {
   els.studentDialog.showModal();
 }
 
-function fillAfterschoolCourseSelect(select, selected = "") {
+function fillAfterschoolCourseSelect(select, day, selected = "") {
+  const prefix = day === "monday" ? "월요:" : "금요:";
   const registered = state.students.flatMap((student) => studentDepartments(student))
-    .map((department) => department.replace(/^(월요|금요):/, ""))
+    .filter((department) => department.startsWith(prefix) || (day === "monday" && !department.includes(":")))
+    .map((department) => department.replace(prefix, ""))
     .filter((department) => department && !["방과후 미수강", "미수강", "없음", "-"].includes(department));
-  const courses = [...new Set([...AFTERSCHOOL_COURSES, ...registered, selected].filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko"));
+  const courses = [...new Set([...(state.settings.afterschoolCourses[day] || []), ...registered, selected].filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko"));
   select.innerHTML = `<option value="">부서 선택</option>${courses.map((course) => `<option value="${escapeAttr(course)}"${course === selected ? " selected" : ""}>${escapeHtml(course)}</option>`).join("")}`;
 }
 
@@ -457,7 +525,7 @@ async function deleteStudent(student) {
 
 function getScopedStudents() {
   const queryText = els.studentSearch.value.trim().toLowerCase();
-  const selectedClass = hasHomeroom() ? `${session.grade}학년 ${session.classNo}반` : els.classFilter.value || "전체";
+  const selectedClass = !isAdmin() && hasHomeroom() ? `${session.grade}학년 ${session.classNo}반` : els.classFilter.value || "전체";
   return state.students.filter((student) => {
     const text = `${student.name} ${departmentLabel(student)} ${student.grade}-${student.classNo}`.toLowerCase();
     const className = `${student.grade}학년 ${student.classNo}반`;
@@ -507,7 +575,9 @@ async function confirmSave() {
       });
       record.saved = true;
     });
+    addAttendanceSummaryWrites(batch, getScopedStudents(), todayKey());
     await batch.commit();
+    invalidateMonthlyStatistics(todayKey().slice(0, 7), students);
     els.reviewDialog.close();
     renderAll();
   } catch (error) {
@@ -521,14 +591,19 @@ async function clearToday() {
   if (!canEdit() || !confirm("오늘 출결 기록을 초기화할까요?")) return;
   if (session.role === "teacher" && !hasHomeroom()) return alert("담당 학급을 먼저 배정해 주세요.");
   const attendanceRef = collection(db, "attendance");
-  const attendanceQuery = session.role === "teacher"
-    ? query(attendanceRef, where("grade", "==", session.grade), where("classNo", "==", session.classNo), where("date", "==", todayKey()))
-    : query(attendanceRef, where("date", "==", todayKey()));
+  const scopedStudents = getScopedStudents();
+  const classes = uniqueStudentClasses(scopedStudents);
+  if (classes.length !== 1) return alert("초기화할 학급을 하나만 선택해 주세요.");
+  const [{ grade, classNo }] = classes;
+  const attendanceQuery = query(attendanceRef, where("grade", "==", grade), where("classNo", "==", classNo), where("date", "==", todayKey()));
   const snapshot = await getDocs(attendanceQuery);
   const batch = writeBatch(db);
   snapshot.forEach((item) => batch.delete(item.ref));
+  batch.delete(doc(db, "attendanceSummaries", attendanceSummaryId(todayKey(), grade, classNo)));
   await batch.commit();
-  state.records[todayKey()] = {};
+  invalidateMonthlyStatistics(todayKey().slice(0, 7), scopedStudents);
+  state.records[todayKey()] ||= {};
+  scopedStudents.forEach((student) => delete state.records[todayKey()][student.id]);
   renderAll();
 }
 
@@ -549,17 +624,40 @@ function renderLookup() {
   }).join("")}`;
 }
 
-async function loadMonthlyStatistics() {
+async function loadMonthlyStatistics(forceRefresh = false) {
   if (!session || session.role === "coach") return;
   const month = els.statisticsMonth.value || todayKey().slice(0, 7);
+  const selectedClass = session.role === "teacher" ? `${session.grade}-${session.classNo}` : els.statisticsClassFilter.value;
+  const [grade, classNo] = String(selectedClass || "").split("-");
+  if (!grade || !classNo) {
+    state.monthlyRecords = [];
+    renderMonthlyStatistics();
+    return;
+  }
+  const cacheKey = `${month}_${grade}-${classNo}`;
+  if (!forceRefresh && monthlyStatisticsCache.has(cacheKey)) {
+    state.monthlyRecords = monthlyStatisticsCache.get(cacheKey);
+    renderMonthlyStatistics();
+    return;
+  }
   els.refreshStatisticsBtn.disabled = true;
   try {
-    const attendanceRef = collection(db, "attendance");
-    const statisticsQuery = session.role === "teacher"
-      ? query(attendanceRef, where("grade", "==", session.grade), where("classNo", "==", session.classNo), where("date", ">=", `${month}-01`), where("date", "<=", `${month}-31`))
-      : query(attendanceRef, where("date", ">=", `${month}-01`), where("date", "<=", `${month}-31`));
-    const snapshot = await getDocs(statisticsQuery);
-    state.monthlyRecords = snapshot.docs.map((item) => item.data());
+    const migrationRef = doc(db, "attendanceSummaryMonths", `${month}_${grade}-${classNo}`);
+    const migration = await getDoc(migrationRef);
+    if (!migration.exists()) {
+      state.monthlyRecords = await migrateMonthlyStatistics(month, grade, classNo, migrationRef);
+    } else {
+      const summariesQuery = query(
+        collection(db, "attendanceSummaries"),
+        where("grade", "==", grade),
+        where("classNo", "==", classNo),
+        where("date", ">=", `${month}-01`),
+        where("date", "<=", `${month}-31`)
+      );
+      const snapshot = await getDocs(summariesQuery);
+      state.monthlyRecords = snapshot.docs.flatMap((item) => expandAttendanceSummary(item.data()));
+    }
+    monthlyStatisticsCache.set(cacheKey, state.monthlyRecords);
     renderMonthlyStatistics();
   } catch (error) {
     alert(`통계 조회 실패: ${readableError(error)}`);
@@ -568,10 +666,70 @@ async function loadMonthlyStatistics() {
   }
 }
 
+async function migrateMonthlyStatistics(month, grade, classNo, migrationRef) {
+  const legacyQuery = query(
+    collection(db, "attendance"),
+    where("grade", "==", grade),
+    where("classNo", "==", classNo),
+    where("date", ">=", `${month}-01`),
+    where("date", "<=", `${month}-31`)
+  );
+  const snapshot = await getDocs(legacyQuery);
+  const records = snapshot.docs.map((item) => item.data());
+  const recordsByDate = new Map();
+  records.forEach((record) => {
+    if (!recordsByDate.has(record.date)) recordsByDate.set(record.date, {});
+    recordsByDate.get(record.date)[record.studentId] = record.status;
+  });
+  const batch = writeBatch(db);
+  recordsByDate.forEach((dailyRecords, date) => {
+    batch.set(doc(db, "attendanceSummaries", attendanceSummaryId(date, grade, classNo)), {
+      date, grade, classNo, records: dailyRecords, updatedBy: session.email, updatedAt: serverTimestamp()
+    });
+  });
+  batch.set(migrationRef, { month, grade, classNo, complete: true, updatedBy: session.email, updatedAt: serverTimestamp() });
+  await batch.commit();
+  return records;
+}
+
+function expandAttendanceSummary(summary) {
+  return Object.entries(summary.records || {}).map(([studentId, status]) => ({
+    studentId, date: summary.date, grade: summary.grade, classNo: summary.classNo, status
+  }));
+}
+
+function addAttendanceSummaryWrites(batch, students, date) {
+  const groups = new Map();
+  students.forEach((student) => {
+    const key = `${student.grade}-${student.classNo}`;
+    if (!groups.has(key)) groups.set(key, { grade: String(student.grade), classNo: String(student.classNo), records: {} });
+    groups.get(key).records[student.id] = getTodayRecord(student.id).status;
+  });
+  groups.forEach(({ grade, classNo, records }) => {
+    batch.set(doc(db, "attendanceSummaries", attendanceSummaryId(date, grade, classNo)), {
+      date, grade, classNo, records, updatedBy: session.email, updatedAt: serverTimestamp()
+    }, { merge: true });
+  });
+}
+
+function attendanceSummaryId(date, grade, classNo) {
+  return `${date}_${grade}-${classNo}`;
+}
+
+function uniqueStudentClasses(students) {
+  return [...new Map(students.map((student) => [`${student.grade}-${student.classNo}`, {
+    grade: String(student.grade), classNo: String(student.classNo)
+  }])).values()];
+}
+
+function invalidateMonthlyStatistics(month, students) {
+  uniqueStudentClasses(students).forEach(({ grade, classNo }) => monthlyStatisticsCache.delete(`${month}_${grade}-${classNo}`));
+}
+
 function renderMonthlyStatistics() {
   if (!session || session.role === "coach") return;
-  const selectedClass = session.role === "teacher" ? `${session.grade}-${session.classNo}` : els.statisticsClassFilter.value || "전체";
-  const students = state.students.filter((student) => selectedClass === "전체" || `${student.grade}-${student.classNo}` === selectedClass);
+  const selectedClass = session.role === "teacher" ? `${session.grade}-${session.classNo}` : els.statisticsClassFilter.value || "";
+  const students = state.students.filter((student) => `${student.grade}-${student.classNo}` === selectedClass);
   const studentIds = new Set(students.map((student) => student.id));
   const records = state.monthlyRecords.filter((record) => studentIds.has(record.studentId));
   const totals = { present: 0, absent: 0, late: 0, early: 0 };
@@ -583,7 +741,7 @@ function renderMonthlyStatistics() {
   els.statsLate.textContent = totals.late;
   els.statsEarly.textContent = totals.early;
   els.statsRate.textContent = total ? `${Math.round(attended / total * 100)}%` : "0%";
-  els.statisticsScope.textContent = selectedClass === "전체" ? `전체 학생 ${students.length}명` : `${selectedClass.replace("-", "학년 ")}반 · ${students.length}명`;
+  els.statisticsScope.textContent = selectedClass ? `${selectedClass.replace("-", "학년 ")}반 · ${students.length}명` : "학급 없음";
 
   renderClassStatisticsMatrix(students, records, els.statisticsMonth.value || todayKey().slice(0, 7));
 
@@ -705,12 +863,8 @@ async function refreshLookup() {
   if (!session || session.role === "teacher") return;
   els.refreshLookupBtn.disabled = true;
   try {
-    const settingsSnapshot = await getDoc(doc(db, "settings", "public"));
-    if (settingsSnapshot.exists()) state.settings = { ...state.settings, ...settingsSnapshot.data() };
-    await loadRecords(els.lookupDate.value || todayKey());
-    await loadContacts();
-    els.contactToggle.checked = state.settings.contactVisible;
-    els.maskContactDefault.checked = !state.settings.contactVisible;
+    await loadRecords(els.lookupDate.value || todayKey(), true);
+    if (isAdmin() && state.settings.contactVisible) await loadContacts();
     renderLookup();
   } catch (error) {
     alert(`조회 실패: ${readableError(error)}`);
@@ -725,7 +879,7 @@ async function setContactVisibility(visible) {
   els.contactToggle.checked = visible;
   els.maskContactDefault.checked = !visible;
   await setDoc(doc(db, "settings", "public"), { ...state.settings, updatedAt: serverTimestamp() }, { merge: true });
-  await loadContacts();
+  if (visible) await loadContacts();
   renderLookup();
 }
 
@@ -736,8 +890,77 @@ function updateContactVisibility() {
 
 async function updateMorningTime() {
   if (!isAdmin()) return;
+  if (!isFiveMinuteTime(els.morningTime.value)) {
+    els.morningTime.value = state.settings.morningTime;
+    return alert("알림 시간은 5분 단위로 지정해 주세요.");
+  }
   state.settings.morningTime = els.morningTime.value;
   await setDoc(doc(db, "settings", "public"), { morningTime: state.settings.morningTime, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+async function updateReviewTime() {
+  if (!isAdmin()) return;
+  if (!isFiveMinuteTime(els.reviewTime.value)) {
+    els.reviewTime.value = state.settings.reviewTime;
+    return alert("알림 시간은 5분 단위로 지정해 주세요.");
+  }
+  state.settings.reviewTime = els.reviewTime.value;
+  await setDoc(doc(db, "settings", "public"), { reviewTime: state.settings.reviewTime, notificationSettingsVersion: 3, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+async function updateCoachReviewTime() {
+  if (!isAdmin()) return;
+  if (!isFiveMinuteTime(els.coachReviewTime.value)) {
+    els.coachReviewTime.value = state.settings.coachReviewTime;
+    return alert("알림 시간은 5분 단위로 지정해 주세요.");
+  }
+  state.settings.coachReviewTime = els.coachReviewTime.value;
+  await setDoc(doc(db, "settings", "public"), { coachReviewTime: state.settings.coachReviewTime, notificationSettingsVersion: 3, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+function isFiveMinuteTime(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value) && Number(value.slice(-2)) % 5 === 0;
+}
+
+async function addAdmin() {
+  if (!isAdmin()) return;
+  const email = els.adminEmailInput.value.trim().toLowerCase();
+  if (!email.endsWith("@nsworld.net")) return alert("관리자는 학교 이메일(@nsworld.net)만 등록할 수 있습니다.");
+  if (email === ADMIN_EMAIL || state.admins[email]) return alert("이미 관리자 계정으로 등록되어 있습니다.");
+  if ((state.coaches[email] || state.teachers[email]) && !confirm(`${email}의 기존 권한을 관리자 권한으로 변경할까요?`)) return;
+  const homeroom = state.teachers[email] || state.admins[email] || {};
+  const adminData = { role: "admin", updatedAt: serverTimestamp(), updatedBy: session.email };
+  if (homeroom.grade && homeroom.classNo) Object.assign(adminData, { grade: homeroom.grade, classNo: homeroom.classNo });
+  await setDoc(doc(db, "access", email), adminData);
+  els.adminEmailInput.value = "";
+  await loadCoachList();
+  renderAll();
+}
+
+function renderAdminList() {
+  if (!isAdmin()) return;
+  const entries = Object.keys(state.admins).sort((a, b) => a.localeCompare(b));
+  els.adminList.innerHTML = entries.map((email) => {
+    const fixed = email === ADMIN_EMAIL;
+    const assignment = state.admins[email] || {};
+    const homeroom = assignment.grade && assignment.classNo ? ` · ${assignment.grade}학년 ${assignment.classNo}반 담임` : "";
+    return `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${fixed ? "기본 관리자" : "추가 관리자"}${homeroom}</span></div>${fixed ? "" : `<button type="button" data-remove-admin="${escapeAttr(email)}">삭제</button>`}</div>`;
+  }).join("");
+  els.adminList.querySelectorAll("[data-remove-admin]").forEach((button) => button.addEventListener("click", async () => {
+    const email = button.dataset.removeAdmin;
+    if (email === session.email) return alert("현재 로그인한 관리자 계정은 직접 삭제할 수 없습니다.");
+    if (!confirm(`${email}의 관리자 권한을 삭제할까요?`)) return;
+    const assignment = state.admins[email] || {};
+    if (assignment.grade && assignment.classNo) {
+      await setDoc(doc(db, "access", email), { role: "teacher", grade: assignment.grade, classNo: assignment.classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
+      state.teachers[email] = { grade: assignment.grade, classNo: assignment.classNo };
+    } else {
+      await deleteDoc(doc(db, "access", email));
+    }
+    delete state.admins[email];
+    renderAdminList();
+    renderTeacherList();
+  }));
 }
 
 async function addCoach() {
@@ -752,14 +975,68 @@ async function addCoach() {
   renderCoachList();
 }
 
+async function importCoachesCsv() {
+  if (!isAdmin()) return;
+  const file = els.coachCsvFileInput.files?.[0];
+  if (!file) return alert("방과후강사 CSV 파일을 선택해 주세요.");
+  try {
+    const rows = parseCsv((await file.text()).replace(/^\uFEFF/, ""));
+    const headers = rows.shift().map((header) => header.trim().toLowerCase());
+    const assignments = rows.filter((row) => row.some(Boolean)).map((row, index) => {
+      const item = Object.fromEntries(headers.map((header, headerIndex) => [header, String(row[headerIndex] || "").trim()]));
+      const email = (item["이메일"] || item["메일"] || item.email || "").toLowerCase();
+      const course = item["담당 부서"] || item["담당부서"] || item["부서"] || item.department || "";
+      const day = item["요일"] || item.day || "";
+      return { row: index + 2, email, department: normalizeCoachDepartment(course, day) };
+    });
+    const invalid = assignments.filter(({ email, department }) => !email.includes("@") || email.endsWith("@nsworld.net") || !department);
+    if (invalid.length) throw new Error(`${invalid.map((item) => item.row).join(", ")}행의 이메일·요일·부서를 확인해 주세요.`);
+    if (!assignments.length) throw new Error("등록할 강사 정보가 없습니다.");
+    const uniqueAssignments = [...new Map(assignments.map((item) => [item.email, item])).values()];
+    for (let start = 0; start < uniqueAssignments.length; start += 400) {
+      const batch = writeBatch(db);
+      uniqueAssignments.slice(start, start + 400).forEach(({ email, department }) => {
+        batch.set(doc(db, "access", email), { role: "coach", department, updatedAt: serverTimestamp(), updatedBy: session.email });
+      });
+      await batch.commit();
+    }
+    els.coachCsvFileInput.value = "";
+    await loadCoachList();
+    renderCoachList();
+    alert(`${uniqueAssignments.length}명의 방과후강사를 등록했습니다.`);
+  } catch (error) {
+    alert(`강사 CSV 등록 실패: ${readableError(error)}`);
+  }
+}
+
+function normalizeCoachDepartment(course, day) {
+  const value = String(course || "").trim();
+  if (/^(월요|금요):.+/.test(value)) return value;
+  const dayPrefix = String(day || "").includes("월") ? "월요" : String(day || "").includes("금") ? "금요" : "";
+  if (dayPrefix && value) return `${dayPrefix}:${value}`;
+  const monday = state.settings.afterschoolCourses.monday.includes(value);
+  const friday = state.settings.afterschoolCourses.friday.includes(value);
+  if (monday !== friday) return `${monday ? "월요" : "금요"}:${value}`;
+  return "";
+}
+
 async function loadCoachList() {
+  state.admins = { [ADMIN_EMAIL]: {} };
   state.coaches = {};
   state.teachers = {};
   const snapshot = await getDocs(collection(db, "access"));
   snapshot.forEach((item) => {
+    if (item.data().role === "admin") {
+      const assignment = item.data().grade && item.data().classNo
+        ? { grade: String(item.data().grade), classNo: String(item.data().classNo) }
+        : {};
+      state.admins[item.id] = assignment;
+      if (assignment.grade) state.teachers[item.id] = assignment;
+    }
     if (item.data().role === "coach") state.coaches[item.id] = item.data().department;
     if (item.data().role === "teacher") state.teachers[item.id] = { grade: String(item.data().grade), classNo: String(item.data().classNo) };
   });
+  accessCatalogLoaded = true;
 }
 
 function renderCoachList() {
@@ -773,15 +1050,54 @@ function renderCoachList() {
   }));
 }
 
+async function addAfterschoolCourse(day) {
+  if (!isAdmin()) return;
+  const input = day === "monday" ? els.mondayDepartmentInput : els.fridayDepartmentInput;
+  const course = input.value.trim();
+  if (!course) return alert("추가할 부서명을 입력해 주세요.");
+  if (state.settings.afterschoolCourses[day].includes(course)) return alert("해당 요일에 이미 등록된 부서입니다.");
+  state.settings.afterschoolCourses[day].push(course);
+  state.settings.afterschoolCourses[day].sort((a, b) => a.localeCompare(b, "ko"));
+  input.value = "";
+  await saveAfterschoolCourses();
+}
+
+async function removeAfterschoolCourse(day, course) {
+  const dayLabel = day === "monday" ? "월요일" : "금요일";
+  if (!confirm(`${dayLabel} '${course}' 부서를 목록에서 삭제할까요?`)) return;
+  state.settings.afterschoolCourses[day] = state.settings.afterschoolCourses[day].filter((item) => item !== course);
+  await saveAfterschoolCourses();
+}
+
+async function saveAfterschoolCourses() {
+  await setDoc(doc(db, "settings", "public"), { afterschoolCourses: state.settings.afterschoolCourses, updatedAt: serverTimestamp() }, { merge: true });
+  refreshDepartments();
+  renderDepartmentLists();
+}
+
+function renderDepartmentLists() {
+  if (!isAdmin()) return;
+  renderDepartmentList("monday", els.mondayDepartmentList);
+  renderDepartmentList("friday", els.fridayDepartmentList);
+}
+
+function renderDepartmentList(day, container) {
+  container.innerHTML = state.settings.afterschoolCourses[day].map((course) => `<div class="department-list-item"><span title="${escapeAttr(course)}">${escapeHtml(course)}</span><button type="button" data-remove-course="${escapeAttr(course)}" aria-label="${escapeAttr(course)} 삭제">×</button></div>`).join("") || `<p class="note">등록된 부서가 없습니다.</p>`;
+  container.querySelectorAll("[data-remove-course]").forEach((button) => button.addEventListener("click", () => removeAfterschoolCourse(day, button.dataset.removeCourse)));
+}
+
 async function addTeacherAssignment() {
   if (!isAdmin()) return;
   const email = els.teacherEmailInput.value.trim().toLowerCase();
   const [grade, classNo] = els.teacherClassSelect.value.split("-");
   if (!email.endsWith("@nsworld.net") || !grade || !classNo) return alert("학교 이메일과 담당 학급을 확인해 주세요.");
   if (state.teachers[email] && !confirm(`${email}의 담임 학급을 ${grade}학년 ${classNo}반으로 수정할까요?`)) return;
-  await setDoc(doc(db, "access", email), { role: "teacher", grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
+  const role = state.admins[email] ? "admin" : "teacher";
+  await setDoc(doc(db, "access", email), { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
   state.teachers[email] = { grade, classNo };
+  if (role === "admin") state.admins[email] = { grade, classNo };
   els.teacherEmailInput.value = "";
+  renderAdminList();
   renderTeacherList();
 }
 
@@ -793,11 +1109,14 @@ async function bulkAssignTeachers() {
   if (changed.length && !confirm(`기존 담임 ${changed.length}명의 학급 배정을 변경할까요?`)) return;
   const batch = writeBatch(db);
   assignments.forEach(({ email, grade, classNo }) => {
-    batch.set(doc(db, "access", email), { role: "teacher", grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
+    const role = state.admins[email] ? "admin" : "teacher";
+    batch.set(doc(db, "access", email), { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
     state.teachers[email] = { grade, classNo };
+    if (role === "admin") state.admins[email] = { grade, classNo };
   });
   await batch.commit();
   els.teacherBulkInput.value = "";
+  renderAdminList();
   renderTeacherList();
   alert(`${assignments.length}명의 담임 배정을 저장했습니다.`);
 }
@@ -816,8 +1135,15 @@ function renderTeacherList() {
   els.teacherList.innerHTML = entries.length ? entries.map(([email, value]) => `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(value.grade)}학년 ${escapeHtml(value.classNo)}반</span></div><button type="button" data-remove-teacher="${escapeAttr(email)}">삭제</button></div>`).join("") : `<p class="note">배정된 담임교사가 없습니다.</p>`;
   els.teacherList.querySelectorAll("[data-remove-teacher]").forEach((button) => button.addEventListener("click", async () => {
     if (!confirm(`${button.dataset.removeTeacher}의 담임 배정을 삭제할까요?`)) return;
-    await deleteDoc(doc(db, "access", button.dataset.removeTeacher));
-    delete state.teachers[button.dataset.removeTeacher];
+    const email = button.dataset.removeTeacher;
+    if (state.admins[email]) {
+      await setDoc(doc(db, "access", email), { role: "admin", updatedAt: serverTimestamp(), updatedBy: session.email });
+      state.admins[email] = {};
+    } else {
+      await deleteDoc(doc(db, "access", email));
+    }
+    delete state.teachers[email];
+    renderAdminList();
     renderTeacherList();
   }));
 }
@@ -834,6 +1160,7 @@ async function uploadStudents(students) {
       });
       await batch.commit();
     }
+    contactsLoaded = false;
     await loadCloudData();
     refreshDepartments();
     renderAll();
@@ -865,6 +1192,21 @@ async function importCsv() {
 function normalizeDepartments(value) {
   const values = Array.isArray(value) ? value : String(value || "").split(/[|,;/]/);
   return [...new Set(values.map((item) => String(item).trim()).filter(Boolean))];
+}
+
+function normalizeSettings(settings) {
+  const savedCourses = settings.afterschoolCourses || {};
+  const currentNotificationSettings = Number(settings.notificationSettingsVersion || 0) >= 3;
+  return {
+    ...settings,
+    reviewTime: currentNotificationSettings ? settings.reviewTime || "14:05" : "14:05",
+    coachReviewTime: currentNotificationSettings ? settings.coachReviewTime || "14:10" : "14:10",
+    notificationSettingsVersion: 3,
+    afterschoolCourses: {
+      monday: [...new Set((savedCourses.monday || DEFAULT_AFTERSCHOOL_COURSES.monday).map((value) => String(value).trim()).filter(Boolean))],
+      friday: [...new Set((savedCourses.friday || DEFAULT_AFTERSCHOOL_COURSES.friday).map((value) => String(value).trim()).filter(Boolean))]
+    }
+  };
 }
 
 function studentDepartments(student) {
@@ -901,31 +1243,115 @@ function saveAlarms() { localStorage.setItem(ALARM_KEY, JSON.stringify(alarms));
 function scheduleChecks() { setInterval(checkAlarms, 30 * 1000); checkAlarms(); }
 
 function checkAlarms() {
-  if (!canEdit()) return;
+  if (!session || pushTokenActive || !canReceiveNotifications()) return;
   const now = new Date(), date = todayKey(), hhmm = now.toTimeString().slice(0, 5);
-  if (hhmm === state.settings.morningTime && alarms.lastMorning !== date) {
+  if (notificationAudiences().includes("input") && hhmm >= state.settings.morningTime && alarms.lastMorning !== date) {
     alarms.lastMorning = date; addNotification("아침 출결 입력", "오늘 학생 출결을 입력해 주세요."); notify("아침 출결 입력 시간입니다", "오늘 학생 출결을 입력해 주세요.");
   }
-  if ((now.getDay() === 1 || now.getDay() === 5) && hhmm === "14:05" && alarms.lastReview !== date) {
-    alarms.lastReview = date; saveAlarms(); showReviewAlarm();
+  if ((now.getDay() === 1 || now.getDay() === 5) && notificationAudiences().includes("review") && hhmm >= state.settings.reviewTime && alarms.lastReview !== date) {
+    alarms.lastReview = date; saveAlarms(); showReviewAlarm("review");
+  }
+  if ((now.getDay() === 1 || now.getDay() === 5) && notificationAudiences().includes("coach-review") && hhmm >= state.settings.coachReviewTime && alarms.lastCoachReview !== date) {
+    alarms.lastCoachReview = date; saveAlarms(); showReviewAlarm("coach-review");
   }
 }
 
-function enableNotifications() {
-  if (!isAdmin()) return;
+async function registerNotificationWorker() {
+  if (!("serviceWorker" in navigator) || !["http:", "https:"].includes(location.protocol)) return null;
+  try {
+    await navigator.serviceWorker.register("./sw.js");
+    return await navigator.serviceWorker.ready;
+  } catch {
+    return null;
+  }
+}
+
+async function setupMessaging(app) {
+  if (!await isMessagingSupported()) return;
+  messaging = getMessaging(app);
+  onMessage(messaging, (payload) => {
+    if (!session || !canReceiveNotifications()) return;
+    const title = payload.notification?.title || "출결 알림";
+    const body = payload.notification?.body || "출결관리 시스템을 확인해 주세요.";
+    addNotification(title, body);
+    notify(title, body);
+  });
+}
+
+async function registerPushToken() {
+  if (!messaging || !notificationRegistration || !session || !canReceiveNotifications()) return false;
+  const options = { serviceWorkerRegistration: notificationRegistration };
+  const vapidKey = window.NSWORLD_CONFIG?.webPushVapidKey?.trim();
+  if (vapidKey) options.vapidKey = vapidKey;
+  const token = await getToken(messaging, options);
+  if (!token) return false;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  const tokenId = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  await setDoc(doc(db, "notificationTokens", tokenId), {
+    token,
+    uid: auth.currentUser.uid,
+    email: session.email,
+    role: session.role,
+    audiences: notificationAudiences(),
+    active: true,
+    updatedAt: serverTimestamp()
+  });
+  pushTokenActive = true;
+  return true;
+}
+
+async function enableNotifications(showConfirmation = false) {
+  if (!canReceiveNotifications()) return "denied";
+  if (location.protocol === "file:") {
+    if (showConfirmation) alert("체험판 파일에서는 알림을 켤 수 없습니다. 실제 배포 주소에서 설정해 주세요.");
+    return "unavailable";
+  }
   if (!("Notification" in window)) return alert("이 브라우저는 알림을 지원하지 않습니다.");
-  Notification.requestPermission().then((permission) => alert(permission === "granted" ? "브라우저 알림이 켜졌습니다." : "알림 권한이 허용되지 않았습니다."));
+  const permission = await Notification.requestPermission();
+  if (permission === "granted") {
+    try {
+      const registered = await registerPushToken();
+      if (!registered && showConfirmation) alert("푸시 알림 등록을 완료하지 못했습니다. Firebase Cloud Messaging 설정을 확인해 주세요.");
+      else if (showConfirmation) await notify("출결 알림이 켜졌습니다", "앱을 닫아도 예정된 출결 알림을 이 기기에서 표시합니다.");
+    } catch (error) {
+      if (showConfirmation) alert(`푸시 알림 등록 실패: ${readableError(error)}`);
+    }
+  } else if (showConfirmation) {
+    alert("알림 권한이 허용되지 않았습니다. Chrome 사이트 설정에서 알림을 허용해 주세요.");
+  }
+  updateNotificationPermissionUi();
+  return permission;
 }
 
-function notify(title, body) {
-  if ("Notification" in window && Notification.permission === "granted") new Notification(title, { body });
-  else alert(`${title}\n${body}`);
+async function notify(title, body) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const options = { body, icon: "./logo.svg", tag: `attendance-${title}`, renotify: true, data: { url: "./index.html" } };
+  if (notificationRegistration) await notificationRegistration.showNotification(title, options);
+  else new Notification(title, options);
 }
 
-function showReviewAlarm() {
-  if (!canEdit()) return;
-  addNotification("출결 재확인", "오늘 입력된 출결 기록을 한 번 더 확인해 주세요.");
-  notify("출결 재확인 알림", "오늘 입력된 출결 기록을 한 번 더 확인해 주세요.");
+function updateNotificationPermissionUi() {
+  const localPreview = location.protocol === "file:";
+  const granted = "Notification" in window && Notification.permission === "granted";
+  const denied = "Notification" in window && Notification.permission === "denied";
+  const eligible = canReceiveNotifications();
+  els.notificationButtonLabel.textContent = localPreview ? "체험판 알림 미지원" : !eligible ? "알림 대상 아님" : granted ? "알림 켜짐" : denied ? "알림 허용 필요" : "알림 켜기";
+  els.notificationCenterBtn.disabled = !eligible;
+  els.notificationCenterBtn.title = localPreview ? "실제 배포 주소에서 알림을 설정할 수 있습니다." : denied ? "Chrome 사이트 설정에서 알림을 허용해 주세요." : "";
+  els.notificationCenterBtn.classList.toggle("needs-permission", !localPreview && eligible && !granted);
+  els.enableNotificationsBtn.textContent = localPreview ? "체험판에서는 알림 설정 불가" : granted ? "브라우저 알림 켜짐" : denied ? "Chrome 알림 허용 필요" : "브라우저 알림 켜기";
+  els.enableNotificationsBtn.disabled = localPreview || granted;
+}
+
+function showReviewAlarm(audience = "review") {
+  if (!canReceiveNotifications()) return;
+  const coach = audience === "coach-review";
+  const title = coach ? "방과후 출결 확인" : "출결 재확인";
+  const body = coach ? "오늘 방과후 수강 학생의 출결을 확인해 주세요." : "오늘 입력한 학생 출결을 한 번 더 확인해 주세요.";
+  els.alarmDialogTitle.textContent = `${title} 알림`;
+  els.alarmDialogBody.textContent = body;
+  addNotification(title, body);
+  notify(`${title} 알림`, body);
   if (!els.alarmDialog.open) els.alarmDialog.showModal();
 }
 
@@ -948,8 +1374,11 @@ function updateNotificationBadge() {
   }
 }
 
-function openNotificationCenter() {
-  if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+async function openNotificationCenter() {
+  if (location.protocol !== "file:" && "Notification" in window && Notification.permission === "denied") {
+    alert("Chrome 주소창 왼쪽의 사이트 설정에서 알림을 '허용'으로 변경해 주세요.");
+  }
+  if (canReceiveNotifications() && "Notification" in window && Notification.permission === "default") await enableNotifications(false);
   const items = alarms.notifications || [];
   els.notificationList.innerHTML = items.length ? items.map((item) => `<article class="notification-item ${item.read ? "" : "is-unread"}"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p><time>${new Intl.DateTimeFormat("ko-KR", { dateStyle: "short", timeStyle: "short" }).format(new Date(item.time))}</time></article>`).join("") : `<p class="empty-notifications">도착한 알림이 없습니다.</p>`;
   items.forEach((item) => { item.read = true; });

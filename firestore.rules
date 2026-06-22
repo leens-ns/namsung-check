@@ -11,7 +11,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() && email() == 'leens@nsworld.net';
+      return signedIn() && (
+        email() == 'leens@nsworld.net'
+        || (exists(accessPath()) && get(accessPath()).data.role == 'admin')
+      );
     }
 
     function isTeacher() {
@@ -65,8 +68,41 @@ service cloud.firestore {
         && data.updatedBy == email();
     }
 
+    function validAttendanceSummary(data) {
+      return data.keys().hasOnly(['date', 'grade', 'classNo', 'records', 'updatedBy', 'updatedAt'])
+        && data.date is string
+        && data.grade is string
+        && data.classNo is string
+        && data.records is map
+        && data.updatedBy == email();
+    }
+
+    function validSummaryMonth(data) {
+      return data.keys().hasOnly(['month', 'grade', 'classNo', 'complete', 'updatedBy', 'updatedAt'])
+        && data.month is string
+        && data.grade is string
+        && data.classNo is string
+        && data.complete == true
+        && data.updatedBy == email();
+    }
+
     function coachDepartment() {
       return get(accessPath()).data.department;
+    }
+
+    function validAccess(accountEmail, data) {
+      return data.role in ['admin', 'teacher', 'coach']
+        && data.updatedBy == email()
+        && (
+          (data.role == 'admin' && accountEmail.matches('.*@nsworld[.]net$'))
+          || (data.role == 'teacher'
+            && accountEmail.matches('.*@nsworld[.]net$')
+            && data.grade is string
+            && data.classNo is string)
+          || (data.role == 'coach'
+            && !accountEmail.matches('.*@nsworld[.]net$')
+            && data.department is string)
+        );
     }
 
     match /settings/public {
@@ -76,7 +112,10 @@ service cloud.firestore {
 
     match /access/{accountEmail} {
       allow read: if isAdmin() || (signedIn() && accountEmail == email());
-      allow write: if isAdmin();
+      allow create, update: if isAdmin()
+        && (accountEmail != 'leens@nsworld.net' || request.resource.data.role == 'admin')
+        && validAccess(accountEmail, request.resource.data);
+      allow delete: if isAdmin() && accountEmail != 'leens@nsworld.net';
     }
 
     match /students/{studentId} {
@@ -98,6 +137,39 @@ service cloud.firestore {
       allow create, update: if validAttendance(request.resource.data)
         && (isAdmin() || ownsAttendance(request.resource.data));
       allow delete: if isAdmin() || ownsAttendance(resource.data);
+    }
+
+    match /attendanceSummaries/{summaryId} {
+      allow read: if isAdmin() || ownsClass(resource.data);
+      allow create, update: if validAttendanceSummary(request.resource.data)
+        && (isAdmin() || ownsClass(request.resource.data));
+      allow delete: if isAdmin() || ownsClass(resource.data);
+    }
+
+    match /attendanceSummaryMonths/{summaryMonthId} {
+      allow read: if isAdmin() || isHomeroomTeacher();
+      allow create, update: if validSummaryMonth(request.resource.data)
+        && (isAdmin() || ownsClass(request.resource.data));
+      allow delete: if isAdmin() || ownsClass(resource.data);
+    }
+
+    match /notificationTokens/{tokenId} {
+      allow create, update: if signedIn()
+        && request.resource.data.keys().hasOnly(['token', 'uid', 'email', 'role', 'audiences', 'active', 'updatedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == email()
+        && request.resource.data.token is string
+        && request.resource.data.audiences is list
+        && request.resource.data.active == true
+        && (
+          (request.resource.data.role == 'admin' && isAdmin()
+            && request.resource.data.audiences == ['input', 'review'])
+          || (request.resource.data.role == 'teacher' && isHomeroomTeacher()
+            && request.resource.data.audiences == ['input', 'review'])
+          || (request.resource.data.role == 'coach' && isCoach()
+            && request.resource.data.audiences == ['coach-review'])
+        );
+      allow read, delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
     }
   }
 }
