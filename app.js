@@ -13,16 +13,10 @@ const ALARM_KEY = "nsworld-alarm-state";
 const ORIGINAL_TITLE = document.title;
 const statusLabel = { present: "출석", late: "지각", absent: "결석", early: "조퇴", unset: "미입력" };
 const roleLabel = { admin: "관리자", teacher: "교사", coach: "방과후강사" };
-
-const sampleStudents = [
-  { id: "s-001", name: "김나윤", grade: "3", classNo: "1", number: "4", department: "로봇과학", parentPhone: "010-1234-1001" },
-  { id: "s-002", name: "박지호", grade: "3", classNo: "2", number: "8", department: "로봇과학", parentPhone: "010-1234-1002" },
-  { id: "s-003", name: "이서준", grade: "4", classNo: "1", number: "13", department: "바이올린", parentPhone: "010-1234-1003" },
-  { id: "s-004", name: "최민서", grade: "4", classNo: "3", number: "2", department: "축구", parentPhone: "010-1234-1004" },
-  { id: "s-005", name: "정하린", grade: "5", classNo: "2", number: "11", department: "미술", parentPhone: "010-1234-1005" },
-  { id: "s-006", name: "오도윤", grade: "5", classNo: "4", number: "7", department: "축구", parentPhone: "010-1234-1006" },
-  { id: "s-007", name: "한유진", grade: "6", classNo: "1", number: "9", department: "코딩", parentPhone: "010-1234-1007" },
-  { id: "s-008", name: "강서아", grade: "6", classNo: "2", number: "6", department: "코딩", parentPhone: "010-1234-1008" }
+const AFTERSCHOOL_COURSES = [
+  "AI Makers", "Book Club", "C.E.(Conver~)", "D&D", "D&D(원어민)", "English STEAM", "Musical", "STEAM", "Speech", "TED",
+  "교육마술", "그래비트랙스", "대화영어", "로봇 & 코딩", "무용", "미디어 스타", "바이올린", "배구", "스케이트보드", "스페인어",
+  "영화(영상)제작", "창의미술", "창의요리", "첼로", "치어리딩", "클라리넷", "클레이", "프랑스(L.F.E)", "프랑스어", "플루트"
 ];
 
 const state = {
@@ -45,9 +39,9 @@ const els = Object.fromEntries([
   "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "userPicture", "userName", "userEmail", "userRole",
   "logoutBtn", "todayText", "notificationCenterBtn", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "statisticsTab", "settingsTab", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "lookupDate", "lookupDepartment",
-  "lookupTable", "contactControl", "contactToggle", "refreshLookupBtn", "csvUrlInput", "importBtn", "loadSampleBtn", "morningTime", "testPopupBtn",
+  "lookupTable", "contactControl", "contactToggle", "refreshLookupBtn", "importBtn", "morningTime", "testPopupBtn",
   "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachList", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList",
-  "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentDepartmentInput", "saveStudentBtn",
+  "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn",
   "statisticsMonth", "statisticsClassFilter", "statisticsScope", "refreshStatisticsBtn", "printStatisticsBtn", "printStatisticsMeta", "printConfirmDialog", "executePrintBtn", "statisticsTable", "classStatisticsPanel", "studentStatisticsPanel", "classStatisticsMatrix", "previousStatsWeekBtn", "nextStatsWeekBtn", "statsWeekLabel", "mobileStatisticsMatrix", "statsPresent", "statsAbsent", "statsLate", "statsEarly", "statsRate",
   "presentCount", "lateCount", "absentCount", "unsetCount"
 ].map((id) => [id, document.getElementById(id)]));
@@ -95,6 +89,8 @@ function bindEvents() {
   els.markUnsetPresentBtn.addEventListener("click", () => markStudentsPresent(false));
   els.markAllPresentBtn.addEventListener("click", () => markStudentsPresent(true));
   els.addStudentBtn.addEventListener("click", () => openStudentDialog());
+  [els.studentAfterschoolNone, els.studentAfterschoolEnrolled, els.studentMondayToggle, els.studentFridayToggle]
+    .forEach((control) => control.addEventListener("change", updateAfterschoolEditor));
   els.saveStudentBtn.addEventListener("click", saveStudent);
   els.reviewBtn.addEventListener("click", openReview);
   els.confirmSaveBtn.addEventListener("click", confirmSave);
@@ -104,7 +100,6 @@ function bindEvents() {
   els.refreshLookupBtn.addEventListener("click", refreshLookup);
   els.contactToggle.addEventListener("change", updateContactVisibility);
   els.maskContactDefault.addEventListener("change", () => setContactVisibility(!els.maskContactDefault.checked));
-  els.loadSampleBtn.addEventListener("click", () => uploadStudents(sampleStudents));
   els.importBtn.addEventListener("click", importCsv);
   els.morningTime.addEventListener("change", updateMorningTime);
   els.enableNotificationsBtn.addEventListener("click", enableNotifications);
@@ -343,7 +338,8 @@ function renderStudents() {
   students.forEach((student) => {
     const record = getTodayRecord(student.id);
     const card = document.createElement("article");
-    card.className = "student-card";
+    const afterschool = isAfterschoolStudent(student);
+    card.className = `student-card${afterschool ? " has-afterschool" : ""}${afterschool && record.status === "unset" ? " needs-afterschool-check" : ""}`;
     const showMemo = record.status !== "present" && record.status !== "unset" || record.memo;
     const tools = canManageStudent(student) ? `<div class="student-tools"><button type="button" data-edit-student aria-label="${escapeAttr(student.name)} 수정">수정</button><button type="button" data-delete-student aria-label="${escapeAttr(student.name)} 삭제">삭제</button></div>` : "";
     card.innerHTML = `<header><div><h3>${escapeHtml(student.name)}</h3><p class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)} · ${escapeHtml(departmentLabel(student))}</p></div>${tools}</header><div class="attendance-options">${["present", "absent", "late", "early"].map((status) => `<button type="button" data-status="${status}" class="${record.status === status ? "is-selected" : ""}">${statusLabel[status]}</button>`).join("")}</div>${showMemo ? `<input class="memo-input" type="text" placeholder="특이사항 (선택)" value="${escapeAttr(record.memo)}" />` : ""}`;
@@ -365,23 +361,73 @@ function openStudentDialog(student = null) {
   els.studentGradeInput.value = student?.grade || session.grade || "";
   els.studentClassInput.value = student?.classNo || session.classNo || "";
   els.studentNumberInput.value = student?.number || "";
-  els.studentDepartmentInput.value = student ? departmentLabel(student) : "";
+  const selection = readAfterschoolSelection(student);
+  fillAfterschoolCourseSelect(els.studentMondayDepartment, selection.monday);
+  fillAfterschoolCourseSelect(els.studentFridayDepartment, selection.friday);
+  els.studentAfterschoolNone.checked = Boolean(student && !selection.enrolled);
+  els.studentAfterschoolEnrolled.checked = selection.enrolled;
+  els.studentMondayToggle.checked = Boolean(selection.monday);
+  els.studentFridayToggle.checked = Boolean(selection.friday);
   els.studentGradeInput.disabled = !isAdmin();
   els.studentClassInput.disabled = !isAdmin();
+  updateAfterschoolEditor();
   els.studentDialog.showModal();
+}
+
+function fillAfterschoolCourseSelect(select, selected = "") {
+  const registered = state.students.flatMap((student) => studentDepartments(student))
+    .map((department) => department.replace(/^(월요|금요):/, ""))
+    .filter((department) => department && !["방과후 미수강", "미수강", "없음", "-"].includes(department));
+  const courses = [...new Set([...AFTERSCHOOL_COURSES, ...registered, selected].filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko"));
+  select.innerHTML = `<option value="">부서 선택</option>${courses.map((course) => `<option value="${escapeAttr(course)}"${course === selected ? " selected" : ""}>${escapeHtml(course)}</option>`).join("")}`;
+}
+
+function readAfterschoolSelection(student) {
+  const departments = student ? studentDepartments(student) : [];
+  let monday = departments.find((department) => department.startsWith("월요:"))?.slice(3) || "";
+  const friday = departments.find((department) => department.startsWith("금요:"))?.slice(3) || "";
+  const legacy = departments.find((department) => !department.includes(":") && !["방과후 미수강", "미수강", "없음", "-"].includes(department));
+  if (!monday && !friday && legacy) monday = legacy;
+  return { enrolled: Boolean(monday || friday), monday, friday };
+}
+
+function updateAfterschoolEditor() {
+  const enrolled = els.studentAfterschoolEnrolled.checked;
+  els.studentAfterschoolDays.hidden = !enrolled;
+  els.studentMondayToggle.disabled = !enrolled;
+  els.studentFridayToggle.disabled = !enrolled;
+  els.studentMondayDepartment.disabled = !enrolled || !els.studentMondayToggle.checked;
+  els.studentFridayDepartment.disabled = !enrolled || !els.studentFridayToggle.checked;
+}
+
+function selectedAfterschoolDepartments() {
+  if (els.studentAfterschoolNone.checked) return ["방과후 미수강"];
+  if (!els.studentAfterschoolEnrolled.checked) return null;
+  const departments = [];
+  if (els.studentMondayToggle.checked) {
+    if (!els.studentMondayDepartment.value) return null;
+    departments.push(`월요:${els.studentMondayDepartment.value}`);
+  }
+  if (els.studentFridayToggle.checked) {
+    if (!els.studentFridayDepartment.value) return null;
+    departments.push(`금요:${els.studentFridayDepartment.value}`);
+  }
+  return departments.length ? departments : null;
 }
 
 async function saveStudent() {
   if (!isAdmin() && !hasHomeroom()) return;
+  const departments = selectedAfterschoolDepartments();
+  if (!departments) return alert("방과후 수강 여부를 선택하고, 수강 시 요일과 부서를 모두 확인해 주세요.");
   const student = {
     id: editingStudentId || `student-${crypto.randomUUID?.() || Date.now()}`,
     name: els.studentNameInput.value.trim(),
     grade: String(isAdmin() ? els.studentGradeInput.value : session.grade),
     classNo: String(isAdmin() ? els.studentClassInput.value : session.classNo),
     number: String(els.studentNumberInput.value),
-    departments: normalizeDepartments(els.studentDepartmentInput.value)
+    departments
   };
-  if (!student.name || !student.grade || !student.classNo || !student.number || !student.departments.length) return alert("이름, 학년, 반, 번호, 부서를 확인해 주세요.");
+  if (!student.name || !student.grade || !student.classNo || !student.number) return alert("이름, 학년, 반, 번호를 확인해 주세요.");
   if (editingStudentId && !confirm(`${student.name} 학생 정보를 수정할까요?`)) return;
   try {
     await setDoc(doc(db, "students", student.id), { name: student.name, grade: student.grade, classNo: student.classNo, number: student.number, departments: student.departments });
@@ -799,18 +845,10 @@ async function uploadStudents(students) {
 
 async function importCsv() {
   if (!isAdmin()) return;
-  const url = els.csvUrlInput.value.trim();
   const file = els.csvFileInput.files?.[0];
-  if (!file && !url) return alert("CSV 파일을 선택하거나 CSV 주소를 입력해 주세요.");
+  if (!file) return alert("관리자 기기에서 CSV 파일을 선택해 주세요.");
   try {
-    let csvText = "";
-    if (file) {
-      csvText = await file.text();
-    } else {
-      const response = await fetch(normalizeCsvUrl(url));
-      if (!response.ok) throw new Error("CSV를 가져오지 못했습니다.");
-      csvText = await response.text();
-    }
+    const csvText = await file.text();
     const rows = parseCsv(csvText.replace(/^\uFEFF/, ""));
     const headers = rows.shift().map((header) => header.trim());
     const students = rows.filter((row) => row.some(Boolean)).map((row, index) => {
@@ -824,18 +862,6 @@ async function importCsv() {
   }
 }
 
-function normalizeCsvUrl(value) {
-  try {
-    const url = new URL(value);
-    const match = url.pathname.match(/\/spreadsheets\/d\/([^/]+)/);
-    if (!match || url.searchParams.get("output") === "csv" || url.pathname.includes("/export")) return value;
-    const gid = url.searchParams.get("gid") || "0";
-    return `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv&gid=${gid}`;
-  } catch {
-    return value;
-  }
-}
-
 function normalizeDepartments(value) {
   const values = Array.isArray(value) ? value : String(value || "").split(/[|,;/]/);
   return [...new Set(values.map((item) => String(item).trim()).filter(Boolean))];
@@ -843,6 +869,10 @@ function normalizeDepartments(value) {
 
 function studentDepartments(student) {
   return normalizeDepartments(student.departments || student.department);
+}
+
+function isAfterschoolStudent(student) {
+  return studentDepartments(student).some((department) => !["방과후 미수강", "미수강", "없음", "-"].includes(department));
 }
 
 function departmentLabel(student) {

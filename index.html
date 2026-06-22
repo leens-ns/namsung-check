@@ -172,20 +172,15 @@
           <div class="settings-layout">
             <section>
               <h2 id="settings-title">학생 명단 가져오기</h2>
-              <p class="subtle">내려받은 CSV 파일을 선택하거나 공개 CSV 주소를 입력해 학생 명단을 가져옵니다.</p>
+              <p class="subtle">관리자 기기에 저장된 CSV 파일만 사용할 수 있습니다.</p>
               <label>
                 CSV 파일
                 <input id="csvFileInput" type="file" accept=".csv,text/csv" />
               </label>
-              <label>
-                CSV 주소
-                <input id="csvUrlInput" type="url" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv" />
-              </label>
               <div class="button-row">
-                <button id="importBtn" class="primary" type="button">가져오기</button>
-                <button id="loadSampleBtn" type="button">예시 명단 사용</button>
+                <button id="importBtn" class="primary" type="button">CSV 파일 가져오기</button>
               </div>
-              <p class="note">필수 열: 이름, 학년, 반, 번호, 부서 · 선택 열: 학부모연락처</p>
+              <p class="note">공개 링크는 사용하지 않습니다. 필수 열: 이름, 학년, 반, 번호, 부서 · 선택 열: 학부모연락처</p>
             </section>
 
             <section>
@@ -259,7 +254,23 @@
             <label>반<input id="studentClassInput" type="number" min="1" max="20" /></label>
             <label>번호<input id="studentNumberInput" type="number" min="1" max="99" /></label>
           </div>
-          <label>부서<input id="studentDepartmentInput" type="text" placeholder="축구, 바이올린" autocomplete="off" /></label>
+          <fieldset class="afterschool-editor">
+            <legend>방과후 수강 <span>필수</span></legend>
+            <div class="afterschool-mode" role="radiogroup" aria-label="방과후 수강 여부">
+              <label><input id="studentAfterschoolNone" name="studentAfterschoolMode" type="radio" value="none" /><strong>미수강</strong></label>
+              <label><input id="studentAfterschoolEnrolled" name="studentAfterschoolMode" type="radio" value="enrolled" /><strong>수강</strong></label>
+            </div>
+            <div id="studentAfterschoolDays" class="afterschool-days" hidden>
+              <div class="afterschool-day-row">
+                <label class="afterschool-day-toggle"><input id="studentMondayToggle" type="checkbox" /><strong>월요일</strong></label>
+                <label class="afterschool-department"><span>부서</span><select id="studentMondayDepartment" aria-label="월요일 방과후 부서"></select></label>
+              </div>
+              <div class="afterschool-day-row">
+                <label class="afterschool-day-toggle"><input id="studentFridayToggle" type="checkbox" /><strong>금요일</strong></label>
+                <label class="afterschool-department"><span>부서</span><select id="studentFridayDepartment" aria-label="금요일 방과후 부서"></select></label>
+              </div>
+            </div>
+          </fieldset>
         </div>
         <footer><button value="cancel" type="submit">취소</button><button id="saveStudentBtn" class="primary" value="default" type="button">저장</button></footer>
       </form>

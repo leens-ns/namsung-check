@@ -483,6 +483,18 @@ h1 {
   padding: 8px 10px;
 }
 
+.student-card.has-afterschool {
+  border-left: 5px solid #4f7f6b;
+  background: #f5faf7;
+}
+
+.student-card.needs-afterschool-check {
+  border-color: #d39827;
+  border-left-width: 7px;
+  background: #fff5d8;
+  box-shadow: inset 0 0 0 1px rgb(211 152 39 / 16%);
+}
+
 .student-card header {
   display: flex;
   justify-content: space-between;
@@ -916,6 +928,121 @@ h1 {
   display: grid;
   gap: 14px;
   margin: 18px 0;
+}
+
+.afterschool-editor {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.afterschool-editor legend {
+  margin-bottom: 7px;
+  padding: 0;
+  font-weight: 700;
+}
+
+.afterschool-editor legend span {
+  margin-left: 4px;
+  color: #b83b27;
+  font-size: 11px;
+}
+
+.afterschool-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #eef2f5;
+}
+
+.afterschool-mode label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.afterschool-mode label:has(input:checked) {
+  border-color: #9db9ae;
+  background: #fff;
+  color: var(--brand-2);
+  box-shadow: 0 1px 3px rgb(32 52 45 / 10%);
+}
+
+.afterschool-mode input {
+  width: 15px;
+  min-height: 15px;
+}
+
+.afterschool-days {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.afterschool-days[hidden] {
+  display: none;
+}
+
+.afterschool-day-row {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.afterschool-day-row:has(input:checked) {
+  border-color: #83aa9a;
+  background: #f1f8f5;
+  box-shadow: inset 3px 0 0 #4f7f6b;
+}
+
+.afterschool-day-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.afterschool-day-row label {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  cursor: pointer;
+}
+
+.afterschool-day-row input {
+  width: 16px;
+  min-height: 16px;
+}
+
+.afterschool-department {
+  display: grid !important;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.afterschool-department span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.afterschool-department select {
+  width: 100%;
+  min-width: 0;
 }
 
 .coach-list {
@@ -1366,6 +1493,14 @@ dialog h2 {
   }
 
   .inline-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .afterschool-day-row {
+    padding: 11px;
+  }
+
+  .afterschool-days {
     grid-template-columns: 1fr;
   }
 
