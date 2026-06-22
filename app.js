@@ -37,6 +37,7 @@ let messaging = null;
 let pushTokenActive = false;
 let contactsLoaded = false;
 let accessCatalogLoaded = false;
+let attendanceClassInitialized = false;
 
 const els = Object.fromEntries([
   "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "userPicture", "userName", "userEmail", "userRole",
@@ -306,6 +307,7 @@ function resetSessionCache() {
   state.contacts = {};
   contactsLoaded = false;
   accessCatalogLoaded = false;
+  attendanceClassInitialized = false;
   pushTokenActive = false;
 }
 
@@ -318,13 +320,15 @@ function refreshDepartments() {
     .filter((department) => !["방과후 미수강", "미수강", "없음", "-"].includes(department)).sort((a, b) => a.localeCompare(b, "ko"));
   fillSelect(els.lookupDepartment, ["전체", ...departments], session.role === "coach" ? session.department : "전체");
   fillSelect(els.coachDepartmentInput, departments, departments[0] || "");
-  const assignedClass = !isAdmin() && hasHomeroom() ? `${session.grade}학년 ${session.classNo}반` : "";
-  const selectedClass = assignedClass || els.classFilter.value || "전체";
-  const classes = [...new Set(state.students.map((student) => `${student.grade}학년 ${student.classNo}반`))]
+  const homeroomClass = hasHomeroom() ? `${session.grade}학년 ${session.classNo}반` : "";
+  const assignedClass = !isAdmin() ? homeroomClass : "";
+  const selectedClass = assignedClass || (!attendanceClassInitialized && homeroomClass ? homeroomClass : els.classFilter.value || "전체");
+  const classes = [...new Set([...state.students.map((student) => `${student.grade}학년 ${student.classNo}반`), ...(homeroomClass ? [homeroomClass] : [])])]
     .sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
   const attendanceClasses = assignedClass ? [assignedClass] : ["전체", ...classes];
   fillSelect(els.classFilter, attendanceClasses, attendanceClasses.includes(selectedClass) ? selectedClass : attendanceClasses[0]);
   els.classFilter.disabled = Boolean(assignedClass);
+  attendanceClassInitialized = true;
   const allClasses = Array.from({ length: 6 }, (_, grade) => Array.from({ length: state.settings.maxClassesPerGrade }, (_, classIndex) => `${grade + 1}-${classIndex + 1}`)).flat();
   fillSelect(els.teacherClassSelect, allClasses, els.teacherClassSelect.value || "1-1");
   els.studentClassInput.max = String(state.settings.maxClassesPerGrade);
