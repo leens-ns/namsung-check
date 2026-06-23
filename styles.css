@@ -910,6 +910,17 @@ h1 {
   color: var(--brand);
 }
 
+.danger-button {
+  border-color: #b84a4a;
+  color: #9d3030;
+  background: #fff7f7;
+}
+
+.danger-button:hover {
+  border-color: #9d3030;
+  background: #fff0f0;
+}
+
 .maintenance-guide summary {
   cursor: pointer;
   font-weight: 800;
