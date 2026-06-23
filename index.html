@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="icon" href="icon-192.png" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260623-4" />
+    <link rel="stylesheet" href="styles.css?v=20260623-6" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
@@ -55,7 +55,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a class="tab manual-link" href="manual.html?v=20260623-5" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a class="tab manual-link" href="manual.html?v=20260623-6" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -267,6 +267,50 @@
                 leens@nsworld.net은 기본 관리자이며 삭제할 수 없습니다.
               </p>
             </section>
+
+            <section class="maintenance-settings-section">
+              <div class="maintenance-heading">
+                <div>
+                  <h2>무료 운영·자료 보관</h2>
+                  <p class="subtle">유료 Firebase TTL 대신 공개 GitHub Actions가 매월 1회 오래된 출결만 정리합니다.</p>
+                </div>
+                <span class="free-badge">무료 방식</span>
+              </div>
+              <div class="retention-controls">
+                <label class="toggle">
+                  <input id="autoCleanupEnabled" type="checkbox" />
+                  <span>오래된 출결 자동 삭제</span>
+                </label>
+                <label>
+                  보관 기간
+                  <select id="retentionMonths">
+                    <option value="12">12개월</option>
+                    <option value="24" selected>24개월</option>
+                    <option value="36">36개월</option>
+                    <option value="60">60개월</option>
+                  </select>
+                </label>
+                <button id="saveRetentionSettingsBtn" class="primary" type="button">보관 설정 저장</button>
+              </div>
+              <p class="security-note">자동 삭제된 출결은 복구할 수 없습니다. 학생 명단과 연락처는 삭제하지 않으며, 한 번에 최대 10,000건만 정리합니다.</p>
+              <div id="cleanupStatus" class="maintenance-status" role="status">자동 정리 실행 기록을 확인하는 중입니다.</div>
+              <div class="maintenance-actions">
+                <a class="button-link" href="https://console.firebase.google.com/project/namsung-check/firestore/databases/-default-/usage" target="_blank" rel="noopener">Firebase 사용량 확인</a>
+                <a class="button-link" href="https://github.com/leens-ns/namsung-check/actions/workflows/cleanup-old-attendance.yml" target="_blank" rel="noopener">자동 정리 실행 상태</a>
+                <a class="button-link" href="https://github.com/leens-ns/namsung-check/actions" target="_blank" rel="noopener">배포·알림 전체 상태</a>
+                <button id="refreshCleanupStatusBtn" type="button">상태 새로고침</button>
+              </div>
+              <p class="note">무료 기준: 저장 1GiB, 읽기 50,000건/일, 쓰기·삭제 각 20,000건/일. 한도를 넘기지 않았는지 월 1회 확인합니다.</p>
+              <details class="maintenance-guide">
+                <summary>월 1회 확인 방법</summary>
+                <ol>
+                  <li><strong>Firebase 사용량 확인</strong>에서 저장 공간과 일일 읽기·쓰기·삭제가 무료 기준 미만인지 확인합니다.</li>
+                  <li><strong>배포·알림 전체 상태</strong>에서 최근 작업들이 초록색 성공인지 확인합니다.</li>
+                  <li>이 화면의 마지막 실행일과 삭제 건수를 확인합니다.</li>
+                  <li>GitHub 작업이 비활성화되어 있으면 해당 작업에서 <strong>Enable workflow</strong>를 누릅니다.</li>
+                </ol>
+              </details>
+            </section>
           </div>
         </section>
       </main>
@@ -361,6 +405,6 @@
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260623-4"></script>
+    <script type="module" src="app.js?v=20260623-6"></script>
   </body>
 </html>
