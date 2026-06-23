@@ -52,7 +52,7 @@ const els = Object.fromEntries([
   "logoutBtn", "todayText", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "lookupDate", "lookupDepartment",
   "lookupTable", "refreshLookupBtn", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
-  "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn",
+  "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "deleteAllStudentsBtn", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn",
   "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn",
   "statusStrip", "presentCountItem", "lateCountItem", "earlyCountItem", "absentCountItem", "unsetCountItem", "presentCount", "lateCount", "earlyCount", "absentCount", "unsetCount"
 ].map((id) => [id, document.getElementById(id)]));
@@ -127,6 +127,7 @@ function bindEvents() {
   els.refreshLookupBtn.addEventListener("click", refreshLookup);
   els.maskContactDefault.addEventListener("change", () => setContactVisibility(!els.maskContactDefault.checked));
   els.importBtn.addEventListener("click", importCsv);
+  els.deleteAllStudentsBtn.addEventListener("click", deleteAllStudents);
   els.morningTime.addEventListener("change", updateMorningTime);
   els.reviewTime.addEventListener("change", updateReviewTime);
   els.coachReviewTime.addEventListener("change", updateCoachReviewTime);
@@ -691,7 +692,14 @@ async function saveStudent() {
 async function deleteStudent(student) {
   if (!canManageStudent(student) || !confirm(`${student.name} 학생을 명단에서 삭제할까요?\n삭제 후에는 되돌릴 수 없습니다.`)) return;
   try {
-    await deleteDoc(doc(db, "students", student.id));
+    if (isAdmin()) {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, "students", student.id));
+      batch.delete(doc(db, "contacts", student.id));
+      await batch.commit();
+    } else {
+      await deleteDoc(doc(db, "students", student.id));
+    }
     state.students = state.students.filter((item) => item.id !== student.id);
     refreshDepartments();
     renderAll();
@@ -1124,6 +1132,11 @@ function renderTeacherList() {
 async function uploadStudents(students) {
   if (!isAdmin()) return;
   try {
+    const [previousStudents, previousContacts] = await Promise.all([
+      getDocs(collection(db, "students")),
+      getDocs(collection(db, "contacts"))
+    ]);
+    const nextIds = new Set(students.map((student) => student.id));
     for (let start = 0; start < students.length; start += 200) {
       const batch = writeBatch(db);
       students.slice(start, start + 200).forEach(({ parentPhone, id, ...student }) => {
@@ -1133,11 +1146,17 @@ async function uploadStudents(students) {
       });
       await batch.commit();
     }
+    const obsoleteRefs = [
+      ...previousStudents.docs.filter((item) => !nextIds.has(item.id)).map((item) => item.ref),
+      ...previousContacts.docs.filter((item) => !nextIds.has(item.id)).map((item) => item.ref)
+    ];
+    await deleteDocumentRefs(obsoleteRefs);
     contactsLoaded = false;
     await loadCloudData();
     refreshDepartments();
     renderAll();
-    alert(`${students.length}명의 학생 명단을 저장했습니다.`);
+    const removedStudents = previousStudents.docs.filter((item) => !nextIds.has(item.id)).length;
+    alert(`학생 명단을 새 CSV 기준으로 교체했습니다.\n저장 ${students.length}명 · 기존 명단에서 삭제 ${removedStudents}명`);
   } catch (error) {
     alert(`명단 저장 실패: ${readableError(error)}`);
   }
@@ -1151,14 +1170,64 @@ async function importCsv() {
     const csvText = await file.text();
     const rows = parseCsv(csvText.replace(/^\uFEFF/, ""));
     const headers = rows.shift().map((header) => header.trim());
-    const students = rows.filter((row) => row.some(Boolean)).map((row, index) => {
+    const parsed = rows.map((row, index) => ({ row, line: index + 2 })).filter(({ row }) => row.some((value) => String(value).trim()));
+    const students = parsed.map(({ row, line }) => {
       const item = Object.fromEntries(headers.map((header, headerIndex) => [header, row[headerIndex] || ""]));
-      return { id: item.id || `csv-${Date.now()}-${index}`, name: item["이름"] || item.name || "", grade: item["학년"] || item.grade || "", classNo: item["반"] || item.class || "", number: item["번호"] || item.number || "", departments: normalizeDepartments(item["부서"] || item.departments || item.department), parentPhone: item["학부모연락처"] || item.parentPhone || "" };
-    }).filter((student) => student.name && student.departments.length);
-    if (!students.length) throw new Error("이름과 부서가 포함된 학생 정보가 없습니다.");
+      const name = String(item["이름"] || item.name || "").trim();
+      const grade = String(item["학년"] || item.grade || "").trim();
+      const classNo = String(item["반"] || item.class || "").trim();
+      const number = String(item["번호"] || item.number || "").trim();
+      const id = sanitizeStudentId(item.id || `roster-${grade}-${classNo}-${number}`);
+      return { line, id, name, grade, classNo, number, departments: normalizeDepartments(item["부서"] || item.departments || item.department), parentPhone: String(item["학부모연락처"] || item.parentPhone || "").trim() };
+    });
+    const invalid = students.filter((student) => !student.id || !student.name || !/^[1-6]$/.test(student.grade) || !/^\d+$/.test(student.classNo) || !/^\d+$/.test(student.number) || !student.departments.length || Number(student.classNo) > state.settings.maxClassesPerGrade);
+    if (invalid.length) throw new Error(`${invalid.slice(0, 10).map((student) => student.line).join(", ")}행의 이름·학년·반·번호·부서를 확인해 주세요.`);
+    const duplicateIds = students.filter((student, index) => students.findIndex((other) => other.id === student.id) !== index);
+    if (duplicateIds.length) throw new Error(`${[...new Set(duplicateIds.map((student) => student.line))].join(", ")}행의 id 또는 학년·반·번호가 중복됩니다.`);
+    if (!students.length) throw new Error("학생 정보가 없습니다.");
+    if (!confirm(`현재 학생 ${state.students.length}명을 CSV의 ${students.length}명으로 전체 교체할까요?\nCSV에 없는 학생과 연락처는 삭제되며, 교사가 수정한 정보도 CSV 기준으로 덮어씁니다.\n기존 출결 기록은 유지됩니다.`)) return;
     await uploadStudents(students);
   } catch (error) {
     alert(`가져오기 실패: ${readableError(error)}`);
+  }
+}
+
+function sanitizeStudentId(value) {
+  return String(value || "").trim().replace(/\//g, "-").slice(0, 160);
+}
+
+async function deleteDocumentRefs(refs) {
+  for (let start = 0; start < refs.length; start += 450) {
+    const batch = writeBatch(db);
+    refs.slice(start, start + 450).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+}
+
+async function deleteAllStudents() {
+  if (!isAdmin()) return;
+  if (!confirm("학생 명단과 학부모 연락처를 모두 삭제할까요?\n출결 기록은 삭제하지 않습니다.")) return;
+  if (prompt("실수를 막기 위해 '전체삭제'를 입력해 주세요.") !== "전체삭제") return alert("전체 삭제를 취소했습니다.");
+  els.deleteAllStudentsBtn.disabled = true;
+  try {
+    const [studentsSnapshot, contactsSnapshot] = await Promise.all([
+      getDocs(collection(db, "students")),
+      getDocs(collection(db, "contacts"))
+    ]);
+    await deleteDocumentRefs([...studentsSnapshot.docs.map((item) => item.ref), ...contactsSnapshot.docs.map((item) => item.ref)]);
+    state.students = [];
+    state.contacts = {};
+    state.records = {};
+    loadedRecordKeys.clear();
+    contactsLoaded = false;
+    els.csvFileInput.value = "";
+    refreshDepartments();
+    renderAll();
+    alert(`학생 명단 ${studentsSnapshot.size}명과 연락처를 모두 삭제했습니다. 기존 출결 기록은 유지됩니다.`);
+  } catch (error) {
+    alert(`학생 정보 전체 삭제 실패: ${readableError(error)}`);
+  } finally {
+    els.deleteAllStudentsBtn.disabled = false;
   }
 }
 
