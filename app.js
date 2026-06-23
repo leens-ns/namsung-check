@@ -26,7 +26,8 @@ const DEFAULT_AFTERSCHOOL_COURSES = {
 
 const state = {
   students: [], records: {}, contacts: {}, admins: { [ADMIN_EMAIL]: {} }, coaches: {}, teachers: {},
-  settings: { morningTime: "08:30", reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3, attendanceDays: [1, 5], maxClassesPerGrade: 3, contactVisible: false, afterschoolCourses: structuredClone(DEFAULT_AFTERSCHOOL_COURSES) }
+  settings: { morningTime: "08:30", reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3, attendanceDays: [1, 5], maxClassesPerGrade: 3, contactVisible: false, autoCleanupEnabled: false, retentionMonths: 24, afterschoolCourses: structuredClone(DEFAULT_AFTERSCHOOL_COURSES) },
+  maintenance: null
 };
 const loadedRecordKeys = new Set();
 const alarms = loadAlarms();
@@ -51,7 +52,7 @@ const els = Object.fromEntries([
   "logoutBtn", "todayText", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "lookupDate", "lookupDepartment",
   "lookupTable", "refreshLookupBtn", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
-  "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList",
+  "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn",
   "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn",
   "statusStrip", "presentCountItem", "lateCountItem", "earlyCountItem", "absentCountItem", "unsetCountItem", "presentCount", "lateCount", "earlyCount", "absentCount", "unsetCount"
 ].map((id) => [id, document.getElementById(id)]));
@@ -140,6 +141,8 @@ function bindEvents() {
   els.bulkAssignTeachersBtn.addEventListener("click", bulkAssignTeachers);
   document.querySelectorAll("[data-attendance-day]").forEach((input) => input.addEventListener("change", updateAttendanceDays));
   els.maxClassesPerGrade.addEventListener("change", updateMaxClassesPerGrade);
+  els.saveRetentionSettingsBtn.addEventListener("click", saveRetentionSettings);
+  els.refreshCleanupStatusBtn.addEventListener("click", loadMaintenanceStatus);
   els.notificationCenterBtn.addEventListener("click", openNotificationCenter);
   els.clearNotificationsBtn.addEventListener("click", clearNotifications);
 }
@@ -262,6 +265,7 @@ async function loadCloudData() {
     const mergedSettings = { ...state.settings, ...savedSettings };
     if (Number(savedSettings.notificationSettingsVersion || 0) < 3) Object.assign(mergedSettings, { reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3 });
     state.settings = normalizeSettings(mergedSettings);
+    state.maintenance = maintenanceFromSettings(savedSettings);
     if (isAdmin() && (Number(savedSettings.notificationSettingsVersion || 0) < 3 || !Array.isArray(savedSettings.attendanceDays) || !savedSettings.maxClassesPerGrade)) {
       await setDoc(doc(db, "settings", "public"), { reviewTime: state.settings.reviewTime, coachReviewTime: state.settings.coachReviewTime, notificationSettingsVersion: 3, attendanceDays: state.settings.attendanceDays, maxClassesPerGrade: state.settings.maxClassesPerGrade, updatedAt: serverTimestamp() }, { merge: true });
     }
@@ -338,6 +342,9 @@ function applySession() {
   els.reviewTime.value = state.settings.reviewTime;
   els.coachReviewTime.value = state.settings.coachReviewTime;
   els.maxClassesPerGrade.value = state.settings.maxClassesPerGrade;
+  els.autoCleanupEnabled.checked = state.settings.autoCleanupEnabled;
+  els.retentionMonths.value = String(state.settings.retentionMonths);
+  renderMaintenanceStatus();
   document.querySelectorAll("[data-attendance-day]").forEach((input) => { input.checked = state.settings.attendanceDays.includes(Number(input.dataset.attendanceDay)); });
   els.addStudentBtn.classList.toggle("is-hidden", !isAdmin() && !hasHomeroom());
   const coachView = session.role === "coach";
@@ -349,6 +356,67 @@ function applySession() {
   refreshDepartments();
   switchView(session.role === "coach" ? "lookupView" : "attendanceView");
   renderAll();
+}
+
+async function loadMaintenanceStatus(showError = true) {
+  if (!isAdmin()) return;
+  els.refreshCleanupStatusBtn.disabled = true;
+  try {
+    const snapshot = await getDoc(doc(db, "settings", "public"));
+    state.maintenance = snapshot.exists() ? maintenanceFromSettings(snapshot.data()) : null;
+    renderMaintenanceStatus();
+  } catch (error) {
+    if (showError) alert(`자동 정리 상태 조회 실패: ${readableError(error)}`);
+    els.cleanupStatus.textContent = "자동 정리 상태를 불러오지 못했습니다.";
+  } finally {
+    els.refreshCleanupStatusBtn.disabled = false;
+  }
+}
+
+function maintenanceFromSettings(settings) {
+  if (!settings?.cleanupLastRunAt) return null;
+  return {
+    status: settings.cleanupStatus,
+    deletedCount: settings.cleanupDeletedCount,
+    cutoffDate: settings.cleanupCutoffDate,
+    retentionMonths: settings.cleanupRetentionMonths,
+    lastRunAt: settings.cleanupLastRunAt,
+    message: settings.cleanupMessage
+  };
+}
+
+function renderMaintenanceStatus() {
+  if (!isAdmin()) return;
+  const result = state.maintenance;
+  if (!result) {
+    els.cleanupStatus.innerHTML = `<strong>실행 기록 없음</strong><span>자동 삭제를 켜고 저장하면 다음 월간 작업부터 실행됩니다.</span>`;
+    return;
+  }
+  const ranAt = result.lastRunAt?.toDate ? result.lastRunAt.toDate() : new Date(result.lastRunAt || 0);
+  const ranAtText = Number.isNaN(ranAt.getTime()) ? "날짜 확인 불가" : new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(ranAt);
+  const statusText = result.status === "completed" ? "정상 완료" : result.status === "partial" ? "일부 정리 완료" : "실행 실패";
+  els.cleanupStatus.innerHTML = `<strong>${escapeHtml(statusText)}</strong><span>마지막 실행 ${escapeHtml(ranAtText)} · 삭제 ${Number(result.deletedCount || 0).toLocaleString("ko-KR")}건 · 기준일 ${escapeHtml(result.cutoffDate || "-")}</span>`;
+}
+
+async function saveRetentionSettings() {
+  if (!isAdmin()) return;
+  const enabled = els.autoCleanupEnabled.checked;
+  const retentionMonths = Number(els.retentionMonths.value);
+  if (![12, 24, 36, 60].includes(retentionMonths)) return alert("보관 기간을 다시 선택해 주세요.");
+  if (enabled && !confirm(`${retentionMonths}개월이 지난 출결을 매월 자동 삭제할까요?\n삭제된 기록은 복구할 수 없습니다.`)) return;
+  els.saveRetentionSettingsBtn.disabled = true;
+  try {
+    await setDoc(doc(db, "settings", "public"), { autoCleanupEnabled: enabled, retentionMonths, updatedAt: serverTimestamp() }, { merge: true });
+    state.settings.autoCleanupEnabled = enabled;
+    state.settings.retentionMonths = retentionMonths;
+    alert(enabled ? `자동 삭제를 켰습니다. ${retentionMonths}개월이 지난 출결부터 매월 정리됩니다.` : "오래된 출결 자동 삭제를 껐습니다.");
+  } catch (error) {
+    els.autoCleanupEnabled.checked = state.settings.autoCleanupEnabled;
+    els.retentionMonths.value = String(state.settings.retentionMonths);
+    alert(`보관 설정 저장 실패: ${readableError(error)}`);
+  } finally {
+    els.saveRetentionSettingsBtn.disabled = false;
+  }
 }
 
 function switchView(viewId) {
@@ -1104,6 +1172,7 @@ function normalizeSettings(settings) {
   const currentNotificationSettings = Number(settings.notificationSettingsVersion || 0) >= 3;
   const attendanceDays = [...new Set((Array.isArray(settings.attendanceDays) ? settings.attendanceDays : [1, 5]).map(Number).filter((day) => day >= 1 && day <= 5))].sort();
   const maxClassesPerGrade = Math.min(10, Math.max(1, Math.trunc(Number(settings.maxClassesPerGrade) || 3)));
+  const retentionMonths = [12, 24, 36, 60].includes(Number(settings.retentionMonths)) ? Number(settings.retentionMonths) : 24;
   return {
     ...settings,
     reviewTime: currentNotificationSettings ? settings.reviewTime || "14:05" : "14:05",
@@ -1111,6 +1180,8 @@ function normalizeSettings(settings) {
     notificationSettingsVersion: 3,
     attendanceDays: attendanceDays.length ? attendanceDays : [1, 5],
     maxClassesPerGrade,
+    autoCleanupEnabled: settings.autoCleanupEnabled === true,
+    retentionMonths,
     afterschoolCourses: {
       monday: [...new Set((savedCourses.monday || DEFAULT_AFTERSCHOOL_COURSES.monday).map((value) => String(value).trim()).filter(Boolean))],
       friday: [...new Set((savedCourses.friday || DEFAULT_AFTERSCHOOL_COURSES.friday).map((value) => String(value).trim()).filter(Boolean))]
