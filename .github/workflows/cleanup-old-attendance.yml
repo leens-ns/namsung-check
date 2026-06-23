@@ -1,0 +1,44 @@
+name: Cleanup old attendance
+
+on:
+  schedule:
+    # 매월 2일 오전 3시 20분(한국 시간)
+    - cron: "20 18 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: attendance-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - id: auth
+        uses: google-github-actions/auth@v3
+        continue-on-error: ${{ github.event_name == 'schedule' }}
+        with:
+          project_id: namsung-check
+          workload_identity_provider: projects/36959618515/locations/global/workloadIdentityPools/github/providers/namsung-check-v2
+          service_account: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - name: Record scheduled authentication warning
+        if: ${{ github.event_name == 'schedule' && steps.auth.outcome == 'failure' }}
+        run: echo "::warning::Google Cloud authentication failed. Scheduled cleanup was skipped."
+      - uses: actions/setup-node@v6
+        if: ${{ steps.auth.outcome == 'success' }}
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - run: node automation/cleanup-old-attendance.mjs
+        if: ${{ steps.auth.outcome == 'success' }}
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          FIREBASE_PROJECT_ID: namsung-check
