@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="icon" href="icon-192.png" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260623-6" />
+    <link rel="stylesheet" href="styles.css?v=20260624-1" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
@@ -55,7 +55,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a class="tab manual-link" href="manual.html?v=20260623-6" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a class="tab manual-link" href="manual.html?v=20260624-1" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -148,16 +148,17 @@
             </section>
 
             <section>
-              <h2>학생 명단 가져오기</h2>
-              <p class="subtle">관리자 기기에 저장된 CSV 파일만 사용할 수 있습니다.</p>
+              <h2>학생 명단 전체 관리</h2>
+              <p class="subtle">CSV를 올리면 기존 학생 명단과 연락처를 새 파일 기준으로 전체 교체합니다.</p>
               <label>
                 CSV 파일
                 <input id="csvFileInput" type="file" accept=".csv,text/csv" />
               </label>
               <div class="button-row">
-                <button id="importBtn" class="primary" type="button">CSV 파일 가져오기</button>
+                <button id="importBtn" class="primary" type="button">CSV로 명단 전체 교체</button>
+                <button id="deleteAllStudentsBtn" class="danger-button" type="button">학생 명단·연락처 전체 삭제</button>
               </div>
-              <p class="note">공개 링크는 사용하지 않습니다. 필수 열: 이름, 학년, 반, 번호, 부서 · 선택 열: 학부모연락처</p>
+              <p class="note">CSV에 없는 기존 학생은 삭제됩니다. 출결 기록은 유지됩니다. 필수 열: 이름, 학년, 반, 번호, 부서 · 선택 열: id, 학부모연락처</p>
             </section>
 
             <section>
@@ -405,6 +406,6 @@
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260623-6"></script>
+    <script type="module" src="app.js?v=20260624-1"></script>
   </body>
 </html>
