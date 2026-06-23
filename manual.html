@@ -3,141 +3,132 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#174a7c" />
     <title>남성초등학교 출결관리 시스템 사용 매뉴얼</title>
     <style>
-      :root { color-scheme: light; --ink:#172432; --muted:#5d6b78; --line:#d7e0e8; --blue:#174a7c; --soft:#eef4f9; --green:#267052; --red:#a63d3d; }
+      :root { color-scheme:light; --ink:#172432; --muted:#5d6b78; --line:#d7e0e8; --blue:#174a7c; --green:#267052; --red:#a63d3d; }
       * { box-sizing:border-box; }
       html { scroll-behavior:smooth; }
       body { margin:0; color:var(--ink); background:#f5f7fa; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; line-height:1.65; }
+      [hidden] { display:none !important; }
       header { padding:26px 20px; color:#fff; background:var(--blue); }
-      header div, main, nav div { width:min(920px,100%); margin:0 auto; }
-      header p { margin:4px 0 0; opacity:.84; }
+      header div, main, nav div { width:min(860px,100%); margin:0 auto; }
+      header p { margin:4px 0 0; opacity:.86; }
       h1 { margin:0; font-size:clamp(24px,5vw,34px); letter-spacing:0; }
-      nav { position:sticky; top:0; z-index:2; padding:10px 16px; border-bottom:1px solid var(--line); background:rgba(255,255,255,.96); }
+      .role-badge { display:inline-flex; margin-top:12px; padding:5px 10px; border:1px solid rgb(255 255 255 / 42%); border-radius:6px; font-size:13px; font-weight:700; }
+      nav { position:sticky; top:0; z-index:2; padding:10px 16px; border-bottom:1px solid var(--line); background:rgb(255 255 255 / 96%); }
       nav div { display:flex; gap:8px; overflow-x:auto; }
       nav a { flex:0 0 auto; padding:9px 13px; border:1px solid var(--line); border-radius:7px; color:var(--ink); background:#fff; font-weight:700; text-decoration:none; }
       main { padding:24px 16px 56px; }
-      section { margin-bottom:28px; padding:22px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+      section { margin-bottom:22px; padding:22px; border:1px solid var(--line); border-radius:8px; background:#fff; }
       h2 { margin:0 0 14px; font-size:21px; letter-spacing:0; }
-      h3 { margin:22px 0 8px; font-size:16px; letter-spacing:0; }
+      h3 { margin:20px 0 8px; font-size:16px; letter-spacing:0; }
       ol, ul { margin:8px 0; padding-left:24px; }
       li + li { margin-top:7px; }
       .role { border-top:4px solid var(--blue); }
       .note { margin:14px 0 0; padding:12px 14px; border-left:4px solid var(--green); background:#eef8f3; }
       .warning { border-left-color:var(--red); background:#fff1f1; }
-      .status-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
-      .status-grid div { padding:12px; border:1px solid var(--line); border-radius:7px; text-align:center; }
-      .status-grid strong { display:block; color:var(--blue); }
-      code { padding:2px 5px; border-radius:4px; background:var(--soft); }
+      .gate { width:min(520px,calc(100% - 32px)); margin:64px auto; padding:28px; border:1px solid var(--line); border-radius:8px; background:#fff; text-align:center; }
+      .gate h2 { margin-bottom:8px; }
+      .gate p { color:var(--muted); }
+      .gate a { display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:0 18px; border-radius:7px; color:#fff; background:var(--blue); font-weight:700; text-decoration:none; }
       footer { padding:20px; color:var(--muted); text-align:center; }
-      @media (max-width:620px) { section { padding:18px 15px; } .status-grid { grid-template-columns:repeat(2,1fr); } }
+      @media (max-width:620px) { header { padding:22px 16px; } section { padding:18px 15px; } nav a { padding:9px 11px; } }
       @media print { nav { display:none; } body { background:#fff; } section { break-inside:avoid; } }
     </style>
   </head>
   <body>
-    <header><div><h1>남성초등학교 출결관리 시스템</h1><p>교사·방과후강사·관리자 사용 매뉴얼</p></div></header>
-    <nav aria-label="매뉴얼 목차"><div><a href="index.html">메인 화면으로</a><a href="#common">공통</a><a href="#teacher">교사</a><a href="#coach">방과후강사</a><a href="#admin">관리자</a><a href="#cost">비용·데이터</a><a href="#help">문제 해결</a></div></nav>
-    <main>
-      <section id="common">
-        <h2>공통 시작 방법</h2>
-        <ol>
-          <li>Chrome에서 학교 출결관리 주소를 엽니다.</li>
-          <li><strong>Google 계정으로 로그인</strong>을 누르고 등록된 계정을 선택합니다.</li>
-          <li>상단의 <strong>알림 켜기</strong>를 눌러 Chrome 알림을 허용합니다.</li>
-          <li><strong>홈 화면에 설치</strong>를 누르면 Android에서는 설치창이 열립니다. iPhone·iPad는 Safari 공유 메뉴에서 <strong>홈 화면에 추가</strong>를 선택합니다.</li>
-          <li>공용 컴퓨터에서는 사용 후 반드시 로그아웃합니다.</li>
-        </ol>
-        <div class="status-grid"><div><strong>출석</strong>방과후 참여 가능</div><div><strong>결석</strong>방과후 미참여</div><div><strong>지각</strong>교사가 등교 상태 입력</div><div><strong>조퇴</strong>교사가 귀가 상태 입력</div></div>
-        <p class="note warning">학생 정보와 학부모 연락처를 화면 촬영·메신저 전송·개인 기기 저장하지 마세요.</p>
-      </section>
+    <div id="manualGate" class="gate">
+      <h2>계정 확인 중</h2>
+      <p id="manualGateMessage">로그인 계정의 매뉴얼을 불러오고 있습니다.</p>
+      <a id="manualGateLink" href="index.html?v=20260623-5" hidden>메인 화면에서 로그인</a>
+    </div>
 
-      <section id="teacher" class="role">
-        <h2>담임교사 매뉴얼</h2>
-        <h3>운영 요일 출결 입력</h3>
-        <ol>
-          <li>로그인 후 <strong>출결 입력</strong>에서 자신의 학급과 학생 수를 확인합니다.</li>
-          <li>대부분 출석이면 <strong>미입력 학생 모두 출석</strong>을 먼저 누릅니다.</li>
-                        <li>결석·지각·조퇴 학생만 해당 버튼으로 변경합니다. 특이사항은 필요한 경우에만 입력합니다.</li>
-                        <li>방과후 수강 표시가 있는 학생은 상태를 한 번 더 확인합니다.</li>
-                        <li>상태 버튼을 누르면 하단에 <strong>아직 저장되지 않음</strong>과 변경 학생 수가 표시됩니다. 이 단계에서는 서버에 저장되지 않습니다.</li>
-                        <li><strong>저장 전 확인</strong>을 누르고 목록을 검토한 뒤 <strong>확정하고 저장</strong>을 눌러 저장을 완료합니다.</li>
-                    </ol>
-                    <p class="note">하단에 <strong>모든 입력 내용 저장됨</strong>이 표시되어야 저장이 끝난 것입니다. 저장할 변경이 없으면 저장 버튼은 비활성화됩니다.</p>
-                    <p class="note">출결은 날짜별로 따로 저장됩니다. 금요일이 되면 입력 화면은 새 날짜의 미입력 상태로 시작하며 월요일 기록은 삭제되지 않습니다. 앱을 계속 켜 둔 경우에도 날짜 변경을 자동 감지합니다.</p>
-        <h3>학생 명단 변경</h3>
-        <ul><li><strong>학생 추가</strong>에서 이름·학년·반·번호와 방과후 수강 여부를 입력합니다.</li><li>수정·삭제 전 확인창의 학생 정보를 다시 확인합니다.</li></ul>
-        <p class="note">관리자가 지정한 방과후 운영 요일에만 입력할 수 있으며, 같은 요일에 아침 입력 알림과 교직원 재확인 알림을 받습니다. 기본 운영 요일은 월요일과 금요일입니다.</p>
-      </section>
+    <div id="manualApp" hidden>
+      <header>
+        <div>
+          <h1>남성초등학교 출결관리 시스템</h1>
+          <p id="manualSubtitle">사용 매뉴얼</p>
+          <span id="manualRoleBadge" class="role-badge"></span>
+        </div>
+      </header>
+      <nav aria-label="매뉴얼 목차">
+        <div>
+          <a href="index.html?v=20260623-5">메인 화면으로</a>
+          <a href="#common" data-manual-nav="common">공통</a>
+          <a href="#teacher" data-manual-nav="teacher">교사</a>
+          <a href="#coach" data-manual-nav="coach">방과후강사</a>
+          <a href="#admin" data-manual-nav="admin">관리자</a>
+        </div>
+      </nav>
+      <main>
+        <section id="common" data-manual-section="common">
+          <h2>공통</h2>
+          <ol>
+            <li>관리자에게 등록한 이메일과 동일한 <strong>Google 계정</strong>으로 로그인합니다.</li>
+            <li><strong>앱 설치</strong>로 홈 화면에 추가하고, 알림 대상자는 <strong>알림 켜기</strong>를 눌러 허용합니다.</li>
+            <li>공용 기기에서는 사용 후 반드시 로그아웃합니다.</li>
+          </ol>
+          <p class="note warning">학생 정보, 출결, 학부모 연락처를 촬영·메신저 전송·개인 기기 저장하지 마세요.</p>
+        </section>
 
-      <section id="coach" class="role">
-        <h2>방과후강사 매뉴얼</h2>
-        <ol>
-          <li>관리자에게 등록한 이메일과 동일한 본인의 Google 계정으로 로그인합니다.</li>
-          <li><strong>출결 조회</strong>에 자신의 담당 부서 학생만 표시되는지 확인합니다.</li>
-          <li>조회 날짜를 선택하고 <strong>최신 출결 새로고침</strong>을 누릅니다.</li>
-          <li>출석·결석과 특이사항을 확인한 뒤 수업 준비에 반영합니다. 교사가 입력한 결석·지각·조퇴는 방과후 화면에서 모두 결석으로 표시되며 상단 결석 수에도 합산됩니다.</li>
-        </ol>
-        <p class="note">이메일 주소를 아는 것만으로는 접속할 수 없습니다. Google 로그인을 통과하고 등록 이메일이 정확히 일치해야 합니다. 별도 학교 계정을 만들 필요 없이 강사 개인 Google 계정을 등록할 수 있습니다.</p>
-        <p class="note">출결 입력·학생 수정·학부모 연락처 조회 권한은 없습니다. 관리자가 지정한 운영 요일과 시간에 방과후 출결 확인 알림만 받습니다.</p>
-      </section>
+        <section id="teacher" class="role" data-manual-section="teacher">
+          <h2>담임교사</h2>
+          <ol>
+            <li><strong>출결 입력</strong>에서 자신의 학급과 학생 수를 확인합니다.</li>
+            <li><strong>미입력 학생 모두 출석</strong>을 누른 뒤 결석·지각·조퇴 학생만 변경합니다.</li>
+            <li>색상으로 표시된 방과후 수강 학생은 상태를 한 번 더 확인합니다. 특이사항은 필요한 경우에만 작성합니다.</li>
+            <li><strong>저장 전 확인</strong>에서 변경 명단을 검토하고 <strong>확정하고 저장</strong>을 누릅니다.</li>
+          </ol>
+          <p class="note"><strong>모든 입력 내용 저장됨</strong>이 표시되어야 서버 저장이 끝난 것입니다. 상태 버튼만 누른 단계는 저장 전입니다.</p>
+          <h3>학생 명단 변경</h3>
+          <ul>
+            <li>자기 반 학생만 추가·수정·삭제할 수 있습니다.</li>
+            <li>방과후 수강 요일과 부서는 선택 항목으로 입력하고, 수정·삭제 확인창에서 학생 정보를 다시 확인합니다.</li>
+          </ul>
+          <p class="note">출결은 날짜별로 보관됩니다. 새 운영일에는 미입력 상태로 시작하지만 이전 기록은 삭제되지 않습니다.</p>
+        </section>
 
-      <section id="admin" class="role">
-        <h2>관리자 매뉴얼</h2>
-        <h3>학기 시작 설정</h3>
-        <ol>
-          <li><strong>관리자 설정</strong>에서 CSV 학생 명단을 가져옵니다.</li>
-          <li>방과후 운영 요일과 학년별 최대 반 수를 확인합니다. 기본값은 월·금, 학년별 3개 반입니다.</li>
-          <li>담임교사 이메일과 학급을 일괄 배정합니다.</li>
-          <li>방과후 부서 목록을 월요일·금요일로 나누어 정리합니다.</li>
-          <li>방과후강사 CSV로 이메일과 담당 부서를 등록합니다.</li>
-          <li>추가 관리자를 지정합니다. 관리자도 담임 학급을 함께 배정할 수 있습니다.</li>
-        </ol>
-        <h3>관리자 담임 학급</h3>
-        <ul><li><strong>담임교사 학급 배정</strong>에서 관리자 이메일에도 담당 학급을 배정할 수 있습니다.</li><li>관리자에게 담임 학급을 배정하거나 변경하면 출결 입력 화면이 즉시 자신의 반으로 바뀌며, 다음 로그인 때도 그 반이 먼저 표시됩니다.</li><li>관리자 권한은 그대로 유지되므로 학급 필터에서 <strong>전체</strong> 또는 다른 반으로 바꾸어 확인할 수 있습니다.</li></ul>
-        <h3>알림 설정</h3>
-        <ul><li>아침 입력 알림은 관리자·담임교사 대상입니다.</li><li>교직원 재확인 알림과 방과후강사 확인 알림 시간을 각각 설정합니다.</li><li>세 알림 모두 선택한 운영 요일에만 발송됩니다. 기본 확인 시간은 교직원 14:05, 방과후강사 14:10입니다.</li></ul>
-        <h3>개인정보와 계정</h3>
-        <ul><li>연락처가 꼭 필요할 때만 <strong>학부모 연락처 비공개</strong> 체크를 해제하고, 확인 후 다시 체크합니다.</li><li>연락처 설정은 관리자 설정에만 있으며 방과후강사 화면에는 표시되지 않습니다.</li><li>강사 이메일 등록은 조회 권한의 허용 목록입니다. 강사는 반드시 같은 이메일의 Google 계정으로 로그인해야 합니다.</li><li>계정 퇴직·담당 변경 시 즉시 권한을 삭제하거나 새 부서로 수정합니다.</li></ul>
-        <p class="note warning">학생 CSV는 공개 Google 문서 링크로 연결하지 말고 관리자 기기의 파일로만 업로드하세요.</p>
-      </section>
+        <section id="coach" class="role" data-manual-section="coach">
+          <h2>방과후강사</h2>
+          <ol>
+            <li><strong>출결 조회</strong>에서 자신의 담당 부서와 조회 날짜를 확인합니다.</li>
+            <li>수업 직전 <strong>최신 출결 새로고침</strong>을 누릅니다.</li>
+            <li>출석·결석과 특이사항을 확인해 수업에 반영합니다.</li>
+          </ol>
+          <p class="note">교사가 입력한 <strong>결석·지각·조퇴는 방과후 화면에서 모두 결석</strong>으로 합산됩니다.</p>
+          <p class="note warning">강사는 조회만 가능하며 출결 입력, 학생 수정, 학부모 연락처 확인 권한이 없습니다.</p>
+        </section>
 
-      <section id="cost">
-        <h2>비용과 데이터 관리</h2>
-        <h3>무료 운영 기준</h3>
-        <ul>
-          <li>현재 시스템은 Firebase의 무료 Spark 요금제 범위에서 운영하도록 구성되어 있습니다.</li>
-          <li>Firestore 무료 한도는 하루 읽기 50,000건, 쓰기 20,000건, 삭제 20,000건이며 저장 공간은 1GiB입니다.</li>
-          <li>Google 로그인은 일반 인증 기준 월간 활성 사용자 50,000명까지 무료이고, 웹 푸시 알림인 Firebase Cloud Messaging은 무료입니다.</li>
-          <li>GitHub 저장소가 공개 상태이고 표준 실행기를 사용하면 현재 알림 예약 작업의 GitHub Actions 실행 비용은 없습니다.</li>
-        </ul>
-        <h3>학교 예상 사용량</h3>
-        <p>교직원·강사 약 50명, 학생 약 450명, 주 2회 운영을 가정하면 일반적인 하루 읽기는 대략 5,000~15,000건, 출결 쓰기는 운영일 기준 약 450건 수준입니다. 여러 관리자가 반복 조회하는 상황을 포함해도 무료 한도보다 충분히 낮습니다.</p>
-        <p class="note">같은 출결을 다시 확정해도 변경된 학생만 저장합니다. 최신 출결 새로고침은 10초 간격으로 제한되며, 같은 기기의 알림 토큰은 하루 한 번만 갱신됩니다.</p>
-        <h3>관리자가 확인할 항목</h3>
-        <ol>
-          <li>Firebase Console의 <strong>Firestore Database → 사용량</strong>에서 읽기·쓰기·저장 공간을 월 1회 확인합니다.</li>
-          <li>결제 계정을 연결하기 전에는 무료 한도를 넘겨도 자동 과금되지 않고 해당 서비스 사용이 제한됩니다.</li>
-          <li>출결 자료의 법적·학교 내부 보관 기간을 정한 뒤, 필요 기간이 지난 자료는 별도 보관 또는 삭제 방침에 따라 정리합니다. 자동 유료 백업·PITR·TTL 기능은 사용하지 않습니다.</li>
-        </ol>
-        <p class="note warning">비용 경고를 피하려고 개인정보를 공개 저장소나 개인 파일로 옮기면 안 됩니다. 학생 CSV와 실제 출결 데이터는 GitHub에 게시되지 않고 Firestore에만 저장됩니다.</p>
-      </section>
+        <section id="admin" class="role" data-manual-section="admin">
+          <h2>관리자</h2>
+          <h3>학기 시작 설정 순서</h3>
+          <ol>
+            <li>관리자 기기의 학생 CSV를 가져옵니다.</li>
+            <li>운영 요일, 학년별 최대 반 수, 요일별 방과후 부서 목록을 설정합니다.</li>
+            <li>담임교사 이메일과 학급을 배정합니다.</li>
+            <li>방과후강사 이메일과 담당 부서를 등록합니다.</li>
+            <li>필요한 경우 추가 관리자를 지정합니다.</li>
+          </ol>
+          <h3>운영과 보안</h3>
+          <ul>
+            <li>아침 입력, 교직원 재확인, 강사 확인 알림의 요일과 시간을 점검합니다.</li>
+            <li>담당 변경·퇴직 계정은 즉시 삭제하거나 새 부서로 수정합니다.</li>
+            <li>학부모 연락처는 필요한 순간에만 표시하고 확인 후 다시 비공개로 전환합니다.</li>
+            <li>학생 CSV는 공개 링크가 아닌 관리자 기기의 파일만 사용합니다.</li>
+          </ul>
+          <h3>월 1회 확인</h3>
+          <ul>
+            <li>Firebase 사용량에서 읽기·쓰기·저장 공간을 확인합니다.</li>
+            <li>GitHub Actions에서 Pages 배포와 출결 알림 작업의 성공 여부를 확인합니다.</li>
+            <li>학교 내부 보관 기준에 따라 오래된 출결 자료를 관리합니다.</li>
+          </ul>
+        </section>
+      </main>
+      <footer>남성초등학교 출결관리 시스템 사용 매뉴얼</footer>
+    </div>
 
-      <section id="help">
-        <h2>문제 해결</h2>
-        <ul>
-          <li><strong>로그인 불가:</strong> 등록된 이메일인지 관리자에게 확인하고 Chrome에서 올바른 Google 계정을 선택합니다.</li>
-          <li><strong>Android 로그인 불가:</strong> 브라우저의 팝업 차단을 해제하고 다시 로그인합니다. 앱은 Android에서 페이지 이동 로그인이 아닌 Google 로그인 창을 사용합니다.</li>
-          <li><strong>설치 버튼이 안 보임:</strong> 이미 설치된 경우 버튼이 숨겨집니다. Android는 브라우저 메뉴의 앱 설치·홈 화면에 추가를, iPhone·iPad는 Safari 공유 메뉴의 홈 화면에 추가를 사용합니다.</li>
-          <li><strong>체험판에서 바로 로그인됨:</strong> 체험판의 역할 버튼은 화면 확인을 위해 인증을 생략합니다. 실제 배포 앱에는 적용되지 않습니다.</li>
-          <li><strong>입력 버튼이 비활성화됨:</strong> 오늘이 관리자 설정의 방과후 운영 요일인지 확인합니다.</li>
-          <li><strong>학생이 안 보임:</strong> 담임 학급 또는 강사 담당 부서 배정을 확인합니다.</li>
-          <li><strong>최신 출결이 안 보임:</strong> 조회 날짜를 확인하고 최신 출결 새로고침을 누릅니다.</li>
-          <li><strong>알림이 안 옴:</strong> Chrome 사이트 설정에서 알림 허용 여부와 운영체제 집중 모드를 확인합니다.</li>
-          <li><strong>GitHub 실패 메일이 반복됨:</strong> 맥북 상태와 무관한 서버 인증 오류입니다. 예약 작업은 실패 메일을 반복 발송하지 않고 해당 회차 알림만 건너뛰도록 구성되어 있습니다. 관리자는 Google Cloud 알림 연결을 복구한 뒤 작업을 수동 실행해 확인합니다.</li>
-          <li><strong>연락처가 안 보임:</strong> 관리자만 조회할 수 있습니다. 관리자 설정에서 <strong>학부모 연락처 비공개</strong> 체크를 해제했는지 확인합니다.</li>
-        </ul>
-      </section>
-    </main>
-    <footer>남성초등학교 출결관리 시스템 사용 매뉴얼</footer>
+    <script src="config.js"></script>
+    <script type="module" src="manual.js?v=20260623-5"></script>
   </body>
 </html>
