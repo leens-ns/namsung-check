@@ -42,11 +42,13 @@ let contactsLoaded = false;
 let accessCatalogLoaded = false;
 let attendanceClassInitialized = false;
 let lastLookupRefreshAt = 0;
+let activeAttendanceDate = todayKey();
+let dateRolloverPromise = null;
 
 const els = Object.fromEntries([
   "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "userPicture", "userName", "userEmail", "userRole",
   "logoutBtn", "todayText", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
-  "clearTodayBtn", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "lookupDate", "lookupDepartment",
+  "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "lookupDate", "lookupDepartment",
   "lookupTable", "refreshLookupBtn", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
   "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList",
   "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn",
@@ -374,8 +376,28 @@ function todayKey() {
 function getTodayRecord(studentId) {
   const date = todayKey();
   state.records[date] ||= {};
-  state.records[date][studentId] ||= { studentId, date, status: "unset", memo: "", saved: false };
+  state.records[date][studentId] ||= { studentId, date, status: "unset", memo: "", saved: true };
   return state.records[date][studentId];
+}
+
+function updateSaveState(students = getScopedStudents(), enabled = isAttendanceDay()) {
+  const records = students.map((student) => getTodayRecord(student.id));
+  const pending = records.filter((record) => !record.saved).length;
+  const unset = records.filter((record) => record.status === "unset").length;
+  if (pending) {
+    els.saveStatusText.textContent = `변경 ${pending}명 · 아직 저장되지 않음`;
+    els.saveStatusText.classList.add("has-pending");
+    els.reviewBtn.textContent = `저장 전 확인 · ${pending}명`;
+  } else {
+    els.saveStatusText.textContent = unset === students.length
+      ? "아직 입력된 내용 없음"
+      : unset
+        ? `현재 변경사항 저장됨 · 미입력 ${unset}명`
+        : "모든 입력 내용 저장됨";
+    els.saveStatusText.classList.remove("has-pending");
+    els.reviewBtn.textContent = "저장할 변경 없음";
+  }
+  els.reviewBtn.disabled = !enabled || pending === 0;
 }
 
 function markStudentsPresent(overwrite) {
@@ -411,8 +433,8 @@ function renderStudents() {
   els.markUnsetPresentBtn.textContent = unset ? `미입력 ${unset}명 모두 출석` : "미입력 완료";
   els.markUnsetPresentBtn.disabled = unset === 0 || !enabled;
   els.markAllPresentBtn.disabled = !enabled;
-  els.reviewBtn.disabled = !enabled;
   els.clearTodayBtn.disabled = !enabled;
+  updateSaveState(scopedStudents, enabled);
   els.studentGrid.innerHTML = "";
   students.forEach((student) => {
     const record = getTodayRecord(student.id);
@@ -429,6 +451,7 @@ function renderStudents() {
     card.querySelector(".memo-input")?.addEventListener("input", (event) => {
       if (record.memo === event.target.value) return;
       record.memo = event.target.value; record.saved = false;
+      updateSaveState(scopedStudents, enabled);
     });
     card.querySelector("[data-edit-student]")?.addEventListener("click", () => openStudentDialog(student));
     card.querySelector("[data-delete-student]")?.addEventListener("click", () => deleteStudent(student));
@@ -1058,7 +1081,37 @@ function loadAlarms() {
 
 function saveAlarms() { localStorage.setItem(ALARM_KEY, JSON.stringify(alarms)); }
 
-function scheduleChecks() { setInterval(checkAlarms, 30 * 1000); checkAlarms(); }
+function scheduleChecks() {
+  setInterval(() => {
+    checkDateRollover().catch(() => {});
+    checkAlarms();
+  }, 30 * 1000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) checkDateRollover().catch(() => {});
+  });
+  window.addEventListener("focus", () => checkDateRollover().catch(() => {}));
+  checkAlarms();
+}
+
+async function checkDateRollover() {
+  const nextDate = todayKey();
+  if (nextDate === activeAttendanceDate) return;
+  if (dateRolloverPromise) return dateRolloverPromise;
+  const previousDate = activeAttendanceDate;
+  activeAttendanceDate = nextDate;
+  dateRolloverPromise = (async () => {
+    els.todayText.textContent = new Intl.DateTimeFormat("ko-KR", { dateStyle: "full" }).format(new Date());
+    if (!els.lookupDate.value || els.lookupDate.value === previousDate) els.lookupDate.value = nextDate;
+    if (els.reviewDialog.open) els.reviewDialog.close();
+    await loadRecords(nextDate, true);
+    renderAll();
+  })();
+  try {
+    await dateRolloverPromise;
+  } finally {
+    dateRolloverPromise = null;
+  }
+}
 
 function checkAlarms() {
   if (!session || pushTokenActive || !canReceiveNotifications()) return;

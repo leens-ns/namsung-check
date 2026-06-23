@@ -428,6 +428,38 @@ h1 {
   min-width: 150px;
 }
 
+.action-bar {
+  position: sticky;
+  bottom: 8px;
+  z-index: 6;
+  margin-top: 18px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 8px 24px rgb(20 35 55 / 14%);
+}
+
+.save-status {
+  flex: 1 1 auto;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.save-status.has-pending {
+  color: #9a4c00;
+}
+
+.review-save-notice {
+  margin: 16px 0 0;
+  padding: 11px 13px;
+  border-left: 4px solid var(--warn);
+  background: #fff7e9;
+  color: #6d4308;
+  font-size: 14px;
+}
+
 .search-box {
   flex: 1 1 auto;
 }
@@ -1386,6 +1418,15 @@ dialog h2 {
   .action-bar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .action-bar {
+    bottom: 4px;
+  }
+
+  .action-bar button {
+    width: 100%;
+    min-height: 48px;
   }
 
   .status-strip {
