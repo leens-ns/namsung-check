@@ -18,5 +18,20 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    { "collectionGroup": "attendance", "fieldPath": "memo", "indexes": [] },
+    { "collectionGroup": "attendance", "fieldPath": "status", "indexes": [] },
+    { "collectionGroup": "attendance", "fieldPath": "studentId", "indexes": [] },
+    { "collectionGroup": "attendance", "fieldPath": "updatedAt", "indexes": [] },
+    { "collectionGroup": "attendance", "fieldPath": "updatedBy", "indexes": [] },
+    { "collectionGroup": "contacts", "fieldPath": "parentPhone", "indexes": [] },
+    { "collectionGroup": "notificationTokens", "fieldPath": "audiences", "indexes": [] },
+    { "collectionGroup": "notificationTokens", "fieldPath": "email", "indexes": [] },
+    { "collectionGroup": "notificationTokens", "fieldPath": "role", "indexes": [] },
+    { "collectionGroup": "notificationTokens", "fieldPath": "token", "indexes": [] },
+    { "collectionGroup": "notificationTokens", "fieldPath": "uid", "indexes": [] },
+    { "collectionGroup": "notificationTokens", "fieldPath": "updatedAt", "indexes": [] },
+    { "collectionGroup": "students", "fieldPath": "name", "indexes": [] },
+    { "collectionGroup": "students", "fieldPath": "number", "indexes": [] }
+  ]
 }

@@ -13,6 +13,9 @@ import {
 
 const ADMIN_EMAIL = "leens@nsworld.net";
 const ALARM_KEY = "nsworld-alarm-state";
+const PUSH_TOKEN_SYNC_KEY = "nsworld-push-token-sync";
+const PUSH_TOKEN_SYNC_INTERVAL = 24 * 60 * 60 * 1000;
+const LOOKUP_REFRESH_COOLDOWN = 10 * 1000;
 const ORIGINAL_TITLE = document.title;
 const statusLabel = { present: "출석", late: "지각", absent: "결석", early: "조퇴", unset: "미입력" };
 const roleLabel = { admin: "관리자", teacher: "교사", coach: "방과후강사" };
@@ -38,6 +41,7 @@ let pushTokenActive = false;
 let contactsLoaded = false;
 let accessCatalogLoaded = false;
 let attendanceClassInitialized = false;
+let lastLookupRefreshAt = 0;
 
 const els = Object.fromEntries([
   "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "userPicture", "userName", "userEmail", "userRole",
@@ -226,7 +230,10 @@ async function loadRecords(date, forceRefresh = false) {
       : query(attendanceRef, where("date", "==", date));
   const snapshot = await getDocs(attendanceQuery);
   state.records[date] = {};
-  snapshot.forEach((item) => { state.records[date][item.data().studentId] = item.data(); });
+  snapshot.forEach((item) => {
+    const record = item.data();
+    state.records[date][record.studentId] = { ...record, saved: true };
+  });
   loadedRecordKeys.add(recordKey);
 }
 
@@ -379,6 +386,7 @@ function markStudentsPresent(overwrite) {
   students.forEach((student) => {
     const record = getTodayRecord(student.id);
     if (overwrite || record.status === "unset") {
+      if (record.status === "present") return;
       record.status = "present";
       record.saved = false;
     }
@@ -415,9 +423,13 @@ function renderStudents() {
     const tools = canManageStudent(student) ? `<div class="student-tools"><button type="button" data-edit-student aria-label="${escapeAttr(student.name)} 수정">수정</button><button type="button" data-delete-student aria-label="${escapeAttr(student.name)} 삭제">삭제</button></div>` : "";
     card.innerHTML = `<header><div><h3>${escapeHtml(student.name)}</h3><p class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)} · ${escapeHtml(departmentLabel(student))}</p></div>${tools}</header><div class="attendance-options">${["present", "absent", "late", "early"].map((status) => `<button type="button" data-status="${status}" class="${record.status === status ? "is-selected" : ""}"${enabled ? "" : " disabled"}>${statusLabel[status]}</button>`).join("")}</div>${showMemo ? `<input class="memo-input" type="text" placeholder="특이사항 (선택)" value="${escapeAttr(record.memo)}"${enabled ? "" : " disabled"} />` : ""}`;
     card.querySelectorAll("[data-status]").forEach((button) => button.addEventListener("click", () => {
+      if (record.status === button.dataset.status) return;
       record.status = button.dataset.status; record.saved = false; renderStudents(); renderCounts();
     }));
-    card.querySelector(".memo-input")?.addEventListener("input", (event) => { record.memo = event.target.value; record.saved = false; });
+    card.querySelector(".memo-input")?.addEventListener("input", (event) => {
+      if (record.memo === event.target.value) return;
+      record.memo = event.target.value; record.saved = false;
+    });
     card.querySelector("[data-edit-student]")?.addEventListener("click", () => openStudentDialog(student));
     card.querySelector("[data-delete-student]")?.addEventListener("click", () => deleteStudent(student));
     els.studentGrid.append(card);
@@ -570,21 +582,22 @@ async function confirmSave() {
   if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
   els.confirmSaveBtn.disabled = true;
   try {
-    const students = getScopedStudents().filter((student) => !getTodayRecord(student.id).saved);
-    if (!students.length) {
+    const pending = getScopedStudents()
+      .map((student) => ({ student, record: getTodayRecord(student.id) }))
+      .filter(({ record }) => !record.saved);
+    if (!pending.length) {
       els.reviewDialog.close();
       return;
     }
     const batch = writeBatch(db);
-    students.forEach((student) => {
-      const record = getTodayRecord(student.id);
+    pending.forEach(({ student, record }) => {
       batch.set(doc(db, "attendance", `${todayKey()}_${student.id}`), {
         studentId: student.id, date: todayKey(), grade: String(student.grade), classNo: String(student.classNo), departments: studentDepartments(student),
         status: record.status, memo: record.memo || "", updatedBy: session.email, updatedAt: serverTimestamp()
       });
-      record.saved = true;
     });
     await batch.commit();
+    pending.forEach(({ record }) => { record.saved = true; });
     els.reviewDialog.close();
     renderAll();
   } catch (error) {
@@ -634,9 +647,12 @@ function renderLookup() {
 
 async function refreshLookup() {
   if (!session || session.role === "teacher") return;
+  const waitMs = LOOKUP_REFRESH_COOLDOWN - (Date.now() - lastLookupRefreshAt);
+  if (waitMs > 0) return alert(`${Math.ceil(waitMs / 1000)}초 후 다시 새로고침할 수 있습니다.`);
   els.refreshLookupBtn.disabled = true;
   try {
     await loadRecords(els.lookupDate.value || todayKey(), true);
+    lastLookupRefreshAt = Date.now();
     if (isAdmin() && state.settings.contactVisible) await loadContacts();
     renderLookup();
     renderCounts();
@@ -1049,7 +1065,7 @@ function checkAlarms() {
   const now = new Date(), date = todayKey(), hhmm = now.toTimeString().slice(0, 5);
   if (!isAttendanceDay(now)) return;
   if (notificationAudiences().includes("input") && hhmm >= state.settings.morningTime && alarms.lastMorning !== date) {
-    alarms.lastMorning = date; addNotification("아침 출결 입력", "오늘 학생 출결을 입력해 주세요."); notify("아침 출결 입력 시간입니다", "오늘 학생 출결을 입력해 주세요.");
+    alarms.lastMorning = date; saveAlarms(); addNotification("아침 출결 입력", "오늘 학생 출결을 입력해 주세요."); notify("아침 출결 입력 시간입니다", "오늘 학생 출결을 입력해 주세요.");
   }
   if (notificationAudiences().includes("review") && hhmm >= state.settings.reviewTime && alarms.lastReview !== date) {
     alarms.lastReview = date; saveAlarms(); showReviewAlarm("review");
@@ -1090,17 +1106,30 @@ async function registerPushToken() {
   if (!token) return false;
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
   const tokenId = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  const audiences = notificationAudiences();
+  const syncSignature = JSON.stringify({ tokenId, uid: auth.currentUser.uid, email: session.email, role: session.role, audiences });
+  const previousSync = readPushTokenSync();
+  if (previousSync?.signature === syncSignature && Date.now() - Number(previousSync.syncedAt || 0) < PUSH_TOKEN_SYNC_INTERVAL) {
+    pushTokenActive = true;
+    return true;
+  }
   await setDoc(doc(db, "notificationTokens", tokenId), {
     token,
     uid: auth.currentUser.uid,
     email: session.email,
     role: session.role,
-    audiences: notificationAudiences(),
+    audiences,
     active: true,
     updatedAt: serverTimestamp()
   });
+  localStorage.setItem(PUSH_TOKEN_SYNC_KEY, JSON.stringify({ signature: syncSignature, syncedAt: Date.now() }));
   pushTokenActive = true;
   return true;
+}
+
+function readPushTokenSync() {
+  try { return JSON.parse(localStorage.getItem(PUSH_TOKEN_SYNC_KEY) || "null"); }
+  catch { return null; }
 }
 
 async function enableNotifications(showConfirmation = false) {

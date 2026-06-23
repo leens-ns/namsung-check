@@ -36,7 +36,7 @@
   </head>
   <body>
     <header><div><h1>남성초등학교 출결관리 시스템</h1><p>교사·방과후강사·관리자 사용 매뉴얼</p></div></header>
-    <nav aria-label="매뉴얼 목차"><div><a href="index.html">메인 화면으로</a><a href="#common">공통</a><a href="#teacher">교사</a><a href="#coach">방과후강사</a><a href="#admin">관리자</a><a href="#help">문제 해결</a></div></nav>
+    <nav aria-label="매뉴얼 목차"><div><a href="index.html">메인 화면으로</a><a href="#common">공통</a><a href="#teacher">교사</a><a href="#coach">방과후강사</a><a href="#admin">관리자</a><a href="#cost">비용·데이터</a><a href="#help">문제 해결</a></div></nav>
     <main>
       <section id="common">
         <h2>공통 시작 방법</h2>
@@ -95,6 +95,27 @@
         <h3>개인정보와 계정</h3>
         <ul><li>연락처가 꼭 필요할 때만 <strong>학부모 연락처 비공개</strong> 체크를 해제하고, 확인 후 다시 체크합니다.</li><li>연락처 설정은 관리자 설정에만 있으며 방과후강사 화면에는 표시되지 않습니다.</li><li>강사 이메일 등록은 조회 권한의 허용 목록입니다. 강사는 반드시 같은 이메일의 Google 계정으로 로그인해야 합니다.</li><li>계정 퇴직·담당 변경 시 즉시 권한을 삭제하거나 새 부서로 수정합니다.</li></ul>
         <p class="note warning">학생 CSV는 공개 Google 문서 링크로 연결하지 말고 관리자 기기의 파일로만 업로드하세요.</p>
+      </section>
+
+      <section id="cost">
+        <h2>비용과 데이터 관리</h2>
+        <h3>무료 운영 기준</h3>
+        <ul>
+          <li>현재 시스템은 Firebase의 무료 Spark 요금제 범위에서 운영하도록 구성되어 있습니다.</li>
+          <li>Firestore 무료 한도는 하루 읽기 50,000건, 쓰기 20,000건, 삭제 20,000건이며 저장 공간은 1GiB입니다.</li>
+          <li>Google 로그인은 일반 인증 기준 월간 활성 사용자 50,000명까지 무료이고, 웹 푸시 알림인 Firebase Cloud Messaging은 무료입니다.</li>
+          <li>GitHub 저장소가 공개 상태이고 표준 실행기를 사용하면 현재 알림 예약 작업의 GitHub Actions 실행 비용은 없습니다.</li>
+        </ul>
+        <h3>학교 예상 사용량</h3>
+        <p>교직원·강사 약 50명, 학생 약 450명, 주 2회 운영을 가정하면 일반적인 하루 읽기는 대략 5,000~15,000건, 출결 쓰기는 운영일 기준 약 450건 수준입니다. 여러 관리자가 반복 조회하는 상황을 포함해도 무료 한도보다 충분히 낮습니다.</p>
+        <p class="note">같은 출결을 다시 확정해도 변경된 학생만 저장합니다. 최신 출결 새로고침은 10초 간격으로 제한되며, 같은 기기의 알림 토큰은 하루 한 번만 갱신됩니다.</p>
+        <h3>관리자가 확인할 항목</h3>
+        <ol>
+          <li>Firebase Console의 <strong>Firestore Database → 사용량</strong>에서 읽기·쓰기·저장 공간을 월 1회 확인합니다.</li>
+          <li>결제 계정을 연결하기 전에는 무료 한도를 넘겨도 자동 과금되지 않고 해당 서비스 사용이 제한됩니다.</li>
+          <li>출결 자료의 법적·학교 내부 보관 기간을 정한 뒤, 필요 기간이 지난 자료는 별도 보관 또는 삭제 방침에 따라 정리합니다. 자동 유료 백업·PITR·TTL 기능은 사용하지 않습니다.</li>
+        </ol>
+        <p class="note warning">비용 경고를 피하려고 개인정보를 공개 저장소나 개인 파일로 옮기면 안 됩니다. 학생 CSV와 실제 출결 데이터는 GitHub에 게시되지 않고 Firestore에만 저장됩니다.</p>
       </section>
 
       <section id="help">
