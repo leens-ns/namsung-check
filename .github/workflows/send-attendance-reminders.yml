@@ -21,16 +21,22 @@ jobs:
       - uses: actions/checkout@v4
       - id: auth
         uses: google-github-actions/auth@v3
+        continue-on-error: ${{ github.event_name == 'schedule' }}
         with:
           project_id: namsung-check
           workload_identity_provider: projects/36959618515/locations/global/workloadIdentityPools/github/providers/namsung-check
           service_account: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - name: Record scheduled authentication warning
+        if: ${{ github.event_name == 'schedule' && steps.auth.outcome == 'failure' }}
+        run: echo "::warning::Google Cloud authentication failed. Scheduled reminders were skipped. Run this workflow manually after repairing Workload Identity Federation."
       - uses: actions/setup-node@v4
+        if: ${{ steps.auth.outcome == 'success' }}
         with:
           node-version: "20"
       - run: node automation/send-reminders.mjs
+        if: ${{ steps.auth.outcome == 'success' }}
         env:
           GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
           FIREBASE_PROJECT_ID: namsung-check
