@@ -85,6 +85,30 @@ body.is-authenticated .app-shell {
   font-weight: 700;
 }
 
+.install-app-button {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 10px;
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.install-app-header-button {
+  min-height: 44px;
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.install-dialog-body {
+  margin: 20px 0;
+  color: var(--ink);
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
 .demo-role-buttons {
   display: grid;
   gap: 8px;
@@ -1468,6 +1492,10 @@ dialog h2 {
 
   .notification-button {
     min-height: 44px;
+    width: 100%;
+  }
+
+  .install-app-header-button {
     width: 100%;
   }
 

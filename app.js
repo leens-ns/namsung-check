@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged,
-  signInWithPopup, signInWithRedirect, signOut
+  getAuth, GoogleAuthProvider, onAuthStateChanged,
+  signInWithPopup, signOut
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 import {
   collection, deleteDoc, doc, getDoc, getDocs, getFirestore,
@@ -44,9 +44,10 @@ let attendanceClassInitialized = false;
 let lastLookupRefreshAt = 0;
 let activeAttendanceDate = todayKey();
 let dateRolloverPromise = null;
+let deferredInstallPrompt = null;
 
 const els = Object.fromEntries([
-  "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "userPicture", "userName", "userEmail", "userRole",
+  "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole",
   "logoutBtn", "todayText", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "lookupDate", "lookupDepartment",
   "lookupTable", "refreshLookupBtn", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
@@ -57,6 +58,17 @@ const els = Object.fromEntries([
 
 init();
 
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  updateInstallUi();
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  updateInstallUi();
+});
+
 async function init() {
   els.todayText.textContent = new Intl.DateTimeFormat("ko-KR", { dateStyle: "full" }).format(new Date());
   els.lookupDate.value = todayKey();
@@ -65,6 +77,7 @@ async function init() {
   notificationRegistration = await registerNotificationWorker();
   updateNotificationPermissionUi();
   updateNotificationBadge();
+  updateInstallUi();
   scheduleChecks();
 
   const config = window.NSWORLD_CONFIG?.firebase;
@@ -79,7 +92,6 @@ async function init() {
     auth = getAuth(app);
     db = getFirestore(app);
     await setupMessaging(app);
-    await getRedirectResult(auth);
     onAuthStateChanged(auth, handleAuthChange);
   } catch (error) {
     showLoginError(readableError(error));
@@ -88,6 +100,9 @@ async function init() {
 
 function bindEvents() {
   els.googleSignInButton.addEventListener("click", loginWithGoogle);
+  els.installAppBtn.addEventListener("click", openInstallFlow);
+  els.installAppHeaderBtn.addEventListener("click", openInstallFlow);
+  els.runInstallBtn.addEventListener("click", installApp);
   els.logoutBtn.addEventListener("click", () => auth && signOut(auth));
   document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.view)));
   document.querySelectorAll(".segment").forEach((segment) => segment.addEventListener("click", () => {
@@ -132,14 +147,67 @@ function bindEvents() {
 async function loginWithGoogle() {
   if (!auth) return;
   els.loginError.textContent = "";
+  els.googleSignInButton.disabled = true;
+  els.googleSignInButton.textContent = "Google 로그인 여는 중...";
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
   try {
-    if (window.matchMedia("(max-width: 620px)").matches) await signInWithRedirect(auth, provider);
-    else await signInWithPopup(auth, provider);
+    // Popup auth avoids cross-origin redirect storage failures on Android browsers.
+    await signInWithPopup(auth, provider);
   } catch (error) {
     showLoginError(readableError(error));
+  } finally {
+    els.googleSignInButton.disabled = false;
+    els.googleSignInButton.textContent = "Google 계정으로 로그인";
   }
+}
+
+function isStandaloneApp() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function isIosDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function updateInstallUi() {
+  const installed = isStandaloneApp();
+  [els.installAppBtn, els.installAppHeaderBtn].forEach((button) => {
+    if (!button) return;
+    button.classList.toggle("is-hidden", installed);
+    button.textContent = deferredInstallPrompt ? "앱 설치" : "홈 화면에 설치";
+  });
+}
+
+function installInstructions() {
+  if (isIosDevice()) {
+    return "Safari에서 아래 공유 버튼을 누른 뒤 ‘홈 화면에 추가’를 선택하세요. Chrome에서는 설치할 수 없으므로 이 주소를 Safari로 열어 주세요.";
+  }
+  if (/Android/i.test(navigator.userAgent)) {
+    return "Chrome은 오른쪽 위 메뉴에서 ‘앱 설치’ 또는 ‘홈 화면에 추가’를 선택하세요. 삼성 인터넷은 메뉴에서 ‘현재 페이지 추가’ → ‘홈 화면’을 선택하세요.";
+  }
+  return "브라우저 주소창의 설치 아이콘이나 메뉴의 ‘앱 설치’를 선택하세요.";
+}
+
+function openInstallFlow() {
+  if (isStandaloneApp()) return;
+  els.installDialogTitle.textContent = "출결관리 앱 설치";
+  els.installDialogBody.textContent = deferredInstallPrompt
+    ? "설치하면 홈 화면에서 일반 앱처럼 바로 실행할 수 있습니다."
+    : installInstructions();
+  els.runInstallBtn.classList.toggle("is-hidden", !deferredInstallPrompt);
+  if (!els.installDialog.open) els.installDialog.showModal();
+}
+
+async function installApp() {
+  if (!deferredInstallPrompt) return;
+  const prompt = deferredInstallPrompt;
+  deferredInstallPrompt = null;
+  await prompt.prompt();
+  await prompt.userChoice;
+  els.installDialog.close();
+  updateInstallUi();
 }
 
 async function handleAuthChange(user) {
@@ -1284,7 +1352,11 @@ function showLoginError(message) { els.loginError.textContent = message; }
 function readableError(error) {
   const messages = {
     "auth/popup-closed-by-user": "로그인 창이 닫혔습니다.",
-    "auth/popup-blocked": "브라우저에서 로그인 팝업이 차단되었습니다.",
+    "auth/popup-blocked": "로그인 창이 차단되었습니다. 브라우저의 팝업 허용 후 다시 눌러 주세요.",
+    "auth/cancelled-popup-request": "이미 로그인 창이 열려 있습니다. 열린 창에서 로그인을 완료해 주세요.",
+    "auth/unauthorized-domain": "현재 접속 주소가 Firebase 로그인 허용 목록에 없습니다. 관리자에게 알려 주세요.",
+    "auth/network-request-failed": "네트워크 연결을 확인한 뒤 다시 로그인해 주세요.",
+    "auth/web-storage-unsupported": "브라우저의 쿠키와 사이트 저장소를 허용한 뒤 다시 로그인해 주세요.",
     "permission-denied": "이 작업을 수행할 권한이 없습니다."
   };
   return messages[error.code] || error.message || "처리 중 오류가 발생했습니다.";

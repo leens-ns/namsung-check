@@ -3,9 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#174a7c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="남성초 출결" />
     <title>남성초등학교 출결관리 시스템</title>
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=20260623-3" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="icon" href="icon-192.png" type="image/png" />
+    <link rel="stylesheet" href="styles.css?v=20260623-4" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
@@ -15,6 +21,7 @@
         <h1 id="login-title">출결관리 시스템</h1>
         <p>관리자가 등록한 이메일과 동일한 Google 계정으로 로그인해 주세요.</p>
         <button id="googleSignInButton" class="google-signin-button" type="button">Google 계정으로 로그인</button>
+        <button id="installAppBtn" class="install-app-button" type="button">홈 화면에 설치</button>
         <div id="googleSetupNotice" class="setup-notice is-hidden">
           Google OAuth 클라이언트 ID 설정이 필요합니다.
         </div>
@@ -48,7 +55,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a class="tab manual-link" href="manual.html?v=20260623-3" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a class="tab manual-link" href="manual.html?v=20260623-4" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -59,6 +66,7 @@
             <h1>오늘 출결</h1>
           </div>
           <div class="topbar-tools">
+            <button id="installAppHeaderBtn" class="install-app-header-button" type="button">홈 화면에 설치</button>
             <button id="notificationCenterBtn" class="notification-button" type="button" aria-label="알림함">
               <span aria-hidden="true">🔔</span>
               <span id="notificationButtonLabel">알림 켜기</span>
@@ -338,7 +346,21 @@
       </form>
     </dialog>
 
+    <dialog id="installDialog">
+      <form method="dialog">
+        <header>
+          <h2 id="installDialogTitle">출결관리 앱 설치</h2>
+          <button value="cancel" aria-label="닫기" type="submit">×</button>
+        </header>
+        <p id="installDialogBody" class="install-dialog-body"></p>
+        <footer>
+          <button value="cancel" type="submit">닫기</button>
+          <button id="runInstallBtn" class="primary" value="default" type="button">설치하기</button>
+        </footer>
+      </form>
+    </dialog>
+
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260623-3"></script>
+    <script type="module" src="app.js?v=20260623-4"></script>
   </body>
 </html>
