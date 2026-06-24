@@ -1263,6 +1263,7 @@ async function refreshLookup() {
     } else {
       const department = session.role === "coach" ? session.department : session.role === "teacher" ? "전체" : els.lookupDepartment.value;
       const scope = currentLookupScope();
+      if (isAdmin() && scope === "all") return alert("학생 전체 조회는 Firebase 읽기 사용량 보호를 위해 일별 조회만 지원합니다. 월별·학년도별은 내 학급이나 방과후 부서를 선택해 주세요.");
       if (isAdmin() && scope === "afterschool" && department === "전체") return alert("월별·학년도별 ‘방과후 수강학생 전체’ 조회는 읽기 사용량이 많습니다. 방과후 부서를 하나 선택해 주세요.");
       const range = lookupDateRange();
       const records = await loadRangeRecords(range.start, range.end, department, scope);
