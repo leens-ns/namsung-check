@@ -65,7 +65,7 @@ function showManual(role) {
 }
 
 function applyCoachManualLanguage() {
-  const language = ["ko", "en", "fr"].includes(localStorage.getItem(COACH_LANGUAGE_KEY)) ? localStorage.getItem(COACH_LANGUAGE_KEY) : "ko";
+  const language = ["ko", "en", "fr", "es"].includes(localStorage.getItem(COACH_LANGUAGE_KEY)) ? localStorage.getItem(COACH_LANGUAGE_KEY) : "ko";
   if (language === "ko") return;
   const content = {
     en: {
@@ -79,6 +79,12 @@ function applyCoachManualLanguage() {
       common: `<h2>Essentiel</h2><ol><li>Connectez-vous avec le même <strong>compte Google</strong> que celui enregistré par l’administrateur.</li><li>Ajoutez l’application à l’écran d’accueil et autorisez les notifications.</li><li>Déconnectez-vous toujours après avoir utilisé un appareil partagé.</li></ol><p class="note warning">Ne photographiez pas et n’enregistrez pas les informations des élèves ou les présences sur un appareil personnel.</p>`,
       coach: `<h2>Intervenant périscolaire</h2><ol><li>Dans <strong>Présences</strong>, vérifiez votre atelier et la date.</li><li>Appuyez sur <strong>Actualiser les présences</strong> juste avant le cours.</li><li>Consultez le détail par jour et les totaux par mois ou année scolaire.</li></ol><p class="note">Les mentions absent, en retard ou parti plus tôt saisies par l’enseignant sont toutes comptées comme <strong>Absent</strong> dans votre vue.</p><p class="note warning">L’accès des intervenants est en lecture seule. La saisie des présences, la modification des élèves et les coordonnées des parents ne sont pas disponibles.</p>`,
       footer: "Système de gestion des présences de l’école Namsung · Guide des intervenants"
+    },
+    es: {
+      lang: "es", title: "Sistema de gestión de asistencia de la Escuela Primaria Namsung", subtitle: "Guía para instructores extraescolares", badge: "Solo instructores", home: "Volver a la aplicación", commonNav: "Esencial", coachNav: "Instructor",
+      common: `<h2>Esencial</h2><ol><li>Inicia sesión con la misma <strong>cuenta de Google</strong> registrada por el administrador.</li><li>Añade la aplicación a la pantalla de inicio y permite las notificaciones.</li><li>Cierra siempre la sesión después de usar un dispositivo compartido.</li></ol><p class="note warning">No fotografíes ni guardes la información de los estudiantes o la asistencia en un dispositivo personal.</p>`,
+      coach: `<h2>Instructor de actividades extraescolares</h2><ol><li>En <strong>Asistencia</strong>, comprueba tu actividad y la fecha.</li><li>Pulsa <strong>Actualizar asistencia</strong> justo antes de la clase.</li><li>Consulta el detalle diario y los totales mensuales o del curso escolar.</li></ol><p class="note">Las anotaciones de ausencia, retraso o salida anticipada del profesor se cuentan como <strong>Ausente</strong> en tu vista.</p><p class="note warning">El acceso del instructor es solo de lectura. No permite registrar asistencia, modificar estudiantes ni consultar datos de contacto de los padres.</p>`,
+      footer: "Sistema de gestión de asistencia de Namsung · Guía para instructores"
     }
   }[language];
   document.documentElement.lang = content.lang;
