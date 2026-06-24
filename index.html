@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="icon" href="icon-192.png" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260624-2" />
+    <link rel="stylesheet" href="styles.css?v=20260624-3" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
@@ -48,6 +48,14 @@
             <span id="userEmail"></span>
             <small id="userRole"></small>
           </div>
+          <label id="coachLanguageControl" class="coach-language-control is-hidden">
+            <span id="coachLanguageLabel">언어</span>
+            <select id="coachLanguageSelect" aria-label="화면 언어">
+              <option value="ko">한국어</option>
+              <option value="en">English</option>
+              <option value="fr">Français</option>
+            </select>
+          </label>
           <button id="logoutBtn" type="button">로그아웃</button>
         </section>
 
@@ -55,7 +63,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a class="tab manual-link" href="manual.html?v=20260624-2" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260624-3" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -63,7 +71,7 @@
         <header class="topbar">
           <div>
             <p id="todayText" class="eyebrow"></p>
-            <h1>오늘 출결</h1>
+            <h1 id="mainTitle">오늘 출결</h1>
           </div>
           <div class="topbar-tools">
             <button id="installAppHeaderBtn" class="install-app-header-button" type="button">홈 화면에 설치</button>
@@ -73,11 +81,11 @@
               <strong id="notificationBadge" class="notification-badge is-hidden">0</strong>
             </button>
             <div id="statusStrip" class="status-strip">
-              <span id="presentCountItem"><strong id="presentCount">0</strong>출석</span>
-              <span id="lateCountItem"><strong id="lateCount">0</strong>지각</span>
-              <span id="earlyCountItem"><strong id="earlyCount">0</strong>조퇴</span>
-              <span id="absentCountItem"><strong id="absentCount">0</strong>결석</span>
-              <span id="unsetCountItem"><strong id="unsetCount">0</strong>미입력</span>
+              <span id="presentCountItem"><strong id="presentCount">0</strong><small id="presentCountLabel">출석</small></span>
+              <span id="lateCountItem"><strong id="lateCount">0</strong><small id="lateCountLabel">지각</small></span>
+              <span id="earlyCountItem"><strong id="earlyCount">0</strong><small id="earlyCountLabel">조퇴</small></span>
+              <span id="absentCountItem"><strong id="absentCount">0</strong><small id="absentCountLabel">결석</small></span>
+              <span id="unsetCountItem"><strong id="unsetCount">0</strong><small id="unsetCountLabel">미입력</small></span>
             </div>
           </div>
         </header>
@@ -119,7 +127,7 @@
           <div class="section-heading">
             <div>
               <h2 id="lookup-title">출결 조회</h2>
-              <p>일별 상세 또는 월별·학년도별 학생 출결 합계를 확인합니다.</p>
+              <p id="lookupDescription">일별 상세 또는 월별·학년도별 학생 출결 합계를 확인합니다.</p>
             </div>
           </div>
           <div class="lookup-mode-tabs" role="tablist" aria-label="조회 기간">
@@ -129,19 +137,19 @@
           </div>
           <div class="toolbar">
             <label id="lookupDateField">
-              조회 날짜
+              <span id="lookupDateLabel">조회 날짜</span>
               <input id="lookupDate" type="date" />
             </label>
             <label id="lookupMonthField" class="is-hidden">
-              조회 월
+              <span id="lookupMonthLabel">조회 월</span>
               <input id="lookupMonth" type="month" />
             </label>
             <label id="lookupSchoolYearField" class="is-hidden">
-              학년도
+              <span id="lookupSchoolYearLabel">학년도</span>
               <select id="lookupSchoolYear"></select>
             </label>
             <label id="lookupDepartmentField">
-              부서
+              <span id="lookupDepartmentLabel">부서</span>
               <select id="lookupDepartment"></select>
             </label>
             <button id="refreshLookupBtn" class="refresh-button" type="button">↻ 최신 출결 새로고침</button>
@@ -389,7 +397,7 @@
         </header>
         <p id="alarmDialogBody">오늘 학생 출결을 확인해 주세요.</p>
         <footer>
-          <button value="ok" class="primary" type="submit">확인하기</button>
+          <button id="alarmConfirmBtn" value="ok" class="primary" type="submit">확인하기</button>
         </footer>
       </form>
     </dialog>
@@ -397,13 +405,13 @@
     <dialog id="notificationDialog">
       <form method="dialog">
         <header>
-          <h2>알림함</h2>
+          <h2 id="notificationDialogTitle">알림함</h2>
           <button value="ok" aria-label="닫기" type="submit">×</button>
         </header>
         <div id="notificationList" class="notification-list"></div>
         <footer>
           <button id="clearNotificationsBtn" value="ok" type="button">알림 모두 지우기</button>
-          <button value="ok" class="primary" type="submit">닫기</button>
+          <button id="notificationCloseBtn" value="ok" class="primary" type="submit">닫기</button>
         </footer>
       </form>
     </dialog>
@@ -416,13 +424,13 @@
         </header>
         <p id="installDialogBody" class="install-dialog-body"></p>
         <footer>
-          <button value="cancel" type="submit">닫기</button>
+          <button id="installCloseBtn" value="cancel" type="submit">닫기</button>
           <button id="runInstallBtn" class="primary" value="default" type="button">설치하기</button>
         </footer>
       </form>
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260624-2"></script>
+    <script type="module" src="app.js?v=20260624-3"></script>
   </body>
 </html>
