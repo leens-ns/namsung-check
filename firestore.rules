@@ -82,7 +82,6 @@ service cloud.firestore {
             && data.grade is string
             && data.classNo is string)
           || (data.role == 'coach'
-            && !accountEmail.matches('.*@nsworld[.]net$')
             && data.department is string)
         );
     }
