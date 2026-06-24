@@ -282,6 +282,25 @@ label {
   width: 100%;
 }
 
+.coach-language-control {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.coach-language-control span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.coach-language-control select {
+  min-width: 0;
+  min-height: 40px;
+}
+
 .login-panel h2,
 .settings-layout h2 {
   margin: 0;
@@ -422,6 +441,11 @@ h1 {
 .status-strip strong {
   color: var(--ink);
   font-size: 22px;
+}
+
+.status-strip small {
+  color: inherit;
+  font-size: 12px;
 }
 
 .view {
@@ -1611,6 +1635,10 @@ dialog h2 {
   .user-panel button {
     grid-column: auto;
     width: auto;
+  }
+
+  .coach-language-control {
+    grid-column: 1 / -1;
   }
 
   .tabs {
