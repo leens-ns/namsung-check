@@ -116,25 +116,28 @@ async function readTokenCatalog() {
   const accessRoles = new Map(accessRows.flatMap((row) => {
     if (!row.document) return [];
     const email = decodeURIComponent(row.document.name.split("/").pop()).toLowerCase();
-    return [[email, stringField(row.document, "role")]];
+    const primaryRole = stringField(row.document, "role");
+    const roles = [primaryRole];
+    if (primaryRole !== "coach" && stringField(row.document, "coachDepartment")) roles.push("coach");
+    return [[email, roles]];
   }));
   return rows.flatMap((row) => {
     const document = row.document;
     if (!document) return [];
     const email = String(stringField(document, "email") || "").toLowerCase();
-    const role = email === "leens@nsworld.net" ? "admin" : accessRoles.get(email);
+    const roles = email === "leens@nsworld.net" ? ["admin", ...(accessRoles.get(email)?.includes("coach") ? ["coach"] : [])] : accessRoles.get(email) || [];
     const token = stringField(document, "token");
-    return token ? [{ token, name: document.name, email, role, language: stringField(document, "language") || "ko", audiences: arrayStringField(document, "audiences") }] : [];
+    return token ? [{ token, name: document.name, email, roles, language: stringField(document, "language") || "ko", audiences: arrayStringField(document, "audiences") }] : [];
   });
 }
 
 function readActiveTokens(reminder, tokenCatalog) {
   return tokenCatalog.filter((item) => {
     const validRole = reminder.audience === "coach-review"
-      ? item.role === "coach"
+      ? item.roles.includes("coach")
       : reminder.audience === "admin-usage"
-        ? item.role === "admin"
-        : ["admin", "teacher"].includes(item.role);
+        ? item.roles.includes("admin")
+        : item.roles.some((role) => ["admin", "teacher"].includes(role));
     return validRole && item.audiences.includes(reminder.audience) && (!reminder.targetEmail || item.email === reminder.targetEmail);
   });
 }
