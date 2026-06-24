@@ -24,4 +24,5 @@ process.argv = [
   "--non-interactive",
 ];
 
-require("firebase-tools");
+const firebasePackage = require("firebase-tools/package.json");
+require("firebase-tools/lib/bin/cli").cli(firebasePackage);
