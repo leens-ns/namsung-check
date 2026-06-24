@@ -31,8 +31,11 @@ jobs:
         with:
           node-version: "22"
           package-manager-cache: false
+      - name: Install Firebase CLI
+        run: npm install --prefix "$RUNNER_TEMP/firebase-cli" --no-save --no-package-lock firebase-tools@15.17.0
       - name: Deploy Firebase Hosting
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
-          GOOGLE_CLOUD_PROJECT: namsung-check
-        run: npx --yes firebase-tools@15.17.0 deploy --only hosting --project namsung-check --non-interactive
+          GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          GOOGLE_SERVICE_ACCOUNT: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
+          NODE_PATH: ${{ runner.temp }}/firebase-cli/node_modules
+        run: node automation/deploy-hosting.cjs
