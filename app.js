@@ -18,7 +18,7 @@ const PUSH_TOKEN_SYNC_INTERVAL = 24 * 60 * 60 * 1000;
 const LOOKUP_REFRESH_COOLDOWN = 10 * 1000;
 const COACH_LANGUAGE_KEY = "namsung-coach-language";
 const USAGE_REMINDER_DISMISS_KEY = "namsung-usage-reminder-dismissed";
-const GITHUB_DEPLOYMENTS_API = "https://api.github.com/repos/leens-ns/namsung-check/deployments?environment=github-pages&per_page=1";
+const GITHUB_ACTIONS_RUNS_API = "https://api.github.com/repos/leens-ns/namsung-check/actions/runs?per_page=20";
 const ORIGINAL_TITLE = document.title;
 const statusLabel = { present: "출석", late: "지각", absent: "결석", early: "조퇴", unset: "미입력" };
 const roleLabel = { admin: "관리자", teacher: "교사", coach: "방과후강사" };
@@ -79,7 +79,7 @@ const DEFAULT_AFTERSCHOOL_COURSES = {
 
 const state = {
   students: [], records: {}, contacts: {}, admins: { [ADMIN_EMAIL]: {} }, coaches: {}, teachers: {},
-  settings: { morningTime: "08:30", reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 4, attendanceDays: [1, 5], maxClassesPerGrade: 3, contactVisible: false, allowAllStudentsLookup: false, usageCheckDay: 1, autoCleanupEnabled: false, retentionMonths: 24, afterschoolCourses: structuredClone(DEFAULT_AFTERSCHOOL_COURSES) },
+  settings: { morningTime: "08:30", reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 4, attendanceDays: [1, 5], maxClassesPerGrade: 3, contactVisible: false, allowAllStudentsLookup: false, usageCheckDay: 1, usageLastConfirmedMonth: "", autoCleanupEnabled: false, retentionMonths: 24, afterschoolCourses: structuredClone(DEFAULT_AFTERSCHOOL_COURSES) },
   maintenance: null, systemHealth: null
 };
 const loadedRecordKeys = new Set();
@@ -108,7 +108,7 @@ const els = Object.fromEntries([
   "logoutBtn", "todayText", "mainTitle", "manualLink", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "alarmConfirmBtn", "notificationDialogTitle", "notificationCloseBtn", "installCloseBtn", "lookupScope", "lookupScopeField", "lookupScopeLabel", "lookupDate", "lookupDateField", "lookupMonth", "lookupMonthField", "lookupSchoolYear", "lookupSchoolYearField", "lookupDepartment", "lookupDepartmentField", "lookupPeriodSummary",
   "lookupTable", "refreshLookupBtn", "lookupDescription", "lookupDateLabel", "lookupMonthLabel", "lookupSchoolYearLabel", "lookupDepartmentLabel", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
-  "enableNotificationsBtn", "maskContactDefault", "allowAllStudentsLookup", "csvFileInput", "deleteAllStudentsBtn", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "clearCoachAssignmentsBtn", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "clearTeacherAssignmentsBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "usageCheckDay", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn", "usageReminderBanner", "dismissUsageReminderBtn", "cleanupHealthDot", "cleanupHealthText", "deploymentHealthDot", "deploymentHealthText", "reminderHealthDot", "reminderHealthText",
+  "enableNotificationsBtn", "maskContactDefault", "allowAllStudentsLookup", "csvFileInput", "deleteAllStudentsBtn", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "clearCoachAssignmentsBtn", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherCsvFileInput", "importTeachersBtn", "clearTeacherAssignmentsBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "usageCheckDay", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn", "usageReminderBanner", "usageReminderLink", "firebaseUsageLink", "dismissUsageReminderBtn", "cleanupHealthDot", "cleanupHealthText", "deploymentHealthDot", "deploymentHealthText", "reminderHealthDot", "reminderHealthText",
   "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn",
   "statusStrip", "presentCountItem", "lateCountItem", "earlyCountItem", "absentCountItem", "unsetCountItem", "presentCount", "lateCount", "earlyCount", "absentCount", "unsetCount", "presentCountLabel", "lateCountLabel", "earlyCountLabel", "absentCountLabel", "unsetCountLabel"
 ].map((id) => [id, document.getElementById(id)]));
@@ -213,6 +213,7 @@ function bindEvents() {
   els.addFridayDepartmentBtn.addEventListener("click", () => addAfterschoolCourse("friday"));
   els.addTeacherBtn.addEventListener("click", addTeacherAssignment);
   els.bulkAssignTeachersBtn.addEventListener("click", bulkAssignTeachers);
+  els.importTeachersBtn.addEventListener("click", importTeachersCsv);
   els.clearTeacherAssignmentsBtn.addEventListener("click", clearTeacherAssignments);
   document.querySelectorAll("[data-attendance-day]").forEach((input) => input.addEventListener("change", updateAttendanceDays));
   els.maxClassesPerGrade.addEventListener("change", updateMaxClassesPerGrade);
@@ -220,6 +221,7 @@ function bindEvents() {
   els.usageCheckDay.addEventListener("change", updateUsageCheckDay);
   els.refreshCleanupStatusBtn.addEventListener("click", refreshSystemHealth);
   els.dismissUsageReminderBtn.addEventListener("click", dismissUsageReminder);
+  [els.usageReminderLink, els.firebaseUsageLink].forEach((link) => link.addEventListener("click", markUsageChecked));
   els.notificationCenterBtn.addEventListener("click", openNotificationCenter);
   els.clearNotificationsBtn.addEventListener("click", clearNotifications);
 }
@@ -328,18 +330,28 @@ async function resolveAccess(user) {
   if (email === ADMIN_EMAIL || data.role === "admin") {
     return { role: "admin", grade: data.grade ? String(data.grade) : "", classNo: data.classNo ? String(data.classNo) : "" };
   }
+  if (access.exists() && data.role === "coach") {
+    return { role: "coach", department: data.department };
+  }
   if (email.endsWith("@nsworld.net")) {
     return access.exists() && data.role === "teacher"
       ? { role: "teacher", grade: String(data.grade), classNo: String(data.classNo) }
       : { role: "teacher" };
   }
-  return access.exists() && data.role === "coach"
-    ? { role: "coach", department: data.department }
-    : null;
+  return null;
 }
 
 async function loadCloudData() {
-  const settingsSnapshot = await getDoc(doc(db, "settings", "public"));
+  const studentsRef = collection(db, "students");
+  const studentsQuery = session.role === "coach"
+    ? query(studentsRef, where("departments", "array-contains", session.department))
+    : session.role === "teacher" && hasHomeroom()
+      ? query(studentsRef, where("grade", "==", session.grade), where("classNo", "==", session.classNo))
+      : studentsRef;
+  const [settingsSnapshot, studentsSnapshot] = await Promise.all([
+    getDoc(doc(db, "settings", "public")),
+    session.role === "teacher" && !hasHomeroom() ? Promise.resolve(null) : getDocs(studentsQuery)
+  ]);
   if (settingsSnapshot.exists()) {
     const savedSettings = settingsSnapshot.data();
     const mergedSettings = { ...state.settings, ...savedSettings };
@@ -354,16 +366,9 @@ async function loadCloudData() {
   }
   else if (isAdmin()) await setDoc(doc(db, "settings", "public"), state.settings);
 
-  const studentsRef = collection(db, "students");
   if (session.role === "teacher" && !hasHomeroom()) {
     state.students = [];
   } else {
-    const studentsQuery = session.role === "coach"
-      ? query(studentsRef, where("departments", "array-contains", session.department))
-      : session.role === "teacher"
-        ? query(studentsRef, where("grade", "==", session.grade), where("classNo", "==", session.classNo))
-        : studentsRef;
-    const studentsSnapshot = await getDocs(studentsQuery);
     state.students = studentsSnapshot.docs.map((item) => ({ id: item.id, ...item.data(), departments: normalizeDepartments(item.data().departments || item.data().department) })).sort(compareStudents);
   }
 
@@ -506,13 +511,28 @@ function currentMonthKey() {
 function updateUsageReminderBanner() {
   if (!isAdmin()) return els.usageReminderBanner.classList.add("is-hidden");
   const due = new Date().getDate() >= state.settings.usageCheckDay;
-  const dismissed = localStorage.getItem(USAGE_REMINDER_DISMISS_KEY) === currentMonthKey();
+  const dismissed = state.settings.usageLastConfirmedMonth === currentMonthKey()
+    || localStorage.getItem(USAGE_REMINDER_DISMISS_KEY) === currentMonthKey();
   els.usageReminderBanner.classList.toggle("is-hidden", !due || dismissed);
 }
 
 function dismissUsageReminder() {
-  localStorage.setItem(USAGE_REMINDER_DISMISS_KEY, currentMonthKey());
+  markUsageChecked();
+}
+
+async function markUsageChecked() {
+  if (!isAdmin()) return;
+  const month = currentMonthKey();
+  state.settings.usageLastConfirmedMonth = month;
+  localStorage.setItem(USAGE_REMINDER_DISMISS_KEY, month);
+  alarms.lastUsageMonth = month;
+  saveAlarms();
   updateUsageReminderBanner();
+  try {
+    await setDoc(doc(db, "settings", "public"), { usageLastConfirmedMonth: month, usageLastConfirmedAt: serverTimestamp(), usageLastConfirmedBy: session.email }, { merge: true });
+  } catch (error) {
+    console.error("Firebase usage confirmation could not be synchronized:", error);
+  }
 }
 
 async function updateUsageCheckDay() {
@@ -557,18 +577,17 @@ async function refreshSystemHealth() {
   if (!isAdmin()) return;
   els.refreshCleanupStatusBtn.disabled = true;
   ["cleanup", "deployment", "reminder"].forEach((name) => setHealthState(name, null, "확인 중"));
+  const [settingsResult, actionsResult] = await Promise.allSettled([
+    getDoc(doc(db, "settings", "public")),
+    fetch(GITHUB_ACTIONS_RUNS_API, { headers: { Accept: "application/vnd.github+json" } }).then(async (response) => {
+      if (!response.ok) throw new Error(`GitHub 상태 조회 오류 ${response.status}`);
+      return response.json();
+    })
+  ]);
   try {
-    const [settingsSnapshot, deploymentsResponse] = await Promise.all([
-      getDoc(doc(db, "settings", "public")),
-      fetch(GITHUB_DEPLOYMENTS_API, { headers: { Accept: "application/vnd.github+json" } })
-    ]);
-    if (!deploymentsResponse.ok) throw new Error(`GitHub 배포 조회 오류 ${deploymentsResponse.status}`);
+    if (settingsResult.status !== "fulfilled") throw settingsResult.reason;
+    const settingsSnapshot = settingsResult.value;
     const settings = settingsSnapshot.exists() ? settingsSnapshot.data() : {};
-    const deployment = (await deploymentsResponse.json())?.[0];
-    const deploymentStatusResponse = deployment?.statuses_url
-      ? await fetch(deployment.statuses_url, { headers: { Accept: "application/vnd.github+json" } })
-      : null;
-    const deploymentStatus = deploymentStatusResponse?.ok ? (await deploymentStatusResponse.json())?.[0] : null;
     state.maintenance = maintenanceFromSettings(settings);
     state.systemHealth = healthFromSettings(settings);
     renderMaintenanceStatus();
@@ -578,18 +597,22 @@ async function refreshSystemHealth() {
     const cleanupOk = !state.settings.autoCleanupEnabled || (["completed", "partial"].includes(state.maintenance?.status) && cleanupFresh);
     setHealthState("cleanup", cleanupOk, state.settings.autoCleanupEnabled ? readableRunTime(state.maintenance?.lastRunAt) : "정상 · 자동 삭제 사용 안 함");
 
-    const deploymentOk = deploymentStatus?.state === "success";
-    setHealthState("deployment", deploymentOk, deploymentStatus ? `${deploymentOk ? "정상" : "오류"} · ${readableRunTime(deploymentStatus.updated_at)}` : "배포 기록 없음");
-
     const healthAt = state.systemHealth?.reminderLastRunAt?.toDate ? state.systemHealth.reminderLastRunAt.toDate() : new Date(state.systemHealth?.reminderLastRunAt || 0);
     const healthFresh = Date.now() - healthAt.getTime() < 4 * 60 * 60 * 1000;
     const reminderOk = state.systemHealth?.reminderStatus === "healthy" && healthFresh;
     setHealthState("reminder", reminderOk, `${reminderOk ? "정상" : "오류 또는 실행 지연"} · ${readableRunTime(state.systemHealth?.reminderLastRunAt)}`);
   } catch (error) {
-    ["cleanup", "deployment", "reminder"].forEach((name) => setHealthState(name, false, `확인 실패 · ${readableError(error)}`));
-  } finally {
-    els.refreshCleanupStatusBtn.disabled = false;
+    ["cleanup", "reminder"].forEach((name) => setHealthState(name, false, `확인 실패 · ${readableError(error)}`));
   }
+  if (actionsResult.status === "fulfilled") {
+    const runs = actionsResult.value?.workflow_runs || [];
+    const deployment = runs.find((run) => /pages|deploy/i.test(`${run.name} ${run.path}`));
+    const deploymentOk = deployment?.status === "completed" && deployment?.conclusion === "success";
+    setHealthState("deployment", deployment ? deploymentOk : false, deployment ? `${deploymentOk ? "정상" : "오류 또는 실행 중"} · ${readableRunTime(deployment.updated_at)}` : "배포 기록 없음");
+  } else {
+    setHealthState("deployment", false, `확인 실패 · ${readableError(actionsResult.reason)}`);
+  }
+  els.refreshCleanupStatusBtn.disabled = false;
 }
 
 async function saveRetentionSettings() {
@@ -1394,7 +1417,8 @@ async function addCoach() {
   const email = els.coachEmailInput.value.trim().toLowerCase();
   const department = els.coachDepartmentInput.value;
   if (!email || !email.includes("@") || !department) return alert("강사 이메일과 담당 부서를 확인해 주세요.");
-  if (email.endsWith("@nsworld.net")) return alert("학교 도메인 계정은 교사 권한으로 자동 분류됩니다.");
+  if (state.admins[email]) return alert("관리자 계정은 방과후강사로 변경할 수 없습니다.");
+  if (state.teachers[email] && !confirm(`${email}의 담임 배정을 해제하고 방과후강사로 등록할까요?`)) return;
   await setDoc(doc(db, "access", email), { role: "coach", department, updatedAt: serverTimestamp(), updatedBy: session.email });
   els.coachEmailInput.value = "";
   await loadCoachList();
@@ -1415,10 +1439,12 @@ async function importCoachesCsv() {
       const day = item["요일"] || item.day || "";
       return { row: index + 2, email, department: normalizeCoachDepartment(course, day) };
     });
-    const invalid = assignments.filter(({ email, department }) => !email.includes("@") || email.endsWith("@nsworld.net") || !department);
+    const invalid = assignments.filter(({ email, department }) => !email.includes("@") || !department || state.admins[email]);
     if (invalid.length) throw new Error(`${invalid.map((item) => item.row).join(", ")}행의 이메일·요일·부서를 확인해 주세요.`);
     if (!assignments.length) throw new Error("등록할 강사 정보가 없습니다.");
     const uniqueAssignments = [...new Map(assignments.map((item) => [item.email, item])).values()];
+    const homeroomChanges = uniqueAssignments.filter(({ email }) => state.teachers[email]);
+    if (homeroomChanges.length && !confirm(`담임 배정이 있는 ${homeroomChanges.length}개 계정을 방과후강사로 변경할까요?\n해당 계정의 담임 배정은 해제됩니다.`)) return;
     for (let start = 0; start < uniqueAssignments.length; start += 400) {
       const batch = writeBatch(db);
       uniqueAssignments.slice(start, start + 400).forEach(({ email, department }) => {
@@ -1575,6 +1601,47 @@ async function bulkAssignTeachers() {
   renderAdminList();
   renderTeacherList();
   alert(`${assignments.length}명의 담임 배정을 저장했습니다.`);
+}
+
+async function importTeachersCsv() {
+  if (!isAdmin()) return;
+  const file = els.teacherCsvFileInput.files?.[0];
+  if (!file) return alert("담임교사 배정 CSV 파일을 선택해 주세요.");
+  try {
+    const rows = parseCsv((await file.text()).replace(/^\uFEFF/, ""));
+    const headers = rows.shift().map((header) => header.trim().toLowerCase());
+    const parsed = rows.filter((row) => row.some((value) => String(value).trim())).map((row, index) => {
+      const item = Object.fromEntries(headers.map((header, headerIndex) => [header, String(row[headerIndex] || "").trim()]));
+      const email = (item["이메일"] || item["메일"] || item.email || "").toLowerCase();
+      const grade = item["학년"] || item.grade || "";
+      const classNo = item["반"] || item["학급"] || item.class || item.classno || "";
+      return { row: index + 2, email, grade: String(grade), classNo: String(classNo) };
+    });
+    const invalid = parsed.filter(({ email, grade, classNo }) => !email.endsWith("@nsworld.net") || !/^[1-6]$/.test(grade) || !/^\d+$/.test(classNo) || Number(classNo) > state.settings.maxClassesPerGrade);
+    if (invalid.length) throw new Error(`${invalid.map((item) => item.row).join(", ")}행의 학교 이메일·학년·반을 확인해 주세요.`);
+    if (!parsed.length) throw new Error("배정할 담임교사 정보가 없습니다.");
+    const assignments = [...new Map(parsed.map((item) => [item.email, item])).values()];
+    const changed = assignments.filter(({ email, grade, classNo }) => state.teachers[email] && (state.teachers[email].grade !== grade || state.teachers[email].classNo !== classNo));
+    if (changed.length && !confirm(`기존 담임 ${changed.length}명의 학급 배정을 CSV 기준으로 변경할까요?`)) return;
+    for (let start = 0; start < assignments.length; start += 400) {
+      const batch = writeBatch(db);
+      assignments.slice(start, start + 400).forEach(({ email, grade, classNo }) => {
+        const role = state.admins[email] ? "admin" : "teacher";
+        batch.set(doc(db, "access", email), { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
+        state.teachers[email] = { grade, classNo };
+        if (role === "admin") state.admins[email] = { grade, classNo };
+      });
+      await batch.commit();
+    }
+    const currentAssignment = assignments.find(({ email }) => email === session.email);
+    if (currentAssignment) syncCurrentHomeroom(currentAssignment.email, currentAssignment.grade, currentAssignment.classNo);
+    els.teacherCsvFileInput.value = "";
+    renderAdminList();
+    renderTeacherList();
+    alert(`${assignments.length}명의 담임 배정을 CSV로 저장했습니다.`);
+  } catch (error) {
+    alert(`담임 CSV 배정 실패: ${readableError(error)}`);
+  }
 }
 
 async function clearTeacherAssignments() {
@@ -1762,6 +1829,7 @@ function normalizeSettings(settings) {
     autoCleanupEnabled: settings.autoCleanupEnabled === true,
     allowAllStudentsLookup: settings.allowAllStudentsLookup === true,
     usageCheckDay,
+    usageLastConfirmedMonth: /^\d{4}-\d{2}$/.test(settings.usageLastConfirmedMonth || "") ? settings.usageLastConfirmedMonth : "",
     retentionMonths,
     afterschoolCourses: {
       monday: [...new Set((savedCourses.monday || DEFAULT_AFTERSCHOOL_COURSES.monday).map((value) => String(value).trim()).filter(Boolean))],
@@ -1845,7 +1913,7 @@ function checkAlarms() {
   if (!session || pushTokenActive || !canReceiveNotifications()) return;
   const now = new Date(), date = todayKey(), hhmm = now.toTimeString().slice(0, 5);
   const month = date.slice(0, 7);
-  if (isAdmin() && now.getDate() >= state.settings.usageCheckDay && alarms.lastUsageMonth !== month) {
+  if (isAdmin() && now.getDate() >= state.settings.usageCheckDay && state.settings.usageLastConfirmedMonth !== month && alarms.lastUsageMonth !== month) {
     alarms.lastUsageMonth = month; saveAlarms();
     addNotification("Firebase 사용량 확인", "이번 달 읽기·쓰기·저장 공간이 무료 범위인지 확인해 주세요.");
     notify("Firebase 사용량 확인", "이번 달 Firebase 사용량을 확인해 주세요.");
