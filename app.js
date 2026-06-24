@@ -16,9 +16,48 @@ const ALARM_KEY = "nsworld-alarm-state";
 const PUSH_TOKEN_SYNC_KEY = "nsworld-push-token-sync";
 const PUSH_TOKEN_SYNC_INTERVAL = 24 * 60 * 60 * 1000;
 const LOOKUP_REFRESH_COOLDOWN = 10 * 1000;
+const COACH_LANGUAGE_KEY = "namsung-coach-language";
 const ORIGINAL_TITLE = document.title;
 const statusLabel = { present: "출석", late: "지각", absent: "결석", early: "조퇴", unset: "미입력" };
 const roleLabel = { admin: "관리자", teacher: "교사", coach: "방과후강사" };
+const COACH_I18N = {
+  ko: {
+    language: "언어", coach: "방과후강사", logout: "로그아웃", lookup: "출결 조회", manual: "사용 매뉴얼", title: "방과후 출결",
+    description: "일별 상세 또는 월별·학년도별 학생 출결 합계를 확인합니다.", day: "일별", month: "월별", schoolYear: "학년도별",
+    lookupDate: "조회 날짜", lookupMonth: "조회 월", schoolYearLabel: "학년도", department: "부서", refresh: "↻ 최신 출결 새로고침",
+    student: "학생", status: "출결", memo: "특이사항", present: "출석", absent: "결석", late: "지각", early: "조퇴", unset: "미입력", records: "기록",
+    choosePeriod: "기간을 선택한 뒤 <strong>최신 출결 새로고침</strong>을 눌러 주세요.", noStudents: "조회할 학생이 없습니다.",
+    operationSummary: ({ days, records }) => `운영 기록 ${days}일 · 저장된 출결 ${records}건`, schoolYearName: ({ year }) => `${year}학년도`,
+    wait: ({ seconds }) => `${seconds}초 후 다시 새로고침할 수 있습니다.`, lookupFailed: "조회 실패",
+    install: "홈 화면에 설치", installReady: "앱 설치", notificationsOn: "알림 켜짐", notificationsEnable: "알림 켜기", notificationsPermission: "알림 허용 필요",
+    notificationsUnsupported: "체험판 알림 미지원", notificationTitle: "알림함", clearNotifications: "알림 모두 지우기", noNotifications: "도착한 알림이 없습니다.", close: "닫기", confirm: "확인하기", installAction: "설치하기",
+    installTitle: "출결관리 앱 설치", installBody: "설치하면 홈 화면에서 일반 앱처럼 바로 실행할 수 있습니다.", reviewTitle: "방과후 출결 확인 알림", reviewBody: "오늘 방과후 수강 학생의 출결을 확인해 주세요."
+  },
+  en: {
+    language: "Language", coach: "Afterschool instructor", logout: "Sign out", lookup: "Attendance", manual: "User guide", title: "Afterschool attendance",
+    description: "View daily details or monthly and school-year attendance totals.", day: "Daily", month: "Monthly", schoolYear: "School year",
+    lookupDate: "Date", lookupMonth: "Month", schoolYearLabel: "School year", department: "Class", refresh: "↻ Refresh attendance",
+    student: "Student", status: "Attendance", memo: "Notes", present: "Present", absent: "Absent", late: "Late", early: "Left early", unset: "Not entered", records: "Records",
+    choosePeriod: "Select a period, then tap <strong>Refresh attendance</strong>.", noStudents: "No students found.",
+    operationSummary: ({ days, records }) => `${days} class days · ${records} saved records`, schoolYearName: ({ year }) => `${year}-${year + 1} school year`,
+    wait: ({ seconds }) => `Please refresh again in ${seconds} seconds.`, lookupFailed: "Could not load attendance",
+    install: "Add to Home Screen", installReady: "Install app", notificationsOn: "Notifications on", notificationsEnable: "Turn on notifications", notificationsPermission: "Allow notifications",
+    notificationsUnsupported: "Notifications unavailable in preview", notificationTitle: "Notifications", clearNotifications: "Clear all", noNotifications: "No notifications yet.", close: "Close", confirm: "OK", installAction: "Install",
+    installTitle: "Install attendance app", installBody: "Install the app to open it directly from your Home Screen.", reviewTitle: "Afterschool attendance reminder", reviewBody: "Please check today's attendance before your afterschool class."
+  },
+  fr: {
+    language: "Langue", coach: "Intervenant périscolaire", logout: "Se déconnecter", lookup: "Présences", manual: "Guide d’utilisation", title: "Présences périscolaires",
+    description: "Consultez le détail quotidien ou les totaux mensuels et annuels.", day: "Jour", month: "Mois", schoolYear: "Année scolaire",
+    lookupDate: "Date", lookupMonth: "Mois", schoolYearLabel: "Année scolaire", department: "Atelier", refresh: "↻ Actualiser les présences",
+    student: "Élève", status: "Présence", memo: "Remarques", present: "Présent", absent: "Absent", late: "En retard", early: "Parti plus tôt", unset: "Non renseigné", records: "Enregistrements",
+    choosePeriod: "Sélectionnez une période, puis appuyez sur <strong>Actualiser les présences</strong>.", noStudents: "Aucun élève trouvé.",
+    operationSummary: ({ days, records }) => `${days} jours de cours · ${records} enregistrements`, schoolYearName: ({ year }) => `Année scolaire ${year}-${year + 1}`,
+    wait: ({ seconds }) => `Veuillez réessayer dans ${seconds} secondes.`, lookupFailed: "Impossible de charger les présences",
+    install: "Ajouter à l’écran d’accueil", installReady: "Installer l’application", notificationsOn: "Notifications activées", notificationsEnable: "Activer les notifications", notificationsPermission: "Autoriser les notifications",
+    notificationsUnsupported: "Notifications indisponibles dans l’aperçu", notificationTitle: "Notifications", clearNotifications: "Tout effacer", noNotifications: "Aucune notification.", close: "Fermer", confirm: "OK", installAction: "Installer",
+    installTitle: "Installer l’application de présence", installBody: "Installez l’application pour l’ouvrir directement depuis l’écran d’accueil.", reviewTitle: "Rappel des présences périscolaires", reviewBody: "Veuillez vérifier les présences avant votre atelier aujourd’hui."
+  }
+};
 const DEFAULT_AFTERSCHOOL_COURSES = {
   monday: ["교육마술", "로봇 & 코딩", "무용", "미디어 스타", "바이올린", "배구", "스페인어", "창의미술", "창의요리", "첼로", "클라리넷", "프랑스(L.F.E)", "프랑스어", "플루트", "AI Makers", "Book Club", "English STEAM", "Musical", "STEAM"],
   friday: ["그래비트랙스", "대화영어", "로봇 & 코딩", "바이올린", "배구", "스케이트보드", "영화(영상)제작", "첼로", "치어리딩", "클라리넷", "클레이", "플루트", "C.E.(Conver~)", "D&D", "D&D(원어민)", "English STEAM", "Speech", "STEAM", "TED"]
@@ -48,15 +87,16 @@ let lookupRange = { key: "", records: [], start: "", end: "" };
 let activeAttendanceDate = todayKey();
 let dateRolloverPromise = null;
 let deferredInstallPrompt = null;
+let coachLanguage = "ko";
 
 const els = Object.fromEntries([
-  "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole",
-  "logoutBtn", "todayText", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
-  "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "lookupDate", "lookupDateField", "lookupMonth", "lookupMonthField", "lookupSchoolYear", "lookupSchoolYearField", "lookupDepartment", "lookupDepartmentField", "lookupPeriodSummary",
-  "lookupTable", "refreshLookupBtn", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
+  "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole", "coachLanguageControl", "coachLanguageLabel", "coachLanguageSelect",
+  "logoutBtn", "todayText", "mainTitle", "manualLink", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
+  "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "alarmConfirmBtn", "notificationDialogTitle", "notificationCloseBtn", "installCloseBtn", "lookupDate", "lookupDateField", "lookupMonth", "lookupMonthField", "lookupSchoolYear", "lookupSchoolYearField", "lookupDepartment", "lookupDepartmentField", "lookupPeriodSummary",
+  "lookupTable", "refreshLookupBtn", "lookupDescription", "lookupDateLabel", "lookupMonthLabel", "lookupSchoolYearLabel", "lookupDepartmentLabel", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
   "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "deleteAllStudentsBtn", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "clearTeacherAssignmentsBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn",
   "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn",
-  "statusStrip", "presentCountItem", "lateCountItem", "earlyCountItem", "absentCountItem", "unsetCountItem", "presentCount", "lateCount", "earlyCount", "absentCount", "unsetCount"
+  "statusStrip", "presentCountItem", "lateCountItem", "earlyCountItem", "absentCountItem", "unsetCountItem", "presentCount", "lateCount", "earlyCount", "absentCount", "unsetCount", "presentCountLabel", "lateCountLabel", "earlyCountLabel", "absentCountLabel", "unsetCountLabel"
 ].map((id) => [id, document.getElementById(id)]));
 
 init();
@@ -109,6 +149,12 @@ function bindEvents() {
   els.installAppHeaderBtn.addEventListener("click", openInstallFlow);
   els.runInstallBtn.addEventListener("click", installApp);
   els.logoutBtn.addEventListener("click", () => auth && signOut(auth));
+  els.coachLanguageSelect.addEventListener("change", () => {
+    coachLanguage = els.coachLanguageSelect.value;
+    localStorage.setItem(COACH_LANGUAGE_KEY, coachLanguage);
+    applyCoachLanguage();
+    renderLookup();
+  });
   document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.view)));
   document.querySelectorAll(".segment").forEach((segment) => segment.addEventListener("click", () => {
     activeFilter = segment.dataset.filter;
@@ -188,7 +234,9 @@ function updateInstallUi() {
   [els.installAppBtn, els.installAppHeaderBtn].forEach((button) => {
     if (!button) return;
     button.classList.toggle("is-hidden", installed);
-    button.textContent = deferredInstallPrompt ? "앱 설치" : "홈 화면에 설치";
+    button.textContent = session?.role === "coach"
+      ? coachText(deferredInstallPrompt ? "installReady" : "install")
+      : deferredInstallPrompt ? "앱 설치" : "홈 화면에 설치";
   });
 }
 
@@ -204,9 +252,10 @@ function installInstructions() {
 
 function openInstallFlow() {
   if (isStandaloneApp()) return;
-  els.installDialogTitle.textContent = "출결관리 앱 설치";
+  const coach = session?.role === "coach";
+  els.installDialogTitle.textContent = coach ? coachText("installTitle") : "출결관리 앱 설치";
   els.installDialogBody.textContent = deferredInstallPrompt
-    ? "설치하면 홈 화면에서 일반 앱처럼 바로 실행할 수 있습니다."
+    ? coach ? coachText("installBody") : "설치하면 홈 화면에서 일반 앱처럼 바로 실행할 수 있습니다."
     : installInstructions();
   els.runInstallBtn.classList.toggle("is-hidden", !deferredInstallPrompt);
   if (!els.installDialog.open) els.installDialog.showModal();
@@ -342,6 +391,9 @@ function applySession() {
       : roleLabel[session.role];
   els.userPicture.src = session.picture || "logo.svg";
 
+  const savedCoachLanguage = localStorage.getItem(COACH_LANGUAGE_KEY);
+  coachLanguage = session.role === "coach" && ["ko", "en", "fr"].includes(savedCoachLanguage) ? savedCoachLanguage : "ko";
+
   const admin = isAdmin();
   els.attendanceTab.classList.toggle("is-hidden", session.role === "coach");
   els.lookupTab.classList.remove("is-hidden");
@@ -365,6 +417,7 @@ function applySession() {
   if (canReceiveNotifications() && "Notification" in window && Notification.permission === "granted") registerPushToken().catch(() => {});
   refreshDepartments();
   setLookupMode("day");
+  applyCoachLanguage();
   switchView(session.role === "coach" ? "lookupView" : "attendanceView");
   renderAll();
 }
@@ -483,6 +536,54 @@ function resetSessionCache() {
 
 function currentSchoolYear(date = new Date()) {
   return date.getMonth() >= 2 ? date.getFullYear() : date.getFullYear() - 1;
+}
+
+function coachText(key, values = {}) {
+  const table = COACH_I18N[coachLanguage] || COACH_I18N.ko;
+  const value = table[key] ?? COACH_I18N.ko[key] ?? key;
+  return typeof value === "function" ? value(values) : value;
+}
+
+function coachLocale() {
+  return coachLanguage === "en" ? "en-US" : coachLanguage === "fr" ? "fr-FR" : "ko-KR";
+}
+
+function displayStatusLabel(status) {
+  return session?.role === "coach" ? coachText(status) : statusLabel[status] || statusLabel.unset;
+}
+
+function applyCoachLanguage() {
+  if (session?.role !== "coach") {
+    document.documentElement.lang = "ko";
+    els.coachLanguageControl.classList.add("is-hidden");
+    return;
+  }
+  document.documentElement.lang = coachLanguage;
+  els.coachLanguageControl.classList.remove("is-hidden");
+  els.coachLanguageSelect.value = coachLanguage;
+  els.coachLanguageLabel.textContent = coachText("language");
+  els.userRole.textContent = `${coachText("coach")} · ${session.department}`;
+  els.logoutBtn.textContent = coachText("logout");
+  els.lookupTab.textContent = coachText("lookup");
+  els.manualLink.textContent = coachText("manual");
+  els.mainTitle.textContent = coachText("title");
+  els.todayText.textContent = new Intl.DateTimeFormat(coachLocale(), { dateStyle: "full" }).format(new Date());
+  els.lookupDescription.textContent = coachText("description");
+  document.querySelectorAll("[data-lookup-mode]").forEach((button) => { button.textContent = coachText(button.dataset.lookupMode); });
+  els.lookupDateLabel.textContent = coachText("lookupDate");
+  els.lookupMonthLabel.textContent = coachText("lookupMonth");
+  els.lookupSchoolYearLabel.textContent = coachText("schoolYearLabel");
+  els.lookupDepartmentLabel.textContent = coachText("department");
+  els.refreshLookupBtn.textContent = coachText("refresh");
+  els.notificationDialogTitle.textContent = coachText("notificationTitle");
+  els.clearNotificationsBtn.textContent = coachText("clearNotifications");
+  els.notificationCloseBtn.textContent = coachText("close");
+  els.alarmConfirmBtn.textContent = coachText("confirm");
+  els.installCloseBtn.textContent = coachText("close");
+  els.runInstallBtn.textContent = coachText("installAction");
+  ["present", "late", "early", "absent", "unset"].forEach((status) => { els[`${status}CountLabel`].textContent = coachText(status); });
+  updateInstallUi();
+  updateNotificationPermissionUi();
 }
 
 function fillSchoolYearOptions() {
@@ -846,12 +947,13 @@ function renderLookup() {
   els.lookupTable.classList.remove("lookup-summary-table");
   els.lookupTable.classList.remove("coach-lookup-summary");
   els.lookupTable.classList.toggle("no-contact", !adminView);
-  els.lookupTable.innerHTML = `<div class="table-row table-head"><div>학생</div><div>부서</div><div>출결</div><div>특이사항</div>${adminView ? "<div>학부모 연락처</div>" : ""}</div>${students.map((student) => {
+  const labels = { student: coach ? coachText("student") : "학생", department: coach ? coachText("department") : "부서", status: coach ? coachText("status") : "출결", memo: coach ? coachText("memo") : "특이사항" };
+  els.lookupTable.innerHTML = `<div class="table-row table-head"><div>${labels.student}</div><div>${labels.department}</div><div>${labels.status}</div><div>${labels.memo}</div>${adminView ? "<div>학부모 연락처</div>" : ""}</div>${students.map((student) => {
     const record = records[student.id] || { status: "unset", memo: "" };
     const displayStatus = coach && ["late", "early"].includes(record.status) ? "absent" : record.status;
     const phone = state.settings.contactVisible ? state.contacts[student.id] || "-" : "비공개";
     const visibleDepartment = department === "전체" ? departmentLabel(student) : department;
-    return `<div class="table-row"><div data-label="학생"><strong>${escapeHtml(student.name)}</strong> <span class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div data-label="부서">${escapeHtml(visibleDepartment)}</div><div data-label="출결" class="status-${displayStatus}">${statusLabel[displayStatus] || statusLabel.unset}</div><div data-label="특이사항">${record.memo ? escapeHtml(record.memo) : "-"}</div>${adminView ? `<div data-label="학부모 연락처">${escapeHtml(phone)}</div>` : ""}</div>`;
+    return `<div class="table-row"><div data-label="${labels.student}"><strong>${escapeHtml(student.name)}</strong> <span class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div data-label="${labels.department}">${escapeHtml(visibleDepartment)}</div><div data-label="${labels.status}" class="status-${displayStatus}">${displayStatusLabel(displayStatus)}</div><div data-label="${labels.memo}">${record.memo ? escapeHtml(record.memo) : "-"}</div>${adminView ? `<div data-label="학부모 연락처">${escapeHtml(phone)}</div>` : ""}</div>`;
   }).join("")}`;
 }
 
@@ -859,11 +961,14 @@ function lookupDateRange() {
   if (lookupMode === "month") {
     const [year, month] = (els.lookupMonth.value || todayKey().slice(0, 7)).split("-").map(Number);
     const endDay = new Date(year, month, 0).getDate();
-    return { start: `${year}-${String(month).padStart(2, "0")}-01`, end: `${year}-${String(month).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`, label: `${year}년 ${month}월` };
+    const label = session?.role === "coach"
+      ? new Intl.DateTimeFormat(coachLocale(), { year: "numeric", month: "long" }).format(new Date(year, month - 1, 1))
+      : `${year}년 ${month}월`;
+    return { start: `${year}-${String(month).padStart(2, "0")}-01`, end: `${year}-${String(month).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`, label };
   }
   const year = Number(els.lookupSchoolYear.value || currentSchoolYear());
   const endDay = new Date(year + 1, 2, 0).getDate();
-  return { start: `${year}-03-01`, end: `${year + 1}-02-${String(endDay).padStart(2, "0")}`, label: `${year}학년도` };
+  return { start: `${year}-03-01`, end: `${year + 1}-02-${String(endDay).padStart(2, "0")}`, label: session?.role === "coach" ? coachText("schoolYearName", { year }) : `${year}학년도` };
 }
 
 async function loadRangeRecords(start, end, department) {
@@ -884,7 +989,7 @@ function renderLookupSummary() {
   els.lookupTable.classList.toggle("coach-lookup-summary", coach);
   if (!lookupRange.key) {
     els.lookupPeriodSummary.classList.add("is-hidden");
-    els.lookupTable.innerHTML = `<p class="lookup-empty">기간과 ${isAdmin() ? "부서를 " : ""}선택한 뒤 <strong>최신 출결 새로고침</strong>을 눌러 주세요.</p>`;
+    els.lookupTable.innerHTML = `<p class="lookup-empty">${coach ? coachText("choosePeriod") : `기간과 ${isAdmin() ? "부서를 " : ""}선택한 뒤 <strong>최신 출결 새로고침</strong>을 눌러 주세요.`}</p>`;
     return;
   }
   const byStudent = new Map();
@@ -896,25 +1001,27 @@ function renderLookupSummary() {
     byStudent.set(record.studentId, summary);
   });
   const operationDays = new Set(lookupRange.records.map((record) => record.date)).size;
-  els.lookupPeriodSummary.innerHTML = `<strong>${escapeHtml(lookupRange.label)}</strong><span>${escapeHtml(department === "전체" ? teacher ? `${session.grade}학년 ${session.classNo}반` : "전체" : department)} · 운영 기록 ${operationDays}일 · 저장된 출결 ${lookupRange.records.length.toLocaleString("ko-KR")}건</span>`;
+  const recordCount = lookupRange.records.length.toLocaleString(coach ? coachLocale() : "ko-KR");
+  const summaryText = coach ? coachText("operationSummary", { days: operationDays, records: recordCount }) : `운영 기록 ${operationDays}일 · 저장된 출결 ${recordCount}건`;
+  els.lookupPeriodSummary.innerHTML = `<strong>${escapeHtml(lookupRange.label)}</strong><span>${escapeHtml(department === "전체" ? teacher ? `${session.grade}학년 ${session.classNo}반` : "전체" : department)} · ${escapeHtml(summaryText)}</span>`;
   els.lookupPeriodSummary.classList.remove("is-hidden");
   const columns = coach
-    ? `<div>학생</div><div>출석</div><div>결석</div><div>기록</div>`
+    ? `<div>${coachText("student")}</div><div>${coachText("present")}</div><div>${coachText("absent")}</div><div>${coachText("records")}</div>`
     : `<div>학생</div><div>출석</div><div>결석</div><div>지각</div><div>조퇴</div><div>기록</div>`;
   const rows = students.map((student) => {
     const count = byStudent.get(student.id) || { present: 0, absent: 0, late: 0, early: 0, total: 0 };
     const identity = `<strong>${escapeHtml(student.name)}</strong><span class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span>`;
     return coach
-      ? `<div class="table-row lookup-summary-row"><div data-label="학생">${identity}</div><div data-label="출석" class="status-present">${count.present}</div><div data-label="결석" class="status-absent">${count.absent}</div><div data-label="기록">${count.total}</div></div>`
+      ? `<div class="table-row lookup-summary-row"><div data-label="${coachText("student")}">${identity}</div><div data-label="${coachText("present")}" class="status-present">${count.present}</div><div data-label="${coachText("absent")}" class="status-absent">${count.absent}</div><div data-label="${coachText("records")}">${count.total}</div></div>`
       : `<div class="table-row lookup-summary-row"><div data-label="학생">${identity}</div><div data-label="출석" class="status-present">${count.present}</div><div data-label="결석" class="status-absent">${count.absent}</div><div data-label="지각" class="status-late">${count.late}</div><div data-label="조퇴" class="status-early">${count.early}</div><div data-label="기록">${count.total}</div></div>`;
   }).join("");
-  els.lookupTable.innerHTML = `<div class="table-row table-head lookup-summary-row">${columns}</div>${rows || `<p class="lookup-empty">조회할 학생이 없습니다.</p>`}`;
+  els.lookupTable.innerHTML = `<div class="table-row table-head lookup-summary-row">${columns}</div>${rows || `<p class="lookup-empty">${coach ? coachText("noStudents") : "조회할 학생이 없습니다."}</p>`}`;
 }
 
 async function refreshLookup() {
   if (!session) return;
   const waitMs = LOOKUP_REFRESH_COOLDOWN - (Date.now() - lastLookupRefreshAt);
-  if (waitMs > 0) return alert(`${Math.ceil(waitMs / 1000)}초 후 다시 새로고침할 수 있습니다.`);
+  if (waitMs > 0) return alert(session.role === "coach" ? coachText("wait", { seconds: Math.ceil(waitMs / 1000) }) : `${Math.ceil(waitMs / 1000)}초 후 다시 새로고침할 수 있습니다.`);
   els.refreshLookupBtn.disabled = true;
   try {
     if (session.role === "teacher" && !hasHomeroom()) return alert("담당 학급이 배정된 교사만 출결을 조회할 수 있습니다.");
@@ -932,7 +1039,7 @@ async function refreshLookup() {
     renderLookup();
     if (lookupMode === "day") renderCounts();
   } catch (error) {
-    alert(`조회 실패: ${readableError(error)}`);
+    alert(`${session.role === "coach" ? coachText("lookupFailed") : "조회 실패"}: ${readableError(error)}`);
   } finally {
     els.refreshLookupBtn.disabled = false;
   }
@@ -1569,7 +1676,9 @@ function updateNotificationPermissionUi() {
   const granted = "Notification" in window && Notification.permission === "granted";
   const denied = "Notification" in window && Notification.permission === "denied";
   const eligible = canReceiveNotifications();
-  els.notificationButtonLabel.textContent = localPreview ? "체험판 알림 미지원" : !eligible ? "알림 대상 아님" : granted ? "알림 켜짐" : denied ? "알림 허용 필요" : "알림 켜기";
+  els.notificationButtonLabel.textContent = session?.role === "coach"
+    ? localPreview ? coachText("notificationsUnsupported") : granted ? coachText("notificationsOn") : denied ? coachText("notificationsPermission") : coachText("notificationsEnable")
+    : localPreview ? "체험판 알림 미지원" : !eligible ? "알림 대상 아님" : granted ? "알림 켜짐" : denied ? "알림 허용 필요" : "알림 켜기";
   els.notificationCenterBtn.disabled = !eligible;
   els.notificationCenterBtn.title = localPreview ? "실제 배포 주소에서 알림을 설정할 수 있습니다." : denied ? "Chrome 사이트 설정에서 알림을 허용해 주세요." : "";
   els.notificationCenterBtn.classList.toggle("needs-permission", !localPreview && eligible && !granted);
@@ -1580,9 +1689,9 @@ function updateNotificationPermissionUi() {
 function showReviewAlarm(audience = "review") {
   if (!canReceiveNotifications()) return;
   const coach = audience === "coach-review";
-  const title = coach ? "방과후 출결 확인" : "출결 재확인";
-  const body = coach ? "오늘 방과후 수강 학생의 출결을 확인해 주세요." : "오늘 입력한 학생 출결을 한 번 더 확인해 주세요.";
-  els.alarmDialogTitle.textContent = `${title} 알림`;
+  const title = coach && session?.role === "coach" ? coachText("reviewTitle") : coach ? "방과후 출결 확인" : "출결 재확인";
+  const body = coach && session?.role === "coach" ? coachText("reviewBody") : coach ? "오늘 방과후 수강 학생의 출결을 확인해 주세요." : "오늘 입력한 학생 출결을 한 번 더 확인해 주세요.";
+  els.alarmDialogTitle.textContent = coach && session?.role === "coach" ? title : `${title} 알림`;
   els.alarmDialogBody.textContent = body;
   addNotification(title, body);
   notify(`${title} 알림`, body);
@@ -1614,7 +1723,7 @@ async function openNotificationCenter() {
   }
   if (canReceiveNotifications() && "Notification" in window && Notification.permission === "default") await enableNotifications(false);
   const items = alarms.notifications || [];
-  els.notificationList.innerHTML = items.length ? items.map((item) => `<article class="notification-item ${item.read ? "" : "is-unread"}"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p><time>${new Intl.DateTimeFormat("ko-KR", { dateStyle: "short", timeStyle: "short" }).format(new Date(item.time))}</time></article>`).join("") : `<p class="empty-notifications">도착한 알림이 없습니다.</p>`;
+  els.notificationList.innerHTML = items.length ? items.map((item) => `<article class="notification-item ${item.read ? "" : "is-unread"}"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p><time>${new Intl.DateTimeFormat(session?.role === "coach" ? coachLocale() : "ko-KR", { dateStyle: "short", timeStyle: "short" }).format(new Date(item.time))}</time></article>`).join("") : `<p class="empty-notifications">${session?.role === "coach" ? coachText("noNotifications") : "도착한 알림이 없습니다."}</p>`;
   items.forEach((item) => { item.read = true; });
   saveAlarms();
   updateNotificationBadge();
