@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="icon" href="icon-192.png" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260624-3" />
+    <link rel="stylesheet" href="styles.css?v=20260624-4" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
@@ -54,6 +54,7 @@
               <option value="ko">한국어</option>
               <option value="en">English</option>
               <option value="fr">Français</option>
+              <option value="es">Español</option>
             </select>
           </label>
           <button id="logoutBtn" type="button">로그아웃</button>
@@ -63,7 +64,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260624-3" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260624-4" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -85,10 +86,18 @@
               <span id="lateCountItem"><strong id="lateCount">0</strong><small id="lateCountLabel">지각</small></span>
               <span id="earlyCountItem"><strong id="earlyCount">0</strong><small id="earlyCountLabel">조퇴</small></span>
               <span id="absentCountItem"><strong id="absentCount">0</strong><small id="absentCountLabel">결석</small></span>
-              <span id="unsetCountItem"><strong id="unsetCount">0</strong><small id="unsetCountLabel">미입력</small></span>
+              <button id="unsetCountItem" class="status-count-button" type="button"><strong id="unsetCount">0</strong><small id="unsetCountLabel">미입력</small></button>
             </div>
           </div>
         </header>
+
+        <aside id="usageReminderBanner" class="usage-reminder-banner is-hidden" aria-label="Firebase 사용량 확인 안내">
+          <a href="https://console.firebase.google.com/project/namsung-check/firestore/databases/-default-/usage" target="_blank" rel="noopener">
+            <strong>이번 달 Firebase 사용량을 확인해 주세요.</strong>
+            <span>읽기·쓰기·저장 공간이 무료 범위인지 확인합니다.</span>
+          </a>
+          <button id="dismissUsageReminderBtn" type="button" aria-label="이번 달 안내 닫기">×</button>
+        </aside>
 
         <section id="attendanceView" class="view is-visible" aria-labelledby="attendance-title">
           <p id="attendanceDayNotice" class="attendance-day-notice"></p>
@@ -136,6 +145,10 @@
             <button class="lookup-mode-button" data-lookup-mode="schoolYear" type="button">학년도별</button>
           </div>
           <div class="toolbar">
+            <label id="lookupScopeField">
+              <span id="lookupScopeLabel">조회 대상</span>
+              <select id="lookupScope"></select>
+            </label>
             <label id="lookupDateField">
               <span id="lookupDateLabel">조회 날짜</span>
               <input id="lookupDate" type="date" />
@@ -200,6 +213,7 @@
                 <button id="importCoachesBtn" type="button">CSV 일괄 등록</button>
               </div>
               <div id="coachList" class="coach-list"></div>
+              <button id="clearCoachAssignmentsBtn" class="danger-button" type="button">강사 배정 전체 해제</button>
             </section>
 
             <section class="department-settings-section">
@@ -289,6 +303,11 @@
                 <input id="maskContactDefault" type="checkbox" checked />
                 <span>학부모 연락처 비공개</span>
               </label>
+              <label class="toggle">
+                <input id="allowAllStudentsLookup" type="checkbox" />
+                <span>관리자 학생 전체 조회 허용</span>
+              </label>
+              <p class="subtle">끄면 관리자 조회 대상에서 ‘학생 전체’를 숨겨 불필요한 대량 조회를 줄입니다.</p>
               <p class="security-note">
                 leens@nsworld.net은 기본 관리자이며 삭제할 수 없습니다.
               </p>
@@ -317,9 +336,18 @@
                   </select>
                 </label>
                 <button id="saveRetentionSettingsBtn" class="primary" type="button">보관 설정 저장</button>
+                <label>
+                  Firebase 사용량 확인일
+                  <select id="usageCheckDay"></select>
+                </label>
               </div>
               <p class="security-note">자동 삭제된 출결은 복구할 수 없습니다. 학생 명단과 연락처는 삭제하지 않으며, 한 번에 최대 10,000건만 정리합니다.</p>
               <div id="cleanupStatus" class="maintenance-status" role="status">자동 정리 실행 기록을 확인하는 중입니다.</div>
+              <div class="system-health-list" aria-label="자동 작업 상태">
+                <div><span id="cleanupHealthDot" class="health-dot is-pending" aria-hidden="true"></span><strong>자동 정리</strong><small id="cleanupHealthText">확인 전</small></div>
+                <div><span id="deploymentHealthDot" class="health-dot is-pending" aria-hidden="true"></span><strong>웹앱 배포</strong><small id="deploymentHealthText">확인 전</small></div>
+                <div><span id="reminderHealthDot" class="health-dot is-pending" aria-hidden="true"></span><strong>출결 알림</strong><small id="reminderHealthText">확인 전</small></div>
+              </div>
               <div class="maintenance-actions">
                 <a class="button-link" href="https://console.firebase.google.com/project/namsung-check/firestore/databases/-default-/usage" target="_blank" rel="noopener">Firebase 사용량 확인</a>
                 <a class="button-link" href="https://github.com/leens-ns/namsung-check/actions/workflows/cleanup-old-attendance.yml" target="_blank" rel="noopener">자동 정리 실행 상태</a>
@@ -431,6 +459,6 @@
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260624-3"></script>
+    <script type="module" src="app.js?v=20260624-4"></script>
   </body>
 </html>
