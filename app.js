@@ -582,7 +582,7 @@ async function refreshSystemHealth() {
     setHealthState("deployment", deploymentOk, deploymentStatus ? `${deploymentOk ? "정상" : "오류"} · ${readableRunTime(deploymentStatus.updated_at)}` : "배포 기록 없음");
 
     const healthAt = state.systemHealth?.reminderLastRunAt?.toDate ? state.systemHealth.reminderLastRunAt.toDate() : new Date(state.systemHealth?.reminderLastRunAt || 0);
-    const healthFresh = Date.now() - healthAt.getTime() < 45 * 60 * 1000;
+    const healthFresh = Date.now() - healthAt.getTime() < 4 * 60 * 60 * 1000;
     const reminderOk = state.systemHealth?.reminderStatus === "healthy" && healthFresh;
     setHealthState("reminder", reminderOk, `${reminderOk ? "정상" : "오류 또는 실행 지연"} · ${readableRunTime(state.systemHealth?.reminderLastRunAt)}`);
   } catch (error) {
@@ -1081,7 +1081,7 @@ async function requestUnsetTeacherReminders() {
     .map(([email]) => ({ email, grade: String(grade), classNo: String(classNo) })));
   if (!targets.length) return alert("미입력 학급에 배정된 담임교사가 없습니다.");
   const classNames = [...new Set(targets.map((target) => `${target.grade}학년 ${target.classNo}반`))].join(", ");
-  if (!confirm(`${classNames} 담임교사 ${targets.length}명에게 미입력 알림을 보낼까요?\n알림은 최대 10분 안에 전송됩니다.`)) return;
+  if (!confirm(`${classNames} 담임교사 ${targets.length}명에게 미입력 알림을 보낼까요?\n알림은 다음 자동 알림 작업에서 전송됩니다.`)) return;
   els.unsetCountItem.disabled = true;
   try {
     const batch = writeBatch(db);
@@ -1094,7 +1094,7 @@ async function requestUnsetTeacherReminders() {
       });
     });
     await batch.commit();
-    alert(`${targets.length}명의 담임교사에게 알림을 요청했습니다. 최대 10분 안에 전송됩니다.`);
+    alert(`${targets.length}명의 담임교사에게 알림을 요청했습니다. 다음 자동 알림 작업에서 전송됩니다.`);
   } catch (error) {
     alert(`미입력 알림 요청 실패: ${readableError(error)}`);
   } finally {
