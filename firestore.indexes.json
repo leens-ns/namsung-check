@@ -27,11 +27,20 @@
     { "collectionGroup": "contacts", "fieldPath": "parentPhone", "indexes": [] },
     { "collectionGroup": "notificationTokens", "fieldPath": "audiences", "indexes": [] },
     { "collectionGroup": "notificationTokens", "fieldPath": "email", "indexes": [] },
+    { "collectionGroup": "notificationTokens", "fieldPath": "language", "indexes": [] },
     { "collectionGroup": "notificationTokens", "fieldPath": "role", "indexes": [] },
     { "collectionGroup": "notificationTokens", "fieldPath": "token", "indexes": [] },
     { "collectionGroup": "notificationTokens", "fieldPath": "uid", "indexes": [] },
     { "collectionGroup": "notificationTokens", "fieldPath": "updatedAt", "indexes": [] },
     { "collectionGroup": "students", "fieldPath": "name", "indexes": [] },
-    { "collectionGroup": "students", "fieldPath": "number", "indexes": [] }
+    { "collectionGroup": "students", "fieldPath": "number", "indexes": [] },
+    { "collectionGroup": "notificationRequests", "fieldPath": "body", "indexes": [] },
+    { "collectionGroup": "notificationRequests", "fieldPath": "classNo", "indexes": [] },
+    { "collectionGroup": "notificationRequests", "fieldPath": "grade", "indexes": [] },
+    { "collectionGroup": "notificationRequests", "fieldPath": "requestedAt", "indexes": [] },
+    { "collectionGroup": "notificationRequests", "fieldPath": "requestedBy", "indexes": [] },
+    { "collectionGroup": "notificationRequests", "fieldPath": "targetEmail", "indexes": [] },
+    { "collectionGroup": "notificationRequests", "fieldPath": "title", "indexes": [] },
+    { "collectionGroup": "notificationRequests", "fieldPath": "type", "indexes": [] }
   ]
 }
