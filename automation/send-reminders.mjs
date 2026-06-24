@@ -15,7 +15,8 @@ const settings = {
   reviewTime: savedSettings.notificationSettingsVersion >= 3 ? savedSettings.reviewTime || "14:05" : "14:05",
   coachReviewTime: savedSettings.notificationSettingsVersion >= 3 ? savedSettings.coachReviewTime || "14:10" : "14:10",
   attendanceDays: savedSettings.attendanceDays?.length ? savedSettings.attendanceDays : [1, 5],
-  usageCheckDay: Math.min(28, Math.max(1, savedSettings.usageCheckDay || 1))
+  usageCheckDay: Math.min(28, Math.max(1, savedSettings.usageCheckDay || 1)),
+  usageLastConfirmedMonth: savedSettings.usageLastConfirmedMonth || ""
 };
 
 const reminders = [];
@@ -28,7 +29,7 @@ if (settings.attendanceDays.includes(current.weekday) && isDue(current.hhmm, set
 if (settings.attendanceDays.includes(current.weekday) && isDue(current.hhmm, settings.coachReviewTime)) {
   reminders.push({ type: "coach-review", audience: "coach-review", title: "방과후 출결 확인", body: "오늘 방과후 수강 학생의 출결을 확인해 주세요." });
 }
-if (current.day >= settings.usageCheckDay) {
+if (current.day >= settings.usageCheckDay && settings.usageLastConfirmedMonth !== current.date.slice(0, 7)) {
   reminders.push({ type: "admin-usage", dispatchId: `${current.date.slice(0, 7)}_admin-usage`, audience: "admin-usage", title: "Firebase 사용량 확인", body: "이번 달 읽기·쓰기·저장 공간이 무료 범위인지 확인해 주세요.", link: "https://console.firebase.google.com/project/namsung-check/firestore/databases/-default-/usage" });
 }
 
@@ -57,6 +58,7 @@ async function readSettings() {
     notificationSettingsVersion: integerField(document, "notificationSettingsVersion"),
     attendanceDays: arrayIntegerField(document, "attendanceDays"),
     usageCheckDay: integerField(document, "usageCheckDay"),
+    usageLastConfirmedMonth: stringField(document, "usageLastConfirmedMonth"),
     reminderHealthLastRunAt: timestampField(document, "reminderHealthLastRunAt")
   };
 }
