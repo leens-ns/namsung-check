@@ -45,8 +45,9 @@ async function resolveRole(email, db) {
   const access = await getDoc(doc(db, "access", email));
   const savedRole = access.exists() ? access.data().role : "";
   if (email === ADMIN_EMAIL || savedRole === "admin") return "admin";
+  if (savedRole === "coach") return "coach";
   if (email.endsWith("@nsworld.net")) return "teacher";
-  return savedRole === "coach" ? "coach" : "";
+  return "";
 }
 
 function showManual(role) {
