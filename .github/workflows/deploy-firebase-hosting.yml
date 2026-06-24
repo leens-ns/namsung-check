@@ -1,0 +1,32 @@
+name: Deploy Firebase Hosting
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: firebase-hosting-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: namsung-check
+          workload_identity_provider: projects/36959618515/locations/global/workloadIdentityPools/github/providers/namsung-check-v2
+          service_account: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - run: npx --yes firebase-tools@15.2.2 deploy --only hosting --project namsung-check --non-interactive
