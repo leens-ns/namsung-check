@@ -29,4 +29,4 @@ jobs:
         with:
           node-version: "24"
           package-manager-cache: false
-      - run: npx --yes firebase-tools@15.2.2 deploy --only hosting --project namsung-check --non-interactive
+      - run: npx --yes firebase-tools@14.7.0 deploy --only hosting --project namsung-check --non-interactive
