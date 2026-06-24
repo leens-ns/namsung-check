@@ -123,21 +123,33 @@ service cloud.firestore {
 
     match /notificationTokens/{tokenId} {
       allow create, update: if signedIn()
-        && request.resource.data.keys().hasOnly(['token', 'uid', 'email', 'role', 'audiences', 'active', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['token', 'uid', 'email', 'role', 'audiences', 'language', 'active', 'updatedAt'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.email == email()
         && request.resource.data.token is string
         && request.resource.data.audiences is list
+        && request.resource.data.language in ['ko', 'en', 'fr', 'es']
         && request.resource.data.active == true
         && (
           (request.resource.data.role == 'admin' && isAdmin()
-            && request.resource.data.audiences == ['input', 'review'])
+            && request.resource.data.audiences == ['input', 'review', 'admin-usage'])
           || (request.resource.data.role == 'teacher' && isHomeroomTeacher()
             && request.resource.data.audiences == ['input', 'review'])
           || (request.resource.data.role == 'coach' && isCoach()
             && request.resource.data.audiences == ['coach-review'])
         );
       allow read, delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    match /notificationRequests/{requestId} {
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['type', 'targetEmail', 'grade', 'classNo', 'title', 'body', 'status', 'requestedBy', 'requestedAt'])
+        && request.resource.data.type == 'unset-reminder'
+        && request.resource.data.targetEmail.matches('.*@nsworld[.]net$')
+        && request.resource.data.status == 'pending'
+        && request.resource.data.requestedBy == email();
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
   }
 }
