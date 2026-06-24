@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, onAuthStateChanged,
-  signInWithPopup, signOut
+  getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged,
+  signInWithRedirect, signOut
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 import {
   collection, deleteDoc, deleteField, doc, getDoc, getDocs, getFirestore,
@@ -20,6 +20,8 @@ const COACH_LANGUAGE_KEY = "namsung-coach-language";
 const ACCOUNT_MODE_KEY = "namsung-account-mode";
 const USAGE_REMINDER_DISMISS_KEY = "namsung-usage-reminder-dismissed";
 const GITHUB_ACTIONS_RUNS_API = "https://api.github.com/repos/leens-ns/namsung-check/actions/runs?per_page=20";
+const PRIMARY_APP_URL = "https://namsung-check.firebaseapp.com/";
+const AUTH_REDIRECT_KEY = "namsung-auth-redirect-started";
 const ORIGINAL_TITLE = document.title;
 const statusLabel = { present: "출석", late: "지각", absent: "결석", early: "조퇴", unset: "미입력" };
 const roleLabel = { admin: "관리자", teacher: "교사", coach: "방과후강사" };
@@ -128,6 +130,10 @@ window.addEventListener("appinstalled", () => {
 });
 
 async function init() {
+  if (shouldMoveToPrimaryHost()) {
+    location.replace(PRIMARY_APP_URL);
+    return;
+  }
   els.todayText.textContent = new Intl.DateTimeFormat("ko-KR", { dateStyle: "full" }).format(new Date());
   els.lookupDate.value = todayKey();
   els.lookupMonth.value = todayKey().slice(0, 7);
@@ -154,6 +160,7 @@ async function init() {
     db = getFirestore(app);
     await setupMessaging(app);
     onAuthStateChanged(auth, handleAuthChange);
+    await completeRedirectLogin();
   } catch (error) {
     showLoginError(readableError(error));
   }
@@ -232,15 +239,57 @@ async function loginWithGoogle() {
   if (!auth) return;
   els.loginError.textContent = "";
   els.googleSignInButton.disabled = true;
-  els.googleSignInButton.textContent = "Google 로그인 여는 중...";
+  els.googleSignInButton.textContent = "Google 로그인으로 이동 중...";
+  if (!isPrimaryAuthHost()) {
+    location.assign(`${PRIMARY_APP_URL}?login=1`);
+    return;
+  }
+  await startGoogleRedirect();
+}
+
+function isPrimaryAuthHost() {
+  return location.hostname === "namsung-check.firebaseapp.com";
+}
+
+function shouldMoveToPrimaryHost() {
+  return location.hostname === "leens-ns.github.io"
+    || location.hostname === "namsung-check.web.app";
+}
+
+function googleProvider() {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
+  return provider;
+}
+
+async function startGoogleRedirect() {
   try {
-    // Popup auth avoids cross-origin redirect storage failures on Android browsers.
-    await signInWithPopup(auth, provider);
+    sessionStorage.setItem(AUTH_REDIRECT_KEY, "1");
+    await signInWithRedirect(auth, googleProvider());
   } catch (error) {
+    sessionStorage.removeItem(AUTH_REDIRECT_KEY);
     showLoginError(readableError(error));
-  } finally {
+    els.googleSignInButton.disabled = false;
+    els.googleSignInButton.textContent = "Google 계정으로 로그인";
+  }
+}
+
+async function completeRedirectLogin() {
+  const requested = new URLSearchParams(location.search).get("login") === "1";
+  try {
+    const result = await getRedirectResult(auth);
+    if (result) {
+      sessionStorage.removeItem(AUTH_REDIRECT_KEY);
+      history.replaceState({}, "", `${location.pathname}${location.hash}`);
+      return;
+    }
+    if (requested && !auth.currentUser && sessionStorage.getItem(AUTH_REDIRECT_KEY) !== "1") {
+      await startGoogleRedirect();
+    }
+  } catch (error) {
+    sessionStorage.removeItem(AUTH_REDIRECT_KEY);
+    history.replaceState({}, "", `${location.pathname}${location.hash}`);
+    showLoginError(readableError(error));
     els.googleSignInButton.disabled = false;
     els.googleSignInButton.textContent = "Google 계정으로 로그인";
   }
@@ -278,6 +327,10 @@ function installInstructions() {
 
 function openInstallFlow() {
   if (isStandaloneApp()) return;
+  if (shouldMoveToPrimaryHost()) {
+    location.assign(PRIMARY_APP_URL);
+    return;
+  }
   const coach = session?.role === "coach";
   els.installDialogTitle.textContent = coach ? coachText("installTitle") : "출결관리 앱 설치";
   els.installDialogBody.textContent = deferredInstallPrompt
@@ -2168,12 +2221,10 @@ function showLoginError(message) { els.loginError.textContent = message; }
 
 function readableError(error) {
   const messages = {
-    "auth/popup-closed-by-user": "로그인 창이 닫혔습니다.",
-    "auth/popup-blocked": "로그인 창이 차단되었습니다. 브라우저의 팝업 허용 후 다시 눌러 주세요.",
-    "auth/cancelled-popup-request": "이미 로그인 창이 열려 있습니다. 열린 창에서 로그인을 완료해 주세요.",
     "auth/unauthorized-domain": "현재 접속 주소가 Firebase 로그인 허용 목록에 없습니다. 관리자에게 알려 주세요.",
     "auth/network-request-failed": "네트워크 연결을 확인한 뒤 다시 로그인해 주세요.",
     "auth/web-storage-unsupported": "브라우저의 쿠키와 사이트 저장소를 허용한 뒤 다시 로그인해 주세요.",
+    "auth/redirect-cancelled-by-user": "Google 로그인이 취소되었습니다. 다시 로그인해 주세요.",
     "permission-denied": "이 작업을 수행할 권한이 없습니다."
   };
   return messages[error.code] || error.message || "처리 중 오류가 발생했습니다.";
