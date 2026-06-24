@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="icon" href="icon-192.png" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260624-6" />
+    <link rel="stylesheet" href="styles.css?v=20260624-7" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
@@ -64,7 +64,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260624-6" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260624-7" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -92,7 +92,7 @@
         </header>
 
         <aside id="usageReminderBanner" class="usage-reminder-banner is-hidden" aria-label="Firebase 사용량 확인 안내">
-          <a href="https://console.firebase.google.com/project/namsung-check/firestore/databases/-default-/usage" target="_blank" rel="noopener">
+          <a id="usageReminderLink" href="https://console.firebase.google.com/project/namsung-check/firestore/databases/-default-/usage" target="_blank" rel="noopener">
             <strong>이번 달 Firebase 사용량을 확인해 주세요.</strong>
             <span>읽기·쓰기·저장 공간이 무료 범위인지 확인합니다.</span>
           </a>
@@ -185,6 +185,7 @@
             <section>
               <h2>학생 명단 전체 관리</h2>
               <p class="subtle">CSV를 올리면 기존 학생 명단과 연락처를 새 파일 기준으로 전체 교체합니다.</p>
+              <a class="example-download" href="examples/student-roster-example.csv" download>학생 명단 예시 CSV 다운로드</a>
               <label>
                 CSV 파일
                 <input id="csvFileInput" type="file" accept=".csv,text/csv" />
@@ -197,8 +198,9 @@
             </section>
 
             <section>
-              <h2>방과후강사 계정</h2>
+              <h2>방과후강사 계정 등록</h2>
               <p class="subtle">이메일 등록만으로는 접속할 수 없습니다. 강사가 같은 이메일의 Google 계정으로 인증해야 해당 부서 학생만 조회됩니다.</p>
+              <a class="example-download" href="examples/coach-assignments-example.csv" download>강사 배정 예시 CSV 다운로드</a>
               <label>
                 강사 이메일
                 <input id="coachEmailInput" type="email" placeholder="coach@example.com" />
@@ -257,6 +259,7 @@
 
             <section>
               <h2>담임교사 학급 배정</h2>
+              <a class="example-download" href="examples/teacher-assignments-example.csv" download>담임 배정 예시 CSV 다운로드</a>
               <div class="teacher-quick-assign">
                 <input id="teacherEmailInput" type="email" aria-label="교사 이메일" placeholder="teacher@nsworld.net" />
                 <select id="teacherClassSelect" aria-label="담당 학급"></select>
@@ -266,6 +269,10 @@
               <div class="button-row teacher-assignment-actions">
                 <button id="bulkAssignTeachersBtn" type="button">여러 명 일괄 배정</button>
                 <button id="clearTeacherAssignmentsBtn" class="danger-button" type="button">담임 배정 전체 해제</button>
+              </div>
+              <div class="file-action">
+                <input id="teacherCsvFileInput" type="file" accept=".csv,text/csv" aria-label="담임교사 배정 CSV 파일" />
+                <button id="importTeachersBtn" type="button">CSV 일괄 배정</button>
               </div>
               <div id="teacherList" class="coach-list"></div>
             </section>
@@ -349,7 +356,7 @@
                 <div><span id="reminderHealthDot" class="health-dot is-pending" aria-hidden="true"></span><strong>출결 알림</strong><small id="reminderHealthText">확인 전</small></div>
               </div>
               <div class="maintenance-actions">
-                <a class="button-link" href="https://console.firebase.google.com/project/namsung-check/firestore/databases/-default-/usage" target="_blank" rel="noopener">Firebase 사용량 확인</a>
+                <a id="firebaseUsageLink" class="button-link" href="https://console.firebase.google.com/project/namsung-check/firestore/databases/-default-/usage" target="_blank" rel="noopener">Firebase 사용량 확인</a>
                 <a class="button-link" href="https://github.com/leens-ns/namsung-check/actions/workflows/cleanup-old-attendance.yml" target="_blank" rel="noopener">자동 정리 실행 상태</a>
                 <a class="button-link" href="https://github.com/leens-ns/namsung-check/actions" target="_blank" rel="noopener">배포·알림 전체 상태</a>
                 <button id="refreshCleanupStatusBtn" type="button">상태 새로고침</button>
@@ -459,6 +466,6 @@
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260624-6"></script>
+    <script type="module" src="app.js?v=20260624-7"></script>
   </body>
 </html>
