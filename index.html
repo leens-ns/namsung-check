@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="icon" href="icon-192.png" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260624-7" />
+    <link rel="stylesheet" href="styles.css?v=20260624-8" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
@@ -48,6 +48,10 @@
             <span id="userEmail"></span>
             <small id="userRole"></small>
           </div>
+          <label id="accountModeControl" class="account-mode-control is-hidden">
+            <span>사용 모드</span>
+            <select id="accountModeSelect" aria-label="사용 모드"></select>
+          </label>
           <label id="coachLanguageControl" class="coach-language-control is-hidden">
             <span id="coachLanguageLabel">언어</span>
             <select id="coachLanguageSelect" aria-label="화면 언어">
@@ -64,7 +68,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260624-7" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260624-8" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -466,6 +470,6 @@
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260624-7"></script>
+    <script type="module" src="app.js?v=20260624-8"></script>
   </body>
 </html>
