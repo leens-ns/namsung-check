@@ -426,7 +426,8 @@ h1 {
   grid-template-columns: repeat(3, minmax(74px, 1fr));
 }
 
-.status-strip span {
+.status-strip > span,
+.status-strip > button {
   display: grid;
   place-items: center;
   gap: 3px;
@@ -438,15 +439,106 @@ h1 {
   font-size: 12px;
 }
 
-.status-strip strong {
+.status-strip > span strong,
+.status-strip > button strong {
   color: var(--ink);
   font-size: 22px;
 }
 
-.status-strip small {
+.status-strip > span small,
+.status-strip > button small {
   color: inherit;
   font-size: 12px;
 }
+
+.status-count-button {
+  padding: 6px;
+  font: inherit;
+}
+
+.status-count-button.is-actionable {
+  border-color: #b07800;
+  background: #fff6d8;
+  color: #704d00;
+  cursor: pointer;
+}
+
+.status-count-button.is-actionable:hover {
+  border-color: #845a00;
+  background: #ffedb0;
+}
+
+.usage-reminder-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 10px;
+  align-items: stretch;
+  margin: 0 0 18px;
+  border: 1px solid #d9a31b;
+  border-radius: 8px;
+  background: #fff8df;
+  overflow: hidden;
+}
+
+.usage-reminder-banner a {
+  display: grid;
+  gap: 2px;
+  padding: 13px 16px;
+  color: #4d3900;
+  text-decoration: none;
+}
+
+.usage-reminder-banner a:hover {
+  background: #fff1bd;
+}
+
+.usage-reminder-banner span {
+  color: #6d5a20;
+  font-size: 13px;
+}
+
+.usage-reminder-banner button {
+  min-height: 44px;
+  border: 0;
+  border-left: 1px solid #e4c462;
+  border-radius: 0;
+  background: transparent;
+  color: #5f4b12;
+  font-size: 22px;
+}
+
+.system-health-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.system-health-list > div {
+  display: grid;
+  grid-template-columns: 14px minmax(90px, auto) minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+}
+
+.system-health-list small {
+  color: var(--muted);
+  text-align: right;
+}
+
+.health-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #98a3ad;
+}
+
+.health-dot.is-ok { background: #24834f; }
+.health-dot.is-error { background: #c13d3d; }
+.health-dot.is-pending { background: #98a3ad; }
 
 .view {
   display: none;
@@ -1725,6 +1817,18 @@ dialog h2 {
 }
 
 @media (max-width: 620px) {
+  .system-health-list > div {
+    grid-template-columns: 14px minmax(0, 1fr);
+  }
+
+  .system-health-list small {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .usage-reminder-banner a {
+    padding: 12px;
+  }
   .main,
   .sidebar {
     padding: 16px;
