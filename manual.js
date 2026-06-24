@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { doc, getDoc, getFirestore } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 const ADMIN_EMAIL = "leens@nsworld.net";
+const COACH_LANGUAGE_KEY = "namsung-coach-language";
 const roleLabel = { admin: "관리자", teacher: "담임교사", coach: "방과후강사" };
 const gate = document.getElementById("manualGate");
 const gateMessage = document.getElementById("manualGateMessage");
@@ -10,6 +11,9 @@ const gateLink = document.getElementById("manualGateLink");
 const app = document.getElementById("manualApp");
 const roleBadge = document.getElementById("manualRoleBadge");
 const subtitle = document.getElementById("manualSubtitle");
+const title = document.getElementById("manualTitle");
+const homeLink = document.getElementById("manualHomeLink");
+const footer = document.getElementById("manualFooter");
 
 start();
 
@@ -55,8 +59,38 @@ function showManual(role) {
   });
   roleBadge.textContent = `${roleLabel[role]} 전용`;
   subtitle.textContent = role === "admin" ? "전체 역할 사용 매뉴얼" : `${roleLabel[role]} 사용 매뉴얼`;
+  if (role === "coach") applyCoachManualLanguage();
   gate.hidden = true;
   app.hidden = false;
+}
+
+function applyCoachManualLanguage() {
+  const language = ["ko", "en", "fr"].includes(localStorage.getItem(COACH_LANGUAGE_KEY)) ? localStorage.getItem(COACH_LANGUAGE_KEY) : "ko";
+  if (language === "ko") return;
+  const content = {
+    en: {
+      lang: "en", title: "Namsung Elementary Attendance System", subtitle: "Afterschool instructor guide", badge: "For instructors", home: "Back to app", commonNav: "Essentials", coachNav: "Instructor",
+      common: `<h2>Essentials</h2><ol><li>Sign in with the same <strong>Google account</strong> registered by the administrator.</li><li>Add the app to your Home Screen and allow notifications when prompted.</li><li>Always sign out after using a shared device.</li></ol><p class="note warning">Do not photograph, message, or save student information or attendance data on a personal device.</p>`,
+      coach: `<h2>Afterschool instructor</h2><ol><li>In <strong>Attendance</strong>, check your assigned class and date.</li><li>Tap <strong>Refresh attendance</strong> immediately before class.</li><li>Use the Daily view for student details and the Monthly or School year view for totals.</li></ol><p class="note">Teacher entries marked absent, late, or left early are all counted as <strong>Absent</strong> in the instructor view.</p><p class="note warning">Instructors have read-only access. Student editing, attendance entry, and parent contact details are not available.</p>`,
+      footer: "Namsung Elementary Attendance System · Instructor guide"
+    },
+    fr: {
+      lang: "fr", title: "Système de gestion des présences de l’école Namsung", subtitle: "Guide des intervenants périscolaires", badge: "Intervenants uniquement", home: "Retour à l’application", commonNav: "Essentiel", coachNav: "Intervenant",
+      common: `<h2>Essentiel</h2><ol><li>Connectez-vous avec le même <strong>compte Google</strong> que celui enregistré par l’administrateur.</li><li>Ajoutez l’application à l’écran d’accueil et autorisez les notifications.</li><li>Déconnectez-vous toujours après avoir utilisé un appareil partagé.</li></ol><p class="note warning">Ne photographiez pas et n’enregistrez pas les informations des élèves ou les présences sur un appareil personnel.</p>`,
+      coach: `<h2>Intervenant périscolaire</h2><ol><li>Dans <strong>Présences</strong>, vérifiez votre atelier et la date.</li><li>Appuyez sur <strong>Actualiser les présences</strong> juste avant le cours.</li><li>Consultez le détail par jour et les totaux par mois ou année scolaire.</li></ol><p class="note">Les mentions absent, en retard ou parti plus tôt saisies par l’enseignant sont toutes comptées comme <strong>Absent</strong> dans votre vue.</p><p class="note warning">L’accès des intervenants est en lecture seule. La saisie des présences, la modification des élèves et les coordonnées des parents ne sont pas disponibles.</p>`,
+      footer: "Système de gestion des présences de l’école Namsung · Guide des intervenants"
+    }
+  }[language];
+  document.documentElement.lang = content.lang;
+  title.textContent = content.title;
+  subtitle.textContent = content.subtitle;
+  roleBadge.textContent = content.badge;
+  homeLink.textContent = content.home;
+  document.querySelector('[data-manual-nav="common"]').textContent = content.commonNav;
+  document.querySelector('[data-manual-nav="coach"]').textContent = content.coachNav;
+  document.getElementById("common").innerHTML = content.common;
+  document.getElementById("coach").innerHTML = content.coach;
+  footer.textContent = content.footer;
 }
 
 function showGate(message) {
