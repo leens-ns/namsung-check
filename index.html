@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="icon" href="icon-192.png" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260624-1" />
+    <link rel="stylesheet" href="styles.css?v=20260624-2" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
@@ -55,7 +55,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a class="tab manual-link" href="manual.html?v=20260624-1" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a class="tab manual-link" href="manual.html?v=20260624-2" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -118,21 +118,35 @@
         <section id="lookupView" class="view" aria-labelledby="lookup-title">
           <div class="section-heading">
             <div>
-              <h2 id="lookup-title">방과후강사 조회</h2>
-              <p>강사는 자기 부서 학생의 방과후 출석·결석만 조회합니다.</p>
+              <h2 id="lookup-title">출결 조회</h2>
+              <p>일별 상세 또는 월별·학년도별 학생 출결 합계를 확인합니다.</p>
             </div>
           </div>
+          <div class="lookup-mode-tabs" role="tablist" aria-label="조회 기간">
+            <button class="lookup-mode-button is-active" data-lookup-mode="day" type="button">일별</button>
+            <button class="lookup-mode-button" data-lookup-mode="month" type="button">월별</button>
+            <button class="lookup-mode-button" data-lookup-mode="schoolYear" type="button">학년도별</button>
+          </div>
           <div class="toolbar">
-            <label>
+            <label id="lookupDateField">
               조회 날짜
               <input id="lookupDate" type="date" />
             </label>
-            <label>
+            <label id="lookupMonthField" class="is-hidden">
+              조회 월
+              <input id="lookupMonth" type="month" />
+            </label>
+            <label id="lookupSchoolYearField" class="is-hidden">
+              학년도
+              <select id="lookupSchoolYear"></select>
+            </label>
+            <label id="lookupDepartmentField">
               부서
               <select id="lookupDepartment"></select>
             </label>
             <button id="refreshLookupBtn" class="refresh-button" type="button">↻ 최신 출결 새로고침</button>
           </div>
+          <div id="lookupPeriodSummary" class="lookup-period-summary is-hidden" role="status"></div>
           <div id="lookupTable" class="table"></div>
         </section>
 
@@ -227,7 +241,10 @@
                 <button id="addTeacherBtn" class="primary" type="button">배정</button>
               </div>
               <textarea id="teacherBulkInput" rows="4" placeholder="teacher1@nsworld.net, 3-1&#10;teacher2@nsworld.net, 4-2"></textarea>
-              <button id="bulkAssignTeachersBtn" type="button">여러 명 일괄 배정</button>
+              <div class="button-row teacher-assignment-actions">
+                <button id="bulkAssignTeachersBtn" type="button">여러 명 일괄 배정</button>
+                <button id="clearTeacherAssignmentsBtn" class="danger-button" type="button">담임 배정 전체 해제</button>
+              </div>
               <div id="teacherList" class="coach-list"></div>
             </section>
 
@@ -406,6 +423,6 @@
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260624-1"></script>
+    <script type="module" src="app.js?v=20260624-2"></script>
   </body>
 </html>
