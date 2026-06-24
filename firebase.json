@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "namsung-check",
     "public": ".",
     "ignore": [
       "firebase.json",
