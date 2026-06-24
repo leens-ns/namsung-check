@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="icon" href="icon-192.png" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260625-2" />
+    <link rel="stylesheet" href="styles.css?v=20260625-3" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
@@ -68,7 +68,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260625-2" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260625-3" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -105,7 +105,7 @@
 
         <section id="attendanceView" class="view is-visible" aria-labelledby="attendance-title">
           <p id="attendanceDayNotice" class="attendance-day-notice"></p>
-          <div class="toolbar lookup-toolbar">
+          <div class="toolbar">
             <div class="search-box">
               <input id="studentSearch" type="search" placeholder="학생 이름 또는 부서 검색" />
             </div>
@@ -148,7 +148,7 @@
             <button class="lookup-mode-button" data-lookup-mode="month" type="button">월별</button>
             <button class="lookup-mode-button" data-lookup-mode="schoolYear" type="button">학년도별</button>
           </div>
-          <div class="toolbar">
+          <div class="toolbar lookup-toolbar">
             <label id="lookupScopeField">
               <span id="lookupScopeLabel">조회 대상</span>
               <select id="lookupScope"></select>
@@ -470,6 +470,6 @@
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260625-2"></script>
+    <script type="module" src="app.js?v=20260625-3"></script>
   </body>
 </html>
