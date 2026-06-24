@@ -27,6 +27,6 @@ jobs:
           service_account: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
       - uses: actions/setup-node@v6
         with:
-          node-version: "24"
+          node-version: "22"
           package-manager-cache: false
-      - run: npx --yes firebase-tools@14.7.0 deploy --only hosting --project namsung-check --non-interactive
+      - run: npx --yes firebase-tools@15.17.0 deploy --only hosting --project namsung-check --non-interactive
