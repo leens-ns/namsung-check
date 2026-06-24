@@ -14,7 +14,8 @@ const settings = {
   morningTime: savedSettings.morningTime || "08:30",
   reviewTime: savedSettings.notificationSettingsVersion >= 3 ? savedSettings.reviewTime || "14:05" : "14:05",
   coachReviewTime: savedSettings.notificationSettingsVersion >= 3 ? savedSettings.coachReviewTime || "14:10" : "14:10",
-  attendanceDays: savedSettings.attendanceDays?.length ? savedSettings.attendanceDays : [1, 5]
+  attendanceDays: savedSettings.attendanceDays?.length ? savedSettings.attendanceDays : [1, 5],
+  usageCheckDay: Math.min(28, Math.max(1, savedSettings.usageCheckDay || 1))
 };
 
 const reminders = [];
@@ -27,9 +28,16 @@ if (settings.attendanceDays.includes(current.weekday) && isDue(current.hhmm, set
 if (settings.attendanceDays.includes(current.weekday) && isDue(current.hhmm, settings.coachReviewTime)) {
   reminders.push({ type: "coach-review", audience: "coach-review", title: "방과후 출결 확인", body: "오늘 방과후 수강 학생의 출결을 확인해 주세요." });
 }
+if (current.day >= settings.usageCheckDay) {
+  reminders.push({ type: "admin-usage", dispatchId: `${current.date.slice(0, 7)}_admin-usage`, audience: "admin-usage", title: "Firebase 사용량 확인", body: "이번 달 읽기·쓰기·저장 공간이 무료 범위인지 확인해 주세요.", link: "https://console.firebase.google.com/project/namsung-check/firestore/databases/-default-/usage" });
+}
 
-for (const reminder of reminders) await dispatchReminder(reminder);
-console.log(reminders.length ? `Checked ${reminders.length} due reminder(s).` : "No reminder is due.");
+const pendingRequests = await readPendingRequests();
+const tokenCatalog = reminders.length || pendingRequests.length ? await readTokenCatalog() : [];
+for (const reminder of reminders) await dispatchReminder(reminder, tokenCatalog);
+for (const request of pendingRequests) await dispatchRequest(request, tokenCatalog);
+await writeReminderHealth("healthy", `Scheduled reminders ${reminders.length}, admin requests ${pendingRequests.length}`);
+console.log(`Checked ${reminders.length} scheduled reminder(s) and ${pendingRequests.length} admin request(s).`);
 
 async function readSettings() {
   const response = await api(`${DATABASE_ROOT}/settings/public`);
@@ -40,16 +48,17 @@ async function readSettings() {
     reviewTime: stringField(document, "reviewTime"),
     coachReviewTime: stringField(document, "coachReviewTime"),
     notificationSettingsVersion: integerField(document, "notificationSettingsVersion"),
-    attendanceDays: arrayIntegerField(document, "attendanceDays")
+    attendanceDays: arrayIntegerField(document, "attendanceDays"),
+    usageCheckDay: integerField(document, "usageCheckDay")
   };
 }
 
-async function dispatchReminder(reminder) {
-  const dispatchId = `${current.date}_${reminder.type}`;
+async function dispatchReminder(reminder, tokenCatalog) {
+  const dispatchId = reminder.dispatchId || `${current.date}_${reminder.type}`;
   if (!(await reserveDispatch(dispatchId, reminder.type))) return;
 
   try {
-    const tokenDocs = await readActiveTokens(reminder);
+    const tokenDocs = readActiveTokens(reminder, tokenCatalog);
     if (!tokenDocs.length) {
       await deleteDispatch(dispatchId);
       return;
@@ -80,7 +89,7 @@ async function reserveDispatch(dispatchId, type) {
   return true;
 }
 
-async function readActiveTokens(reminder) {
+async function readTokenCatalog() {
   const [tokenResponse, accessResponse] = await Promise.all([api(`${DATABASE_ROOT}:runQuery`, {
     method: "POST",
     body: {
@@ -105,20 +114,63 @@ async function readActiveTokens(reminder) {
     if (!document) return [];
     const email = String(stringField(document, "email") || "").toLowerCase();
     const role = email === "leens@nsworld.net" ? "admin" : accessRoles.get(email);
-    const validRole = reminder.audience === "coach-review" ? role === "coach" : ["admin", "teacher"].includes(role);
-    if (!validRole || !arrayStringField(document, "audiences").includes(reminder.audience)) return [];
     const token = stringField(document, "token");
-    return token ? [{ token, name: document.name }] : [];
+    return token ? [{ token, name: document.name, email, role, language: stringField(document, "language") || "ko", audiences: arrayStringField(document, "audiences") }] : [];
+  });
+}
+
+function readActiveTokens(reminder, tokenCatalog) {
+  return tokenCatalog.filter((item) => {
+    const validRole = reminder.audience === "coach-review"
+      ? item.role === "coach"
+      : reminder.audience === "admin-usage"
+        ? item.role === "admin"
+        : ["admin", "teacher"].includes(item.role);
+    return validRole && item.audiences.includes(reminder.audience) && (!reminder.targetEmail || item.email === reminder.targetEmail);
+  });
+}
+
+async function readPendingRequests() {
+  const response = await api(`${DATABASE_ROOT}:runQuery`, {
+    method: "POST",
+    body: {
+      structuredQuery: {
+        from: [{ collectionId: "notificationRequests" }],
+        where: { fieldFilter: { field: { fieldPath: "status" }, op: "EQUAL", value: { stringValue: "pending" } } },
+        limit: 20
+      }
+    }
+  });
+  const rows = await requireJson(response, "Unable to read admin notification requests");
+  return rows.flatMap((row) => row.document ? [{
+    name: row.document.name,
+    type: stringField(row.document, "type") || "unset-reminder",
+    audience: "input",
+    targetEmail: String(stringField(row.document, "targetEmail") || "").toLowerCase(),
+    title: stringField(row.document, "title") || "출결 미입력 알림",
+    body: stringField(row.document, "body") || "출결 미입력 학생을 확인해 주세요."
+  }] : []);
+}
+
+async function dispatchRequest(request, tokenCatalog) {
+  const tokens = readActiveTokens(request, tokenCatalog);
+  const results = await Promise.all(tokens.map((token) => sendMessage(token, request)));
+  await patchDocument(request.name, {
+    status: tokens.length ? "sent" : "no-active-token",
+    successCount: results.filter(Boolean).length,
+    failureCount: results.filter((sent) => !sent).length,
+    completedAt: new Date().toISOString()
   });
 }
 
 async function sendMessage(tokenDoc, reminder) {
+  const localized = localizedReminder(reminder, tokenDoc.language);
   const response = await api(FCM_URL, {
     method: "POST",
     body: {
       message: {
         token: tokenDoc.token,
-        notification: { title: reminder.title, body: reminder.body },
+        notification: { title: localized.title, body: localized.body },
         webpush: {
           headers: { Urgency: "high" },
           notification: {
@@ -126,7 +178,7 @@ async function sendMessage(tokenDoc, reminder) {
             tag: `attendance-${current.date}-${reminder.type}`,
             requireInteraction: true
           },
-          fcmOptions: { link: APP_URL }
+          fcmOptions: { link: localized.link || APP_URL }
         }
       }
     }
@@ -140,6 +192,16 @@ async function sendMessage(tokenDoc, reminder) {
   return false;
 }
 
+function localizedReminder(reminder, language) {
+  if (reminder.type !== "coach-review") return reminder;
+  const translations = {
+    en: { title: "Afterschool attendance reminder", body: "Please check today's attendance before your afterschool class." },
+    fr: { title: "Rappel des présences périscolaires", body: "Veuillez vérifier les présences avant votre atelier aujourd’hui." },
+    es: { title: "Recordatorio de asistencia extraescolar", body: "Comprueba la asistencia antes de la actividad de hoy." }
+  };
+  return translations[language] || reminder;
+}
+
 async function updateDispatch(dispatchId, values) {
   const masks = Object.keys(values).map((field) => `updateMask.fieldPaths=${encodeURIComponent(field)}`).join("&");
   const response = await api(`${DATABASE_ROOT}/notificationDispatches/${dispatchId}?${masks}`, {
@@ -147,6 +209,29 @@ async function updateDispatch(dispatchId, values) {
     body: firestoreDocument(values)
   });
   await requireJson(response, "Unable to complete reminder dispatch");
+}
+
+async function patchDocument(documentName, values) {
+  const masks = Object.keys(values).map((field) => `updateMask.fieldPaths=${encodeURIComponent(field)}`).join("&");
+  const response = await api(`https://firestore.googleapis.com/v1/${documentName}?${masks}`, {
+    method: "PATCH",
+    body: firestoreDocument(values)
+  });
+  await requireJson(response, "Unable to update notification request");
+}
+
+async function writeReminderHealth(status, message) {
+  const values = {
+    reminderHealthStatus: status,
+    reminderHealthLastRunAt: new Date().toISOString(),
+    reminderHealthMessage: message
+  };
+  const masks = Object.keys(values).map((field) => `updateMask.fieldPaths=${encodeURIComponent(field)}`).join("&");
+  const response = await api(`${DATABASE_ROOT}/settings/public?${masks}`, {
+    method: "PATCH",
+    body: firestoreDocument(values)
+  });
+  await requireJson(response, "Unable to record reminder health");
 }
 
 async function deleteDispatch(dispatchId) {
@@ -166,6 +251,7 @@ function currentSeoulTime(date) {
   }).formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
   return {
     date: `${parts.year}-${parts.month}-${parts.day}`,
+    day: Number(parts.day),
     hhmm: `${parts.hour}:${parts.minute}`,
     weekday: { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, weekday: "short" }).format(date)]
   };
