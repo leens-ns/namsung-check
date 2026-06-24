@@ -17,6 +17,8 @@ const PUSH_TOKEN_SYNC_KEY = "nsworld-push-token-sync";
 const PUSH_TOKEN_SYNC_INTERVAL = 24 * 60 * 60 * 1000;
 const LOOKUP_REFRESH_COOLDOWN = 10 * 1000;
 const COACH_LANGUAGE_KEY = "namsung-coach-language";
+const USAGE_REMINDER_DISMISS_KEY = "namsung-usage-reminder-dismissed";
+const GITHUB_DEPLOYMENTS_API = "https://api.github.com/repos/leens-ns/namsung-check/deployments?environment=github-pages&per_page=1";
 const ORIGINAL_TITLE = document.title;
 const statusLabel = { present: "출석", late: "지각", absent: "결석", early: "조퇴", unset: "미입력" };
 const roleLabel = { admin: "관리자", teacher: "교사", coach: "방과후강사" };
@@ -56,6 +58,18 @@ const COACH_I18N = {
     install: "Ajouter à l’écran d’accueil", installReady: "Installer l’application", notificationsOn: "Notifications activées", notificationsEnable: "Activer les notifications", notificationsPermission: "Autoriser les notifications",
     notificationsUnsupported: "Notifications indisponibles dans l’aperçu", notificationTitle: "Notifications", clearNotifications: "Tout effacer", noNotifications: "Aucune notification.", close: "Fermer", confirm: "OK", installAction: "Installer",
     installTitle: "Installer l’application de présence", installBody: "Installez l’application pour l’ouvrir directement depuis l’écran d’accueil.", reviewTitle: "Rappel des présences périscolaires", reviewBody: "Veuillez vérifier les présences avant votre atelier aujourd’hui."
+  },
+  es: {
+    language: "Idioma", coach: "Instructor de actividades extraescolares", logout: "Cerrar sesión", lookup: "Asistencia", manual: "Guía de uso", title: "Asistencia extraescolar",
+    description: "Consulta los detalles diarios o los totales mensuales y del curso escolar.", day: "Día", month: "Mes", schoolYear: "Curso escolar",
+    lookupDate: "Fecha", lookupMonth: "Mes", schoolYearLabel: "Curso escolar", department: "Actividad", refresh: "↻ Actualizar asistencia",
+    student: "Estudiante", status: "Asistencia", memo: "Observaciones", present: "Presente", absent: "Ausente", late: "Tarde", early: "Salida anticipada", unset: "Sin registrar", records: "Registros",
+    choosePeriod: "Selecciona un periodo y pulsa <strong>Actualizar asistencia</strong>.", noStudents: "No se encontraron estudiantes.",
+    operationSummary: ({ days, records }) => `${days} días de clase · ${records} registros`, schoolYearName: ({ year }) => `Curso escolar ${year}-${year + 1}`,
+    wait: ({ seconds }) => `Vuelve a intentarlo en ${seconds} segundos.`, lookupFailed: "No se pudo cargar la asistencia",
+    install: "Añadir a la pantalla de inicio", installReady: "Instalar aplicación", notificationsOn: "Notificaciones activadas", notificationsEnable: "Activar notificaciones", notificationsPermission: "Permitir notificaciones",
+    notificationsUnsupported: "Notificaciones no disponibles en la vista previa", notificationTitle: "Notificaciones", clearNotifications: "Borrar todo", noNotifications: "No hay notificaciones.", close: "Cerrar", confirm: "Aceptar", installAction: "Instalar",
+    installTitle: "Instalar la aplicación de asistencia", installBody: "Instala la aplicación para abrirla desde la pantalla de inicio.", reviewTitle: "Recordatorio de asistencia extraescolar", reviewBody: "Comprueba la asistencia antes de la actividad de hoy."
   }
 };
 const DEFAULT_AFTERSCHOOL_COURSES = {
@@ -65,8 +79,8 @@ const DEFAULT_AFTERSCHOOL_COURSES = {
 
 const state = {
   students: [], records: {}, contacts: {}, admins: { [ADMIN_EMAIL]: {} }, coaches: {}, teachers: {},
-  settings: { morningTime: "08:30", reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3, attendanceDays: [1, 5], maxClassesPerGrade: 3, contactVisible: false, autoCleanupEnabled: false, retentionMonths: 24, afterschoolCourses: structuredClone(DEFAULT_AFTERSCHOOL_COURSES) },
-  maintenance: null
+  settings: { morningTime: "08:30", reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 4, attendanceDays: [1, 5], maxClassesPerGrade: 3, contactVisible: false, allowAllStudentsLookup: false, usageCheckDay: 1, autoCleanupEnabled: false, retentionMonths: 24, afterschoolCourses: structuredClone(DEFAULT_AFTERSCHOOL_COURSES) },
+  maintenance: null, systemHealth: null
 };
 const loadedRecordKeys = new Set();
 const alarms = loadAlarms();
@@ -92,9 +106,9 @@ let coachLanguage = "ko";
 const els = Object.fromEntries([
   "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole", "coachLanguageControl", "coachLanguageLabel", "coachLanguageSelect",
   "logoutBtn", "todayText", "mainTitle", "manualLink", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
-  "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "alarmConfirmBtn", "notificationDialogTitle", "notificationCloseBtn", "installCloseBtn", "lookupDate", "lookupDateField", "lookupMonth", "lookupMonthField", "lookupSchoolYear", "lookupSchoolYearField", "lookupDepartment", "lookupDepartmentField", "lookupPeriodSummary",
+  "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "alarmConfirmBtn", "notificationDialogTitle", "notificationCloseBtn", "installCloseBtn", "lookupScope", "lookupScopeField", "lookupScopeLabel", "lookupDate", "lookupDateField", "lookupMonth", "lookupMonthField", "lookupSchoolYear", "lookupSchoolYearField", "lookupDepartment", "lookupDepartmentField", "lookupPeriodSummary",
   "lookupTable", "refreshLookupBtn", "lookupDescription", "lookupDateLabel", "lookupMonthLabel", "lookupSchoolYearLabel", "lookupDepartmentLabel", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
-  "enableNotificationsBtn", "maskContactDefault", "csvFileInput", "deleteAllStudentsBtn", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "clearTeacherAssignmentsBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn",
+  "enableNotificationsBtn", "maskContactDefault", "allowAllStudentsLookup", "csvFileInput", "deleteAllStudentsBtn", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "clearCoachAssignmentsBtn", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "clearTeacherAssignmentsBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "usageCheckDay", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn", "usageReminderBanner", "dismissUsageReminderBtn", "cleanupHealthDot", "cleanupHealthText", "deploymentHealthDot", "deploymentHealthText", "reminderHealthDot", "reminderHealthText",
   "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn",
   "statusStrip", "presentCountItem", "lateCountItem", "earlyCountItem", "absentCountItem", "unsetCountItem", "presentCount", "lateCount", "earlyCount", "absentCount", "unsetCount", "presentCountLabel", "lateCountLabel", "earlyCountLabel", "absentCountLabel", "unsetCountLabel"
 ].map((id) => [id, document.getElementById(id)]));
@@ -117,6 +131,7 @@ async function init() {
   els.lookupDate.value = todayKey();
   els.lookupMonth.value = todayKey().slice(0, 7);
   fillSchoolYearOptions();
+  fillSelect(els.usageCheckDay, Array.from({ length: 28 }, (_, index) => `${index + 1}일`), "1일");
   bindEvents();
   alarms.notifications ||= [];
   notificationRegistration = await registerNotificationWorker();
@@ -154,6 +169,7 @@ function bindEvents() {
     localStorage.setItem(COACH_LANGUAGE_KEY, coachLanguage);
     applyCoachLanguage();
     renderLookup();
+    if ("Notification" in window && Notification.permission === "granted") registerPushToken().catch(() => {});
   });
   document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.view)));
   document.querySelectorAll(".segment").forEach((segment) => segment.addEventListener("click", () => {
@@ -163,6 +179,7 @@ function bindEvents() {
   }));
   els.studentSearch.addEventListener("input", renderStudents);
   els.classFilter.addEventListener("change", renderStudents);
+  els.unsetCountItem.addEventListener("click", requestUnsetTeacherReminders);
   els.markUnsetPresentBtn.addEventListener("click", () => markStudentsPresent(false));
   els.markAllPresentBtn.addEventListener("click", () => markStudentsPresent(true));
   els.addStudentBtn.addEventListener("click", () => openStudentDialog());
@@ -172,13 +189,15 @@ function bindEvents() {
   els.reviewBtn.addEventListener("click", openReview);
   els.confirmSaveBtn.addEventListener("click", confirmSave);
   els.clearTodayBtn.addEventListener("click", clearToday);
-  els.lookupDate.addEventListener("change", async () => { if (lookupMode === "day") { await loadRecords(els.lookupDate.value); renderLookup(); renderCounts(); } });
+  els.lookupScope.addEventListener("change", async () => { clearLookupRange(); if (lookupMode === "day") await loadRecords(els.lookupDate.value || todayKey(), true); renderLookup(); });
+  els.lookupDate.addEventListener("change", async () => { if (lookupMode === "day") { await loadRecords(els.lookupDate.value, true); renderLookup(); renderCounts(); } });
   els.lookupMonth.addEventListener("change", clearLookupRange);
   els.lookupSchoolYear.addEventListener("change", clearLookupRange);
   els.lookupDepartment.addEventListener("change", () => { clearLookupRange(); renderLookup(); });
   document.querySelectorAll("[data-lookup-mode]").forEach((button) => button.addEventListener("click", () => setLookupMode(button.dataset.lookupMode)));
   els.refreshLookupBtn.addEventListener("click", refreshLookup);
   els.maskContactDefault.addEventListener("change", () => setContactVisibility(!els.maskContactDefault.checked));
+  els.allowAllStudentsLookup.addEventListener("change", updateAllStudentsLookupSetting);
   els.importBtn.addEventListener("click", importCsv);
   els.deleteAllStudentsBtn.addEventListener("click", deleteAllStudents);
   els.morningTime.addEventListener("change", updateMorningTime);
@@ -189,6 +208,7 @@ function bindEvents() {
   els.addAdminBtn.addEventListener("click", addAdmin);
   els.addCoachBtn.addEventListener("click", addCoach);
   els.importCoachesBtn.addEventListener("click", importCoachesCsv);
+  els.clearCoachAssignmentsBtn.addEventListener("click", clearCoachAssignments);
   els.addMondayDepartmentBtn.addEventListener("click", () => addAfterschoolCourse("monday"));
   els.addFridayDepartmentBtn.addEventListener("click", () => addAfterschoolCourse("friday"));
   els.addTeacherBtn.addEventListener("click", addTeacherAssignment);
@@ -197,7 +217,9 @@ function bindEvents() {
   document.querySelectorAll("[data-attendance-day]").forEach((input) => input.addEventListener("change", updateAttendanceDays));
   els.maxClassesPerGrade.addEventListener("change", updateMaxClassesPerGrade);
   els.saveRetentionSettingsBtn.addEventListener("click", saveRetentionSettings);
-  els.refreshCleanupStatusBtn.addEventListener("click", loadMaintenanceStatus);
+  els.usageCheckDay.addEventListener("change", updateUsageCheckDay);
+  els.refreshCleanupStatusBtn.addEventListener("click", refreshSystemHealth);
+  els.dismissUsageReminderBtn.addEventListener("click", dismissUsageReminder);
   els.notificationCenterBtn.addEventListener("click", openNotificationCenter);
   els.clearNotificationsBtn.addEventListener("click", clearNotifications);
 }
@@ -321,11 +343,13 @@ async function loadCloudData() {
   if (settingsSnapshot.exists()) {
     const savedSettings = settingsSnapshot.data();
     const mergedSettings = { ...state.settings, ...savedSettings };
-    if (Number(savedSettings.notificationSettingsVersion || 0) < 3) Object.assign(mergedSettings, { reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3 });
+    if (Number(savedSettings.notificationSettingsVersion || 0) < 3) Object.assign(mergedSettings, { reviewTime: "14:05", coachReviewTime: "14:10" });
+    mergedSettings.notificationSettingsVersion = 4;
     state.settings = normalizeSettings(mergedSettings);
     state.maintenance = maintenanceFromSettings(savedSettings);
-    if (isAdmin() && (Number(savedSettings.notificationSettingsVersion || 0) < 3 || !Array.isArray(savedSettings.attendanceDays) || !savedSettings.maxClassesPerGrade)) {
-      await setDoc(doc(db, "settings", "public"), { reviewTime: state.settings.reviewTime, coachReviewTime: state.settings.coachReviewTime, notificationSettingsVersion: 3, attendanceDays: state.settings.attendanceDays, maxClassesPerGrade: state.settings.maxClassesPerGrade, updatedAt: serverTimestamp() }, { merge: true });
+    state.systemHealth = healthFromSettings(savedSettings);
+    if (isAdmin() && (Number(savedSettings.notificationSettingsVersion || 0) < 4 || !Array.isArray(savedSettings.attendanceDays) || !savedSettings.maxClassesPerGrade)) {
+      await setDoc(doc(db, "settings", "public"), { reviewTime: state.settings.reviewTime, coachReviewTime: state.settings.coachReviewTime, notificationSettingsVersion: 4, attendanceDays: state.settings.attendanceDays, maxClassesPerGrade: state.settings.maxClassesPerGrade, usageCheckDay: state.settings.usageCheckDay, allowAllStudentsLookup: state.settings.allowAllStudentsLookup, updatedAt: serverTimestamp() }, { merge: true });
     }
   }
   else if (isAdmin()) await setDoc(doc(db, "settings", "public"), state.settings);
@@ -340,7 +364,7 @@ async function loadCloudData() {
         ? query(studentsRef, where("grade", "==", session.grade), where("classNo", "==", session.classNo))
         : studentsRef;
     const studentsSnapshot = await getDocs(studentsQuery);
-    state.students = studentsSnapshot.docs.map((item) => ({ id: item.id, ...item.data(), departments: normalizeDepartments(item.data().departments || item.data().department) }));
+    state.students = studentsSnapshot.docs.map((item) => ({ id: item.id, ...item.data(), departments: normalizeDepartments(item.data().departments || item.data().department) })).sort(compareStudents);
   }
 
   await loadRecords(todayKey());
@@ -392,21 +416,25 @@ function applySession() {
   els.userPicture.src = session.picture || "logo.svg";
 
   const savedCoachLanguage = localStorage.getItem(COACH_LANGUAGE_KEY);
-  coachLanguage = session.role === "coach" && ["ko", "en", "fr"].includes(savedCoachLanguage) ? savedCoachLanguage : "ko";
+  coachLanguage = session.role === "coach" && ["ko", "en", "fr", "es"].includes(savedCoachLanguage) ? savedCoachLanguage : "ko";
 
   const admin = isAdmin();
   els.attendanceTab.classList.toggle("is-hidden", session.role === "coach");
   els.lookupTab.classList.remove("is-hidden");
   els.settingsTab.classList.toggle("is-hidden", !admin);
   els.lookupDepartmentField.classList.toggle("is-hidden", session.role === "teacher");
+  els.lookupScopeField.classList.toggle("is-hidden", session.role === "coach");
   els.maskContactDefault.checked = !state.settings.contactVisible;
+  els.allowAllStudentsLookup.checked = state.settings.allowAllStudentsLookup;
   els.morningTime.value = state.settings.morningTime;
   els.reviewTime.value = state.settings.reviewTime;
   els.coachReviewTime.value = state.settings.coachReviewTime;
   els.maxClassesPerGrade.value = state.settings.maxClassesPerGrade;
   els.autoCleanupEnabled.checked = state.settings.autoCleanupEnabled;
   els.retentionMonths.value = String(state.settings.retentionMonths);
+  els.usageCheckDay.value = `${state.settings.usageCheckDay}일`;
   renderMaintenanceStatus();
+  updateUsageReminderBanner();
   document.querySelectorAll("[data-attendance-day]").forEach((input) => { input.checked = state.settings.attendanceDays.includes(Number(input.dataset.attendanceDay)); });
   els.addStudentBtn.classList.toggle("is-hidden", !isAdmin() && !hasHomeroom());
   const coachView = session.role === "coach";
@@ -428,6 +456,7 @@ async function loadMaintenanceStatus(showError = true) {
   try {
     const snapshot = await getDoc(doc(db, "settings", "public"));
     state.maintenance = snapshot.exists() ? maintenanceFromSettings(snapshot.data()) : null;
+    state.systemHealth = snapshot.exists() ? healthFromSettings(snapshot.data()) : null;
     renderMaintenanceStatus();
   } catch (error) {
     if (showError) alert(`자동 정리 상태 조회 실패: ${readableError(error)}`);
@@ -435,6 +464,14 @@ async function loadMaintenanceStatus(showError = true) {
   } finally {
     els.refreshCleanupStatusBtn.disabled = false;
   }
+}
+
+function healthFromSettings(settings) {
+  return {
+    reminderStatus: settings?.reminderHealthStatus || "unknown",
+    reminderLastRunAt: settings?.reminderHealthLastRunAt || null,
+    reminderMessage: settings?.reminderHealthMessage || ""
+  };
 }
 
 function maintenanceFromSettings(settings) {
@@ -460,6 +497,99 @@ function renderMaintenanceStatus() {
   const ranAtText = Number.isNaN(ranAt.getTime()) ? "날짜 확인 불가" : new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(ranAt);
   const statusText = result.status === "completed" ? "정상 완료" : result.status === "partial" ? "일부 정리 완료" : "실행 실패";
   els.cleanupStatus.innerHTML = `<strong>${escapeHtml(statusText)}</strong><span>마지막 실행 ${escapeHtml(ranAtText)} · 삭제 ${Number(result.deletedCount || 0).toLocaleString("ko-KR")}건 · 기준일 ${escapeHtml(result.cutoffDate || "-")}</span>`;
+}
+
+function currentMonthKey() {
+  return todayKey().slice(0, 7);
+}
+
+function updateUsageReminderBanner() {
+  if (!isAdmin()) return els.usageReminderBanner.classList.add("is-hidden");
+  const due = new Date().getDate() >= state.settings.usageCheckDay;
+  const dismissed = localStorage.getItem(USAGE_REMINDER_DISMISS_KEY) === currentMonthKey();
+  els.usageReminderBanner.classList.toggle("is-hidden", !due || dismissed);
+}
+
+function dismissUsageReminder() {
+  localStorage.setItem(USAGE_REMINDER_DISMISS_KEY, currentMonthKey());
+  updateUsageReminderBanner();
+}
+
+async function updateUsageCheckDay() {
+  if (!isAdmin()) return;
+  const day = Number(String(els.usageCheckDay.value).replace(/\D/g, ""));
+  if (day < 1 || day > 28) return;
+  state.settings.usageCheckDay = day;
+  await setDoc(doc(db, "settings", "public"), { usageCheckDay: day, notificationSettingsVersion: 4, updatedAt: serverTimestamp() }, { merge: true });
+  updateUsageReminderBanner();
+}
+
+async function updateAllStudentsLookupSetting() {
+  if (!isAdmin()) return;
+  const enabled = els.allowAllStudentsLookup.checked;
+  if (enabled && !confirm("관리자 조회 대상에 ‘학생 전체’를 표시할까요?\n월별·학년도별 전체 조회는 Firebase 읽기 사용량이 크게 늘 수 있습니다.")) {
+    els.allowAllStudentsLookup.checked = false;
+    return;
+  }
+  state.settings.allowAllStudentsLookup = enabled;
+  await setDoc(doc(db, "settings", "public"), { allowAllStudentsLookup: enabled, updatedAt: serverTimestamp() }, { merge: true });
+  refreshLookupScopes();
+  clearLookupRange();
+  renderLookup();
+}
+
+function setHealthState(name, ok, message) {
+  const dot = els[`${name}HealthDot`];
+  const text = els[`${name}HealthText`];
+  dot.classList.toggle("is-ok", ok === true);
+  dot.classList.toggle("is-error", ok === false);
+  dot.classList.toggle("is-pending", ok === null);
+  text.textContent = message;
+}
+
+function readableRunTime(value) {
+  if (!value) return "실행 기록 없음";
+  const date = value?.toDate ? value.toDate() : new Date(value);
+  return Number.isNaN(date.getTime()) ? "시간 확인 불가" : new Intl.DateTimeFormat("ko-KR", { dateStyle: "short", timeStyle: "short" }).format(date);
+}
+
+async function refreshSystemHealth() {
+  if (!isAdmin()) return;
+  els.refreshCleanupStatusBtn.disabled = true;
+  ["cleanup", "deployment", "reminder"].forEach((name) => setHealthState(name, null, "확인 중"));
+  try {
+    const [settingsSnapshot, deploymentsResponse] = await Promise.all([
+      getDoc(doc(db, "settings", "public")),
+      fetch(GITHUB_DEPLOYMENTS_API, { headers: { Accept: "application/vnd.github+json" } })
+    ]);
+    if (!deploymentsResponse.ok) throw new Error(`GitHub 배포 조회 오류 ${deploymentsResponse.status}`);
+    const settings = settingsSnapshot.exists() ? settingsSnapshot.data() : {};
+    const deployment = (await deploymentsResponse.json())?.[0];
+    const deploymentStatusResponse = deployment?.statuses_url
+      ? await fetch(deployment.statuses_url, { headers: { Accept: "application/vnd.github+json" } })
+      : null;
+    const deploymentStatus = deploymentStatusResponse?.ok ? (await deploymentStatusResponse.json())?.[0] : null;
+    state.maintenance = maintenanceFromSettings(settings);
+    state.systemHealth = healthFromSettings(settings);
+    renderMaintenanceStatus();
+
+    const cleanupDate = state.maintenance?.lastRunAt?.toDate ? state.maintenance.lastRunAt.toDate() : new Date(state.maintenance?.lastRunAt || 0);
+    const cleanupFresh = Date.now() - cleanupDate.getTime() < 40 * 24 * 60 * 60 * 1000;
+    const cleanupOk = !state.settings.autoCleanupEnabled || (["completed", "partial"].includes(state.maintenance?.status) && cleanupFresh);
+    setHealthState("cleanup", cleanupOk, state.settings.autoCleanupEnabled ? readableRunTime(state.maintenance?.lastRunAt) : "정상 · 자동 삭제 사용 안 함");
+
+    const deploymentOk = deploymentStatus?.state === "success";
+    setHealthState("deployment", deploymentOk, deploymentStatus ? `${deploymentOk ? "정상" : "오류"} · ${readableRunTime(deploymentStatus.updated_at)}` : "배포 기록 없음");
+
+    const healthAt = state.systemHealth?.reminderLastRunAt?.toDate ? state.systemHealth.reminderLastRunAt.toDate() : new Date(state.systemHealth?.reminderLastRunAt || 0);
+    const healthFresh = Date.now() - healthAt.getTime() < 45 * 60 * 1000;
+    const reminderOk = state.systemHealth?.reminderStatus === "healthy" && healthFresh;
+    setHealthState("reminder", reminderOk, `${reminderOk ? "정상" : "오류 또는 실행 지연"} · ${readableRunTime(state.systemHealth?.reminderLastRunAt)}`);
+  } catch (error) {
+    ["cleanup", "deployment", "reminder"].forEach((name) => setHealthState(name, false, `확인 실패 · ${readableError(error)}`));
+  } finally {
+    els.refreshCleanupStatusBtn.disabled = false;
+  }
 }
 
 async function saveRetentionSettings() {
@@ -503,7 +633,8 @@ function canEnterAttendanceToday() { return canEdit() && isAttendanceDay(); }
 function isAdmin() { return session?.role === "admin"; }
 function hasHomeroom() { return Boolean(session && ["admin", "teacher"].includes(session.role) && session.grade && session.classNo); }
 function notificationAudiences() {
-  if (session?.role === "admin" || (session?.role === "teacher" && hasHomeroom())) return ["input", "review"];
+  if (session?.role === "admin") return ["input", "review", "admin-usage"];
+  if (session?.role === "teacher" && hasHomeroom()) return ["input", "review"];
   if (session?.role === "coach") return ["coach-review"];
   return [];
 }
@@ -545,7 +676,7 @@ function coachText(key, values = {}) {
 }
 
 function coachLocale() {
-  return coachLanguage === "en" ? "en-US" : coachLanguage === "fr" ? "fr-FR" : "ko-KR";
+  return coachLanguage === "en" ? "en-US" : coachLanguage === "fr" ? "fr-FR" : coachLanguage === "es" ? "es-ES" : "ko-KR";
 }
 
 function displayStatusLabel(status) {
@@ -630,6 +761,44 @@ function clearLookupRange() {
   els.lookupPeriodSummary.classList.add("is-hidden");
 }
 
+function defaultLookupScope() {
+  if (session?.role === "coach") return "department";
+  if (hasHomeroom()) return "homeroom";
+  return "afterschool";
+}
+
+function currentLookupScope() {
+  return els.lookupScope.value || defaultLookupScope();
+}
+
+function refreshLookupScopes() {
+  if (!session || session.role === "coach") return;
+  if (session.role === "teacher" && !hasHomeroom()) {
+    els.lookupScope.innerHTML = '<option value="none">담당 학급 미배정</option>';
+    els.lookupScope.disabled = true;
+    return;
+  }
+  const current = els.lookupScope.value || defaultLookupScope();
+  const options = [];
+  if (hasHomeroom()) options.push({ value: "homeroom", label: `내 학급 (${session.grade}학년 ${session.classNo}반)` });
+  options.push({ value: "afterschool", label: "방과후 수강학생 전체" });
+  if (isAdmin() && state.settings.allowAllStudentsLookup) options.push({ value: "all", label: "학생 전체 (대량 조회)" });
+  els.lookupScope.innerHTML = options.map((option) => `<option value="${option.value}">${option.label}</option>`).join("");
+  els.lookupScope.value = options.some((option) => option.value === current) ? current : defaultLookupScope();
+  els.lookupScope.disabled = session.role === "teacher";
+}
+
+function scopedLookupStudents(department) {
+  const scope = currentLookupScope();
+  return state.students.filter((student) => {
+    const inScope = session.role === "coach"
+      || scope === "all"
+      || (scope === "homeroom" && String(student.grade) === String(session.grade) && String(student.classNo) === String(session.classNo))
+      || (scope === "afterschool" && isAfterschoolStudent(student));
+    return inScope && (department === "전체" || studentDepartments(student).includes(department));
+  }).sort(compareStudents);
+}
+
 function refreshDepartments() {
   const catalogDepartments = [
     ...state.settings.afterschoolCourses.monday.map((course) => `월요:${course}`),
@@ -637,10 +806,13 @@ function refreshDepartments() {
   ];
   const departments = [...new Set([...catalogDepartments, ...state.students.flatMap((student) => studentDepartments(student))])]
     .filter((department) => !["방과후 미수강", "미수강", "없음", "-"].includes(department)).sort((a, b) => a.localeCompare(b, "ko"));
-  fillSelect(els.lookupDepartment, ["전체", ...departments], session.role === "coach" ? session.department : "전체");
+  const currentDepartment = els.lookupDepartment.value;
+  fillSelect(els.lookupDepartment, ["전체", ...departments], session.role === "coach" ? session.department : departments.includes(currentDepartment) ? currentDepartment : "전체");
+  if (session.role !== "coach" && els.lookupDepartment.options[0]) els.lookupDepartment.options[0].textContent = "부서 구분 없이";
+  refreshLookupScopes();
   fillSelect(els.coachDepartmentInput, departments, departments[0] || "");
   const homeroomClass = hasHomeroom() ? `${session.grade}학년 ${session.classNo}반` : "";
-  const assignedClass = !isAdmin() ? homeroomClass : "";
+  const assignedClass = session.role === "teacher" ? homeroomClass : "";
   const selectedClass = assignedClass || (!attendanceClassInitialized && homeroomClass ? homeroomClass : els.classFilter.value || "전체");
   const classes = [...new Set([...state.students.map((student) => `${student.grade}학년 ${student.classNo}반`), ...(homeroomClass ? [homeroomClass] : [])])]
     .sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
@@ -875,7 +1047,7 @@ function getScopedStudents() {
     const text = `${student.name} ${departmentLabel(student)} ${student.grade}-${student.classNo}`.toLowerCase();
     const className = `${student.grade}학년 ${student.classNo}반`;
     return (!queryText || text.includes(queryText)) && (selectedClass === "전체" || selectedClass === className);
-  }).sort((a, b) => Number(a.grade) - Number(b.grade) || Number(a.classNo) - Number(b.classNo) || Number(a.number) - Number(b.number));
+  }).sort(compareStudents);
 }
 
 function renderCounts() {
@@ -892,6 +1064,42 @@ function renderCounts() {
     else counts.unset += 1;
   });
   Object.keys(counts).forEach((key) => { els[`${key}Count`].textContent = counts[key]; });
+  const canRequestReminder = isAdmin() && session.role !== "coach" && isAttendanceDay() && counts.unset > 0;
+  els.unsetCountItem.disabled = !canRequestReminder;
+  els.unsetCountItem.classList.toggle("is-actionable", canRequestReminder);
+  els.unsetCountItem.title = canRequestReminder ? "미입력 학급 담임에게 알림 보내기" : "";
+  if (session?.role !== "coach") els.unsetCountLabel.textContent = canRequestReminder ? "미입력 · 알림" : "미입력";
+}
+
+async function requestUnsetTeacherReminders() {
+  if (!isAdmin() || els.unsetCountItem.disabled) return;
+  if (!accessCatalogLoaded) await loadCoachList();
+  const unsetStudents = getScopedStudents().filter((student) => (state.records[todayKey()]?.[student.id]?.status || "unset") === "unset");
+  const classes = uniqueStudentClasses(unsetStudents);
+  const targets = classes.flatMap(({ grade, classNo }) => Object.entries(state.teachers)
+    .filter(([, assignment]) => String(assignment.grade) === String(grade) && String(assignment.classNo) === String(classNo))
+    .map(([email]) => ({ email, grade: String(grade), classNo: String(classNo) })));
+  if (!targets.length) return alert("미입력 학급에 배정된 담임교사가 없습니다.");
+  const classNames = [...new Set(targets.map((target) => `${target.grade}학년 ${target.classNo}반`))].join(", ");
+  if (!confirm(`${classNames} 담임교사 ${targets.length}명에게 미입력 알림을 보낼까요?\n알림은 최대 10분 안에 전송됩니다.`)) return;
+  els.unsetCountItem.disabled = true;
+  try {
+    const batch = writeBatch(db);
+    targets.forEach((target, index) => {
+      const requestId = `${todayKey()}_${target.grade}-${target.classNo}_${Date.now()}_${index}`;
+      batch.set(doc(db, "notificationRequests", requestId), {
+        type: "unset-reminder", targetEmail: target.email, grade: target.grade, classNo: target.classNo,
+        title: "출결 미입력 알림", body: `${target.grade}학년 ${target.classNo}반에 미입력 학생이 있습니다. 출결을 확인해 주세요.`,
+        status: "pending", requestedBy: session.email, requestedAt: serverTimestamp()
+      });
+    });
+    await batch.commit();
+    alert(`${targets.length}명의 담임교사에게 알림을 요청했습니다. 최대 10분 안에 전송됩니다.`);
+  } catch (error) {
+    alert(`미입력 알림 요청 실패: ${readableError(error)}`);
+  } finally {
+    renderCounts();
+  }
 }
 
 function openReview() {
@@ -963,7 +1171,7 @@ function renderLookup() {
   if (teacher) els.lookupDepartment.value = "전체";
   const department = coach ? session.department : teacher ? "전체" : els.lookupDepartment.value;
   const records = state.records[els.lookupDate.value || todayKey()] || {};
-  const students = state.students.filter((student) => department === "전체" || studentDepartments(student).includes(department));
+  const students = scopedLookupStudents(department);
   const adminView = isAdmin();
   els.lookupPeriodSummary.classList.add("is-hidden");
   els.lookupTable.classList.remove("lookup-summary-table");
@@ -993,11 +1201,13 @@ function lookupDateRange() {
   return { start: `${year}-03-01`, end: `${year + 1}-02-${String(endDay).padStart(2, "0")}`, label: session?.role === "coach" ? coachText("schoolYearName", { year }) : `${year}학년도` };
 }
 
-async function loadRangeRecords(start, end, department) {
+async function loadRangeRecords(start, end, department, scope) {
   const attendanceRef = collection(db, "attendance");
-  const attendanceQuery = session.role === "teacher"
+  const attendanceQuery = session.role === "teacher" || scope === "homeroom"
     ? query(attendanceRef, where("grade", "==", session.grade), where("classNo", "==", session.classNo), where("date", ">=", start), where("date", "<=", end))
-    : query(attendanceRef, where("departments", "array-contains", department), where("date", ">=", start), where("date", "<=", end));
+    : department !== "전체"
+      ? query(attendanceRef, where("departments", "array-contains", department), where("date", ">=", start), where("date", "<=", end))
+      : query(attendanceRef, where("date", ">=", start), where("date", "<=", end));
   const snapshot = await getDocs(attendanceQuery);
   return snapshot.docs.map((item) => item.data());
 }
@@ -1006,7 +1216,7 @@ function renderLookupSummary() {
   const coach = session.role === "coach";
   const teacher = session.role === "teacher";
   const department = coach ? session.department : teacher ? "전체" : els.lookupDepartment.value;
-  const students = state.students.filter((student) => department === "전체" || studentDepartments(student).includes(department));
+  const students = scopedLookupStudents(department);
   els.lookupTable.classList.add("lookup-summary-table", "no-contact");
   els.lookupTable.classList.toggle("coach-lookup-summary", coach);
   if (!lookupRange.key) {
@@ -1025,7 +1235,8 @@ function renderLookupSummary() {
   const operationDays = new Set(lookupRange.records.map((record) => record.date)).size;
   const recordCount = lookupRange.records.length.toLocaleString(coach ? coachLocale() : "ko-KR");
   const summaryText = coach ? coachText("operationSummary", { days: operationDays, records: recordCount }) : `운영 기록 ${operationDays}일 · 저장된 출결 ${recordCount}건`;
-  els.lookupPeriodSummary.innerHTML = `<strong>${escapeHtml(lookupRange.label)}</strong><span>${escapeHtml(department === "전체" ? teacher ? `${session.grade}학년 ${session.classNo}반` : "전체" : department)} · ${escapeHtml(summaryText)}</span>`;
+  const scopeLabel = currentLookupScope() === "homeroom" ? `${session.grade}학년 ${session.classNo}반` : currentLookupScope() === "afterschool" ? "방과후 수강학생 전체" : currentLookupScope() === "all" ? "학생 전체" : department;
+  els.lookupPeriodSummary.innerHTML = `<strong>${escapeHtml(lookupRange.label)}</strong><span>${escapeHtml(department === "전체" ? scopeLabel : department)} · ${escapeHtml(summaryText)}</span>`;
   els.lookupPeriodSummary.classList.remove("is-hidden");
   const columns = coach
     ? `<div>${coachText("student")}</div><div>${coachText("present")}</div><div>${coachText("absent")}</div><div>${coachText("records")}</div>`
@@ -1051,10 +1262,12 @@ async function refreshLookup() {
       await loadRecords(els.lookupDate.value || todayKey(), true);
     } else {
       const department = session.role === "coach" ? session.department : session.role === "teacher" ? "전체" : els.lookupDepartment.value;
-      if (isAdmin() && department === "전체") return alert("월별·학년도별 조회는 읽기 사용량을 줄이기 위해 방과후 부서를 하나 선택해 주세요.");
+      const scope = currentLookupScope();
+      if (isAdmin() && scope === "afterschool" && department === "전체") return alert("월별·학년도별 ‘방과후 수강학생 전체’ 조회는 읽기 사용량이 많습니다. 방과후 부서를 하나 선택해 주세요.");
       const range = lookupDateRange();
-      const records = await loadRangeRecords(range.start, range.end, department);
-      lookupRange = { key: `${lookupMode}_${department}_${range.start}_${range.end}`, records, ...range };
+      const records = await loadRangeRecords(range.start, range.end, department, scope);
+      const allowedStudentIds = new Set(scopedLookupStudents(department).map((student) => student.id));
+      lookupRange = { key: `${lookupMode}_${scope}_${department}_${range.start}_${range.end}`, records: records.filter((record) => allowedStudentIds.has(record.studentId)), ...range };
     }
     lastLookupRefreshAt = Date.now();
     if (lookupMode === "day" && isAdmin() && state.settings.contactVisible) await loadContacts();
@@ -1093,7 +1306,7 @@ async function updateReviewTime() {
     return alert("알림 시간은 5분 단위로 지정해 주세요.");
   }
   state.settings.reviewTime = els.reviewTime.value;
-  await setDoc(doc(db, "settings", "public"), { reviewTime: state.settings.reviewTime, notificationSettingsVersion: 3, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(doc(db, "settings", "public"), { reviewTime: state.settings.reviewTime, notificationSettingsVersion: 4, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 async function updateCoachReviewTime() {
@@ -1103,7 +1316,7 @@ async function updateCoachReviewTime() {
     return alert("알림 시간은 5분 단위로 지정해 주세요.");
   }
   state.settings.coachReviewTime = els.coachReviewTime.value;
-  await setDoc(doc(db, "settings", "public"), { coachReviewTime: state.settings.coachReviewTime, notificationSettingsVersion: 3, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(doc(db, "settings", "public"), { coachReviewTime: state.settings.coachReviewTime, notificationSettingsVersion: 4, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 async function updateAttendanceDays() {
@@ -1262,6 +1475,31 @@ function renderCoachList() {
     delete state.coaches[button.dataset.removeCoach];
     renderCoachList();
   }));
+}
+
+async function clearCoachAssignments() {
+  if (!isAdmin()) return;
+  const emails = Object.keys(state.coaches);
+  if (!emails.length) return alert("해제할 방과후강사 배정이 없습니다.");
+  if (!confirm(`방과후강사 ${emails.length}명의 부서 배정을 모두 해제할까요?\n담임교사와 관리자 권한은 유지됩니다.`)) return;
+  if (prompt("실수를 막기 위해 '강사전체해제'를 입력해 주세요.") !== "강사전체해제") return alert("강사 배정 전체 해제를 취소했습니다.");
+  els.clearCoachAssignmentsBtn.disabled = true;
+  try {
+    for (let start = 0; start < emails.length; start += 400) {
+      const batch = writeBatch(db);
+      emails.slice(start, start + 400).forEach((email) => batch.delete(doc(db, "access", email)));
+      await batch.commit();
+    }
+    state.coaches = {};
+    renderCoachList();
+    alert(`방과후강사 배정 ${emails.length}건을 모두 해제했습니다.`);
+  } catch (error) {
+    alert(`강사 배정 전체 해제 실패: ${readableError(error)}`);
+    await loadCoachList().catch(() => {});
+    renderCoachList();
+  } finally {
+    els.clearCoachAssignmentsBtn.disabled = false;
+  }
 }
 
 async function addAfterschoolCourse(day) {
@@ -1512,20 +1750,30 @@ function normalizeSettings(settings) {
   const attendanceDays = [...new Set((Array.isArray(settings.attendanceDays) ? settings.attendanceDays : [1, 5]).map(Number).filter((day) => day >= 1 && day <= 5))].sort();
   const maxClassesPerGrade = Math.min(10, Math.max(1, Math.trunc(Number(settings.maxClassesPerGrade) || 3)));
   const retentionMonths = [12, 24, 36, 60].includes(Number(settings.retentionMonths)) ? Number(settings.retentionMonths) : 24;
+  const usageCheckDay = Math.min(28, Math.max(1, Math.trunc(Number(settings.usageCheckDay) || 1)));
   return {
     ...settings,
     reviewTime: currentNotificationSettings ? settings.reviewTime || "14:05" : "14:05",
     coachReviewTime: currentNotificationSettings ? settings.coachReviewTime || "14:10" : "14:10",
-    notificationSettingsVersion: 3,
+    notificationSettingsVersion: 4,
     attendanceDays: attendanceDays.length ? attendanceDays : [1, 5],
     maxClassesPerGrade,
     autoCleanupEnabled: settings.autoCleanupEnabled === true,
+    allowAllStudentsLookup: settings.allowAllStudentsLookup === true,
+    usageCheckDay,
     retentionMonths,
     afterschoolCourses: {
       monday: [...new Set((savedCourses.monday || DEFAULT_AFTERSCHOOL_COURSES.monday).map((value) => String(value).trim()).filter(Boolean))],
       friday: [...new Set((savedCourses.friday || DEFAULT_AFTERSCHOOL_COURSES.friday).map((value) => String(value).trim()).filter(Boolean))]
     }
   };
+}
+
+function compareStudents(a, b) {
+  return Number(a.grade) - Number(b.grade)
+    || Number(a.classNo) - Number(b.classNo)
+    || Number(a.number) - Number(b.number)
+    || String(a.name).localeCompare(String(b.name), "ko");
 }
 
 function studentDepartments(student) {
@@ -1563,6 +1811,7 @@ function scheduleChecks() {
   setInterval(() => {
     checkDateRollover().catch(() => {});
     checkAlarms();
+    if (session) updateUsageReminderBanner();
   }, 30 * 1000);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) checkDateRollover().catch(() => {});
@@ -1578,7 +1827,7 @@ async function checkDateRollover() {
   const previousDate = activeAttendanceDate;
   activeAttendanceDate = nextDate;
   dateRolloverPromise = (async () => {
-    els.todayText.textContent = new Intl.DateTimeFormat("ko-KR", { dateStyle: "full" }).format(new Date());
+    els.todayText.textContent = new Intl.DateTimeFormat(session?.role === "coach" ? coachLocale() : "ko-KR", { dateStyle: "full" }).format(new Date());
     if (!els.lookupDate.value || els.lookupDate.value === previousDate) els.lookupDate.value = nextDate;
     if (els.reviewDialog.open) els.reviewDialog.close();
     await loadRecords(nextDate, true);
@@ -1594,6 +1843,12 @@ async function checkDateRollover() {
 function checkAlarms() {
   if (!session || pushTokenActive || !canReceiveNotifications()) return;
   const now = new Date(), date = todayKey(), hhmm = now.toTimeString().slice(0, 5);
+  const month = date.slice(0, 7);
+  if (isAdmin() && now.getDate() >= state.settings.usageCheckDay && alarms.lastUsageMonth !== month) {
+    alarms.lastUsageMonth = month; saveAlarms();
+    addNotification("Firebase 사용량 확인", "이번 달 읽기·쓰기·저장 공간이 무료 범위인지 확인해 주세요.");
+    notify("Firebase 사용량 확인", "이번 달 Firebase 사용량을 확인해 주세요.");
+  }
   if (!isAttendanceDay(now)) return;
   if (notificationAudiences().includes("input") && hhmm >= state.settings.morningTime && alarms.lastMorning !== date) {
     alarms.lastMorning = date; saveAlarms(); addNotification("아침 출결 입력", "오늘 학생 출결을 입력해 주세요."); notify("아침 출결 입력 시간입니다", "오늘 학생 출결을 입력해 주세요.");
@@ -1638,7 +1893,8 @@ async function registerPushToken() {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
   const tokenId = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
   const audiences = notificationAudiences();
-  const syncSignature = JSON.stringify({ tokenId, uid: auth.currentUser.uid, email: session.email, role: session.role, audiences });
+  const language = session.role === "coach" ? coachLanguage : "ko";
+  const syncSignature = JSON.stringify({ tokenId, uid: auth.currentUser.uid, email: session.email, role: session.role, audiences, language });
   const previousSync = readPushTokenSync();
   if (previousSync?.signature === syncSignature && Date.now() - Number(previousSync.syncedAt || 0) < PUSH_TOKEN_SYNC_INTERVAL) {
     pushTokenActive = true;
@@ -1650,6 +1906,7 @@ async function registerPushToken() {
     email: session.email,
     role: session.role,
     audiences,
+    language,
     active: true,
     updatedAt: serverTimestamp()
   });
