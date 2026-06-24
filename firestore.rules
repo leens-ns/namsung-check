@@ -26,7 +26,11 @@ service cloud.firestore {
     }
 
     function isCoach() {
-      return signedIn() && exists(accessPath()) && get(accessPath()).data.role == 'coach';
+      return signedIn() && exists(accessPath()) && (
+        get(accessPath()).data.role == 'coach'
+        || (get(accessPath()).data.keys().hasAny(['coachDepartment'])
+          && get(accessPath()).data.coachDepartment is string)
+      );
     }
 
     function isHomeroomTeacher() {
@@ -69,12 +73,15 @@ service cloud.firestore {
     }
 
     function coachDepartment() {
-      return get(accessPath()).data.department;
+      return get(accessPath()).data.role == 'coach'
+        ? get(accessPath()).data.department
+        : get(accessPath()).data.coachDepartment;
     }
 
     function validAccess(accountEmail, data) {
       return data.role in ['admin', 'teacher', 'coach']
         && data.updatedBy == email()
+        && (!data.keys().hasAny(['coachDepartment']) || data.coachDepartment is string)
         && (
           (data.role == 'admin' && accountEmail.matches('.*@nsworld[.]net$'))
           || (data.role == 'teacher'
@@ -131,9 +138,15 @@ service cloud.firestore {
         && request.resource.data.active == true
         && (
           (request.resource.data.role == 'admin' && isAdmin()
-            && request.resource.data.audiences == ['input', 'review', 'admin-usage'])
+            && (
+              (isCoach() && request.resource.data.audiences == ['input', 'review', 'admin-usage', 'coach-review'])
+              || (!isCoach() && request.resource.data.audiences == ['input', 'review', 'admin-usage'])
+            ))
           || (request.resource.data.role == 'teacher' && isHomeroomTeacher()
-            && request.resource.data.audiences == ['input', 'review'])
+            && (
+              (isCoach() && request.resource.data.audiences == ['input', 'review', 'coach-review'])
+              || (!isCoach() && request.resource.data.audiences == ['input', 'review'])
+            ))
           || (request.resource.data.role == 'coach' && isCoach()
             && request.resource.data.audiences == ['coach-review'])
         );
