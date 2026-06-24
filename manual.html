@@ -41,7 +41,7 @@
     <div id="manualGate" class="gate">
       <h2>계정 확인 중</h2>
       <p id="manualGateMessage">로그인 계정의 매뉴얼을 불러오고 있습니다.</p>
-      <a id="manualGateLink" href="index.html?v=20260624-6" hidden>메인 화면에서 로그인</a>
+      <a id="manualGateLink" href="index.html?v=20260624-7" hidden>메인 화면에서 로그인</a>
     </div>
 
     <div id="manualApp" hidden>
@@ -54,7 +54,7 @@
       </header>
       <nav aria-label="매뉴얼 목차">
         <div>
-          <a id="manualHomeLink" href="index.html?v=20260624-6">메인 화면으로</a>
+          <a id="manualHomeLink" href="index.html?v=20260624-7">메인 화면으로</a>
           <a href="#common" data-manual-nav="common">공통</a>
           <a href="#teacher" data-manual-nav="teacher">교사</a>
           <a href="#coach" data-manual-nav="coach">방과후강사</a>
@@ -109,10 +109,10 @@
           <h2>관리자</h2>
           <h3>학기 시작 설정 순서</h3>
           <ol>
-            <li>관리자 기기의 학생 CSV로 명단을 전체 교체합니다. CSV에 없는 기존 학생과 연락처는 삭제됩니다.</li>
+            <li>예시 CSV를 내려받아 형식을 확인한 뒤 관리자 기기의 학생 CSV로 명단을 전체 교체합니다. CSV에 없는 기존 학생과 연락처는 삭제됩니다.</li>
             <li>운영 요일, 학년별 최대 반 수, 요일별 방과후 부서 목록을 설정합니다.</li>
-            <li>담임교사 이메일과 학급을 배정합니다.</li>
-            <li>방과후강사 이메일과 담당 부서를 등록합니다.</li>
+            <li>담임교사 이메일과 학급을 단건·붙여넣기·CSV 중 편한 방식으로 배정합니다.</li>
+            <li>방과후강사 이메일과 담당 부서를 단건 또는 CSV로 등록합니다. 학교 계정도 강사로 명시 등록할 수 있습니다.</li>
             <li>필요한 경우 추가 관리자를 지정합니다.</li>
             <li>새 학기 강사 교체 시 <strong>강사 배정 전체 해제</strong>로 기존 강사 계정을 정리합니다.</li>
           </ol>
@@ -132,7 +132,7 @@
           <ol>
             <li><strong>관리자 설정 → 무료 운영·자료 보관</strong>에서 학교 보관 기준에 맞는 기간을 선택합니다.</li>
             <li><strong>오래된 출결 자동 삭제</strong>를 켠 뒤 <strong>보관 설정 저장</strong>을 누릅니다.</li>
-            <li>Firebase 사용량 확인일을 정하면 해당 날짜부터 상단 안내와 관리자 알림이 표시됩니다.</li>
+            <li>Firebase 사용량 확인일을 정하면 해당 날짜부터 상단 안내와 관리자 알림이 표시됩니다. 안내나 사용량 확인 버튼을 누르면 모든 관리자 화면에서 사라지고 다음 달에 다시 표시됩니다.</li>
             <li><strong>상태 새로고침</strong>에서 자동 정리·웹앱 배포·출결 알림이 모두 초록색인지 확인합니다.</li>
             <li>GitHub 작업이 비활성화되어 있으면 해당 작업에서 <strong>Enable workflow</strong>를 눌러 다시 켭니다.</li>
           </ol>
@@ -143,6 +143,6 @@
     </div>
 
     <script src="config.js"></script>
-    <script type="module" src="manual.js?v=20260624-6"></script>
+    <script type="module" src="manual.js?v=20260624-7"></script>
   </body>
 </html>
