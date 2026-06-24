@@ -33,11 +33,18 @@ if (current.day >= settings.usageCheckDay) {
 }
 
 const pendingRequests = await readPendingRequests();
-const tokenCatalog = reminders.length || pendingRequests.length ? await readTokenCatalog() : [];
-for (const reminder of reminders) await dispatchReminder(reminder, tokenCatalog);
+const reservedReminders = [];
+for (const reminder of reminders) {
+  const dispatchId = reminder.dispatchId || `${current.date}_${reminder.type}`;
+  if (await reserveDispatch(dispatchId, reminder.type)) reservedReminders.push({ ...reminder, dispatchId });
+}
+const tokenCatalog = reservedReminders.length || pendingRequests.length ? await readTokenCatalog() : [];
+for (const reminder of reservedReminders) await dispatchReminder(reminder, tokenCatalog);
 for (const request of pendingRequests) await dispatchRequest(request, tokenCatalog);
-await writeReminderHealth("healthy", `Scheduled reminders ${reminders.length}, admin requests ${pendingRequests.length}`);
-console.log(`Checked ${reminders.length} scheduled reminder(s) and ${pendingRequests.length} admin request(s).`);
+if (shouldWriteHealth(savedSettings.reminderHealthLastRunAt, now)) {
+  await writeReminderHealth("healthy", `Scheduled reminders ${reservedReminders.length}, admin requests ${pendingRequests.length}`);
+}
+console.log(`Sent ${reservedReminders.length} new scheduled reminder(s) and checked ${pendingRequests.length} admin request(s).`);
 
 async function readSettings() {
   const response = await api(`${DATABASE_ROOT}/settings/public`);
@@ -49,18 +56,18 @@ async function readSettings() {
     coachReviewTime: stringField(document, "coachReviewTime"),
     notificationSettingsVersion: integerField(document, "notificationSettingsVersion"),
     attendanceDays: arrayIntegerField(document, "attendanceDays"),
-    usageCheckDay: integerField(document, "usageCheckDay")
+    usageCheckDay: integerField(document, "usageCheckDay"),
+    reminderHealthLastRunAt: timestampField(document, "reminderHealthLastRunAt")
   };
 }
 
 async function dispatchReminder(reminder, tokenCatalog) {
-  const dispatchId = reminder.dispatchId || `${current.date}_${reminder.type}`;
-  if (!(await reserveDispatch(dispatchId, reminder.type))) return;
+  const dispatchId = reminder.dispatchId;
 
   try {
     const tokenDocs = readActiveTokens(reminder, tokenCatalog);
     if (!tokenDocs.length) {
-      await deleteDispatch(dispatchId);
+      await updateDispatch(dispatchId, { status: "no-active-token", successCount: 0, failureCount: 0, completedAt: new Date().toISOString() });
       return;
     }
 
@@ -264,12 +271,22 @@ function isDue(currentTime, targetTime) {
   return difference >= 0 && difference < 30;
 }
 
+function shouldWriteHealth(lastRunAt, date) {
+  if (!lastRunAt) return true;
+  const previous = new Date(lastRunAt);
+  return Number.isNaN(previous.getTime()) || date.getTime() - previous.getTime() >= 55 * 60 * 1000;
+}
+
 function stringField(document, field) {
   return document?.fields?.[field]?.stringValue || undefined;
 }
 
 function integerField(document, field) {
   return Number(document?.fields?.[field]?.integerValue || 0);
+}
+
+function timestampField(document, field) {
+  return document?.fields?.[field]?.timestampValue || undefined;
 }
 
 function arrayStringField(document, field) {
