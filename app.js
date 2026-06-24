@@ -4,7 +4,7 @@ import {
   signInWithPopup, signOut
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 import {
-  collection, deleteDoc, doc, getDoc, getDocs, getFirestore,
+  collection, deleteDoc, deleteField, doc, getDoc, getDocs, getFirestore,
   query, serverTimestamp, setDoc, where, writeBatch
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 import {
@@ -17,6 +17,7 @@ const PUSH_TOKEN_SYNC_KEY = "nsworld-push-token-sync";
 const PUSH_TOKEN_SYNC_INTERVAL = 24 * 60 * 60 * 1000;
 const LOOKUP_REFRESH_COOLDOWN = 10 * 1000;
 const COACH_LANGUAGE_KEY = "namsung-coach-language";
+const ACCOUNT_MODE_KEY = "namsung-account-mode";
 const USAGE_REMINDER_DISMISS_KEY = "namsung-usage-reminder-dismissed";
 const GITHUB_ACTIONS_RUNS_API = "https://api.github.com/repos/leens-ns/namsung-check/actions/runs?per_page=20";
 const ORIGINAL_TITLE = document.title;
@@ -24,7 +25,7 @@ const statusLabel = { present: "출석", late: "지각", absent: "결석", early
 const roleLabel = { admin: "관리자", teacher: "교사", coach: "방과후강사" };
 const COACH_I18N = {
   ko: {
-    language: "언어", coach: "방과후강사", logout: "로그아웃", lookup: "출결 조회", manual: "사용 매뉴얼", title: "방과후 출결",
+    language: "언어", accountMode: "사용 모드", teacherMode: "담임교사 모드", coachMode: "방과후강사 모드", adminMode: "관리자 모드", coach: "방과후강사", logout: "로그아웃", lookup: "출결 조회", manual: "사용 매뉴얼", title: "방과후 출결",
     description: "일별 상세 또는 월별·학년도별 학생 출결 합계를 확인합니다.", day: "일별", month: "월별", schoolYear: "학년도별",
     lookupDate: "조회 날짜", lookupMonth: "조회 월", schoolYearLabel: "학년도", department: "부서", refresh: "↻ 최신 출결 새로고침",
     student: "학생", status: "출결", memo: "특이사항", present: "출석", absent: "결석", late: "지각", early: "조퇴", unset: "미입력", records: "기록",
@@ -36,7 +37,7 @@ const COACH_I18N = {
     installTitle: "출결관리 앱 설치", installBody: "설치하면 홈 화면에서 일반 앱처럼 바로 실행할 수 있습니다.", reviewTitle: "방과후 출결 확인 알림", reviewBody: "오늘 방과후 수강 학생의 출결을 확인해 주세요."
   },
   en: {
-    language: "Language", coach: "Afterschool instructor", logout: "Sign out", lookup: "Attendance", manual: "User guide", title: "Afterschool attendance",
+    language: "Language", accountMode: "Account mode", teacherMode: "Homeroom teacher", coachMode: "Afterschool instructor", adminMode: "Administrator", coach: "Afterschool instructor", logout: "Sign out", lookup: "Attendance", manual: "User guide", title: "Afterschool attendance",
     description: "View daily details or monthly and school-year attendance totals.", day: "Daily", month: "Monthly", schoolYear: "School year",
     lookupDate: "Date", lookupMonth: "Month", schoolYearLabel: "School year", department: "Class", refresh: "↻ Refresh attendance",
     student: "Student", status: "Attendance", memo: "Notes", present: "Present", absent: "Absent", late: "Late", early: "Left early", unset: "Not entered", records: "Records",
@@ -48,7 +49,7 @@ const COACH_I18N = {
     installTitle: "Install attendance app", installBody: "Install the app to open it directly from your Home Screen.", reviewTitle: "Afterschool attendance reminder", reviewBody: "Please check today's attendance before your afterschool class."
   },
   fr: {
-    language: "Langue", coach: "Intervenant périscolaire", logout: "Se déconnecter", lookup: "Présences", manual: "Guide d’utilisation", title: "Présences périscolaires",
+    language: "Langue", accountMode: "Mode du compte", teacherMode: "Enseignant principal", coachMode: "Intervenant périscolaire", adminMode: "Administrateur", coach: "Intervenant périscolaire", logout: "Se déconnecter", lookup: "Présences", manual: "Guide d’utilisation", title: "Présences périscolaires",
     description: "Consultez le détail quotidien ou les totaux mensuels et annuels.", day: "Jour", month: "Mois", schoolYear: "Année scolaire",
     lookupDate: "Date", lookupMonth: "Mois", schoolYearLabel: "Année scolaire", department: "Atelier", refresh: "↻ Actualiser les présences",
     student: "Élève", status: "Présence", memo: "Remarques", present: "Présent", absent: "Absent", late: "En retard", early: "Parti plus tôt", unset: "Non renseigné", records: "Enregistrements",
@@ -60,7 +61,7 @@ const COACH_I18N = {
     installTitle: "Installer l’application de présence", installBody: "Installez l’application pour l’ouvrir directement depuis l’écran d’accueil.", reviewTitle: "Rappel des présences périscolaires", reviewBody: "Veuillez vérifier les présences avant votre atelier aujourd’hui."
   },
   es: {
-    language: "Idioma", coach: "Instructor de actividades extraescolares", logout: "Cerrar sesión", lookup: "Asistencia", manual: "Guía de uso", title: "Asistencia extraescolar",
+    language: "Idioma", accountMode: "Modo de cuenta", teacherMode: "Tutor", coachMode: "Instructor extraescolar", adminMode: "Administrador", coach: "Instructor de actividades extraescolares", logout: "Cerrar sesión", lookup: "Asistencia", manual: "Guía de uso", title: "Asistencia extraescolar",
     description: "Consulta los detalles diarios o los totales mensuales y del curso escolar.", day: "Día", month: "Mes", schoolYear: "Curso escolar",
     lookupDate: "Fecha", lookupMonth: "Mes", schoolYearLabel: "Curso escolar", department: "Actividad", refresh: "↻ Actualizar asistencia",
     student: "Estudiante", status: "Asistencia", memo: "Observaciones", present: "Presente", absent: "Ausente", late: "Tarde", early: "Salida anticipada", unset: "Sin registrar", records: "Registros",
@@ -104,7 +105,7 @@ let deferredInstallPrompt = null;
 let coachLanguage = "ko";
 
 const els = Object.fromEntries([
-  "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole", "coachLanguageControl", "coachLanguageLabel", "coachLanguageSelect",
+  "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole", "accountModeControl", "accountModeSelect", "coachLanguageControl", "coachLanguageLabel", "coachLanguageSelect",
   "logoutBtn", "todayText", "mainTitle", "manualLink", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "alarmConfirmBtn", "notificationDialogTitle", "notificationCloseBtn", "installCloseBtn", "lookupScope", "lookupScopeField", "lookupScopeLabel", "lookupDate", "lookupDateField", "lookupMonth", "lookupMonthField", "lookupSchoolYear", "lookupSchoolYearField", "lookupDepartment", "lookupDepartmentField", "lookupPeriodSummary",
   "lookupTable", "refreshLookupBtn", "lookupDescription", "lookupDateLabel", "lookupMonthLabel", "lookupSchoolYearLabel", "lookupDepartmentLabel", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
@@ -171,6 +172,7 @@ function bindEvents() {
     renderLookup();
     if ("Notification" in window && Notification.permission === "granted") registerPushToken().catch(() => {});
   });
+  els.accountModeSelect.addEventListener("change", switchAccountMode);
   document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.view)));
   document.querySelectorAll(".segment").forEach((segment) => segment.addEventListener("click", () => {
     activeFilter = segment.dataset.filter;
@@ -313,7 +315,8 @@ async function handleAuthChange(user) {
     }
     session = {
       email: user.email.toLowerCase(), name: user.displayName || user.email,
-      picture: user.photoURL || "", role: access.role, department: access.department || "",
+      picture: user.photoURL || "", role: access.role, availableRoles: access.availableRoles,
+      department: access.role === "coach" ? access.coachDepartment : "", coachDepartment: access.coachDepartment || "",
       grade: access.grade || "", classNo: access.classNo || ""
     };
     await loadCloudData();
@@ -327,18 +330,17 @@ async function resolveAccess(user) {
   const email = user.email?.toLowerCase() || "";
   const access = await getDoc(doc(db, "access", email));
   const data = access.exists() ? access.data() : {};
-  if (email === ADMIN_EMAIL || data.role === "admin") {
-    return { role: "admin", grade: data.grade ? String(data.grade) : "", classNo: data.classNo ? String(data.classNo) : "" };
-  }
-  if (access.exists() && data.role === "coach") {
-    return { role: "coach", department: data.department };
-  }
-  if (email.endsWith("@nsworld.net")) {
-    return access.exists() && data.role === "teacher"
-      ? { role: "teacher", grade: String(data.grade), classNo: String(data.classNo) }
-      : { role: "teacher" };
-  }
-  return null;
+  const grade = data.grade ? String(data.grade) : "";
+  const classNo = data.classNo ? String(data.classNo) : "";
+  const coachDepartment = String(data.role === "coach" ? data.department || "" : data.coachDepartment || "");
+  const availableRoles = [];
+  if (email === ADMIN_EMAIL || data.role === "admin") availableRoles.push("admin");
+  else if (email.endsWith("@nsworld.net") && data.role !== "coach") availableRoles.push("teacher");
+  if (coachDepartment) availableRoles.push("coach");
+  if (!availableRoles.length) return null;
+  const savedMode = localStorage.getItem(`${ACCOUNT_MODE_KEY}:${email}`);
+  const role = availableRoles.includes(savedMode) ? savedMode : availableRoles[0];
+  return { role, availableRoles, grade, classNo, coachDepartment };
 }
 
 async function loadCloudData() {
@@ -419,9 +421,11 @@ function applySession() {
       ? `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반 담임`
       : roleLabel[session.role];
   els.userPicture.src = session.picture || "logo.svg";
+  els.accountModeControl.classList.toggle("is-hidden", session.availableRoles.length < 2);
+  renderAccountModeOptions();
 
   const savedCoachLanguage = localStorage.getItem(COACH_LANGUAGE_KEY);
-  coachLanguage = session.role === "coach" && ["ko", "en", "fr", "es"].includes(savedCoachLanguage) ? savedCoachLanguage : "ko";
+  coachLanguage = session.availableRoles.includes("coach") && ["ko", "en", "fr", "es"].includes(savedCoachLanguage) ? savedCoachLanguage : "ko";
 
   const admin = isAdmin();
   els.attendanceTab.classList.toggle("is-hidden", session.role === "coach");
@@ -453,6 +457,28 @@ function applySession() {
   applyCoachLanguage();
   switchView(session.role === "coach" ? "lookupView" : "attendanceView");
   renderAll();
+}
+
+async function switchAccountMode() {
+  const nextRole = els.accountModeSelect.value;
+  if (!session?.availableRoles.includes(nextRole) || nextRole === session.role) return;
+  const previousRole = session.role;
+  els.accountModeSelect.disabled = true;
+  try {
+    session.role = nextRole;
+    session.department = nextRole === "coach" ? session.coachDepartment : "";
+    resetSessionCache();
+    await loadCloudData();
+    localStorage.setItem(`${ACCOUNT_MODE_KEY}:${session.email}`, nextRole);
+    applySession();
+  } catch (error) {
+    session.role = previousRole;
+    session.department = previousRole === "coach" ? session.coachDepartment : "";
+    els.accountModeSelect.value = previousRole;
+    alert(`사용 모드 전환 실패: ${readableError(error)}`);
+  } finally {
+    els.accountModeSelect.disabled = false;
+  }
 }
 
 async function loadMaintenanceStatus(showError = true) {
@@ -656,11 +682,14 @@ function canEnterAttendanceToday() { return canEdit() && isAttendanceDay(); }
 function isAdmin() { return session?.role === "admin"; }
 function hasHomeroom() { return Boolean(session && ["admin", "teacher"].includes(session.role) && session.grade && session.classNo); }
 function notificationAudiences() {
-  if (session?.role === "admin") return ["input", "review", "admin-usage"];
-  if (session?.role === "teacher" && hasHomeroom()) return ["input", "review"];
-  if (session?.role === "coach") return ["coach-review"];
-  return [];
+  if (!session) return [];
+  const audiences = [];
+  if (session.availableRoles.includes("admin")) audiences.push("input", "review", "admin-usage");
+  else if (session.availableRoles.includes("teacher") && session.grade && session.classNo) audiences.push("input", "review");
+  if (session.availableRoles.includes("coach")) audiences.push("coach-review");
+  return audiences;
 }
+function notificationRole() { return session?.availableRoles.includes("admin") ? "admin" : session?.availableRoles.includes("teacher") ? "teacher" : "coach"; }
 function canReceiveNotifications() { return notificationAudiences().length > 0; }
 function canManageStudent(student) { return isAdmin() || Boolean(hasHomeroom() && String(student.grade) === String(session.grade) && String(student.classNo) === String(session.classNo)); }
 
@@ -702,6 +731,16 @@ function coachLocale() {
   return coachLanguage === "en" ? "en-US" : coachLanguage === "fr" ? "fr-FR" : coachLanguage === "es" ? "es-ES" : "ko-KR";
 }
 
+function renderAccountModeOptions() {
+  if (!session) return;
+  const coachUi = session.role === "coach";
+  const labels = coachUi
+    ? { admin: coachText("adminMode"), teacher: coachText("teacherMode"), coach: coachText("coachMode") }
+    : { admin: "관리자 모드", teacher: "담임교사 모드", coach: "방과후강사 모드" };
+  els.accountModeControl.querySelector("span").textContent = coachUi ? coachText("accountMode") : "사용 모드";
+  els.accountModeSelect.innerHTML = session.availableRoles.map((role) => `<option value="${role}"${role === session.role ? " selected" : ""}>${labels[role]}</option>`).join("");
+}
+
 function displayStatusLabel(status) {
   return session?.role === "coach" ? coachText(status) : statusLabel[status] || statusLabel.unset;
 }
@@ -735,6 +774,7 @@ function applyCoachLanguage() {
     return;
   }
   document.documentElement.lang = coachLanguage;
+  renderAccountModeOptions();
   els.coachLanguageControl.classList.remove("is-hidden");
   els.coachLanguageSelect.value = coachLanguage;
   els.coachLanguageLabel.textContent = coachText("language");
@@ -1376,10 +1416,10 @@ async function addAdmin() {
   const email = els.adminEmailInput.value.trim().toLowerCase();
   if (!email.endsWith("@nsworld.net")) return alert("관리자는 학교 이메일(@nsworld.net)만 등록할 수 있습니다.");
   if (email === ADMIN_EMAIL || state.admins[email]) return alert("이미 관리자 계정으로 등록되어 있습니다.");
-  if ((state.coaches[email] || state.teachers[email]) && !confirm(`${email}의 기존 권한을 관리자 권한으로 변경할까요?`)) return;
   const homeroom = state.teachers[email] || state.admins[email] || {};
   const adminData = { role: "admin", updatedAt: serverTimestamp(), updatedBy: session.email };
   if (homeroom.grade && homeroom.classNo) Object.assign(adminData, { grade: homeroom.grade, classNo: homeroom.classNo });
+  if (state.coaches[email]) adminData.coachDepartment = state.coaches[email];
   await setDoc(doc(db, "access", email), adminData);
   els.adminEmailInput.value = "";
   await loadCoachList();
@@ -1401,8 +1441,12 @@ function renderAdminList() {
     if (!confirm(`${email}의 관리자 권한을 삭제할까요?`)) return;
     const assignment = state.admins[email] || {};
     if (assignment.grade && assignment.classNo) {
-      await setDoc(doc(db, "access", email), { role: "teacher", grade: assignment.grade, classNo: assignment.classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
+      const nextData = { role: "teacher", grade: assignment.grade, classNo: assignment.classNo, updatedAt: serverTimestamp(), updatedBy: session.email };
+      if (state.coaches[email]) nextData.coachDepartment = state.coaches[email];
+      await setDoc(doc(db, "access", email), nextData);
       state.teachers[email] = { grade: assignment.grade, classNo: assignment.classNo };
+    } else if (state.coaches[email]) {
+      await setDoc(doc(db, "access", email), { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email });
     } else {
       await deleteDoc(doc(db, "access", email));
     }
@@ -1417,9 +1461,11 @@ async function addCoach() {
   const email = els.coachEmailInput.value.trim().toLowerCase();
   const department = els.coachDepartmentInput.value;
   if (!email || !email.includes("@") || !department) return alert("강사 이메일과 담당 부서를 확인해 주세요.");
-  if (state.admins[email]) return alert("관리자 계정은 방과후강사로 변경할 수 없습니다.");
-  if (state.teachers[email] && !confirm(`${email}의 담임 배정을 해제하고 방과후강사로 등록할까요?`)) return;
-  await setDoc(doc(db, "access", email), { role: "coach", department, updatedAt: serverTimestamp(), updatedBy: session.email });
+  const hasPrimaryRole = Boolean(state.admins[email] || state.teachers[email]);
+  const coachData = hasPrimaryRole
+    ? { coachDepartment: department, updatedAt: serverTimestamp(), updatedBy: session.email }
+    : { role: "coach", department, updatedAt: serverTimestamp(), updatedBy: session.email };
+  await setDoc(doc(db, "access", email), coachData, { merge: hasPrimaryRole });
   els.coachEmailInput.value = "";
   await loadCoachList();
   renderCoachList();
@@ -1439,16 +1485,18 @@ async function importCoachesCsv() {
       const day = item["요일"] || item.day || "";
       return { row: index + 2, email, department: normalizeCoachDepartment(course, day) };
     });
-    const invalid = assignments.filter(({ email, department }) => !email.includes("@") || !department || state.admins[email]);
+    const invalid = assignments.filter(({ email, department }) => !email.includes("@") || !department);
     if (invalid.length) throw new Error(`${invalid.map((item) => item.row).join(", ")}행의 이메일·요일·부서를 확인해 주세요.`);
     if (!assignments.length) throw new Error("등록할 강사 정보가 없습니다.");
     const uniqueAssignments = [...new Map(assignments.map((item) => [item.email, item])).values()];
-    const homeroomChanges = uniqueAssignments.filter(({ email }) => state.teachers[email]);
-    if (homeroomChanges.length && !confirm(`담임 배정이 있는 ${homeroomChanges.length}개 계정을 방과후강사로 변경할까요?\n해당 계정의 담임 배정은 해제됩니다.`)) return;
     for (let start = 0; start < uniqueAssignments.length; start += 400) {
       const batch = writeBatch(db);
       uniqueAssignments.slice(start, start + 400).forEach(({ email, department }) => {
-        batch.set(doc(db, "access", email), { role: "coach", department, updatedAt: serverTimestamp(), updatedBy: session.email });
+        const hasPrimaryRole = Boolean(state.admins[email] || state.teachers[email]);
+        const data = hasPrimaryRole
+          ? { coachDepartment: department, updatedAt: serverTimestamp(), updatedBy: session.email }
+          : { role: "coach", department, updatedAt: serverTimestamp(), updatedBy: session.email };
+        batch.set(doc(db, "access", email), data, { merge: hasPrimaryRole });
       });
       await batch.commit();
     }
@@ -1485,7 +1533,8 @@ async function loadCoachList() {
       state.admins[item.id] = assignment;
       if (assignment.grade) state.teachers[item.id] = assignment;
     }
-    if (item.data().role === "coach") state.coaches[item.id] = item.data().department;
+    if (item.data().role === "coach" && item.data().department) state.coaches[item.id] = item.data().department;
+    if (item.data().coachDepartment) state.coaches[item.id] = item.data().coachDepartment;
     if (item.data().role === "teacher") state.teachers[item.id] = { grade: String(item.data().grade), classNo: String(item.data().classNo) };
   });
   const currentAssignment = state.admins[session.email] || state.teachers[session.email] || {};
@@ -1496,10 +1545,19 @@ async function loadCoachList() {
 function renderCoachList() {
   if (!isAdmin()) return;
   const entries = Object.entries(state.coaches).sort(([a], [b]) => a.localeCompare(b));
-  els.coachList.innerHTML = entries.length ? entries.map(([email, department]) => `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(department)}</span></div><button type="button" data-remove-coach="${escapeAttr(email)}" aria-label="${escapeAttr(email)} 삭제">삭제</button></div>`).join("") : `<p class="note">등록된 강사가 없습니다.</p>`;
+  els.coachList.innerHTML = entries.length ? entries.map(([email, department]) => {
+    const dualRole = state.admins[email] || state.teachers[email] ? " · 담임/관리자 권한 유지" : "";
+    return `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(department)}${dualRole}</span></div><button type="button" data-remove-coach="${escapeAttr(email)}" aria-label="${escapeAttr(email)} 삭제">삭제</button></div>`;
+  }).join("") : `<p class="note">등록된 강사가 없습니다.</p>`;
   els.coachList.querySelectorAll("[data-remove-coach]").forEach((button) => button.addEventListener("click", async () => {
-    await deleteDoc(doc(db, "access", button.dataset.removeCoach));
-    delete state.coaches[button.dataset.removeCoach];
+    const email = button.dataset.removeCoach;
+    if (!confirm(`${email}의 방과후강사 배정만 삭제할까요?\n담임·관리자 권한은 유지됩니다.`)) return;
+    if (state.admins[email] || state.teachers[email]) {
+      await setDoc(doc(db, "access", email), { coachDepartment: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email }, { merge: true });
+    } else {
+      await deleteDoc(doc(db, "access", email));
+    }
+    delete state.coaches[email];
     renderCoachList();
   }));
 }
@@ -1514,7 +1572,13 @@ async function clearCoachAssignments() {
   try {
     for (let start = 0; start < emails.length; start += 400) {
       const batch = writeBatch(db);
-      emails.slice(start, start + 400).forEach((email) => batch.delete(doc(db, "access", email)));
+      emails.slice(start, start + 400).forEach((email) => {
+        if (state.admins[email] || state.teachers[email]) {
+          batch.set(doc(db, "access", email), { coachDepartment: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email }, { merge: true });
+        } else {
+          batch.delete(doc(db, "access", email));
+        }
+      });
       await batch.commit();
     }
     state.coaches = {};
@@ -1572,7 +1636,9 @@ async function addTeacherAssignment() {
   if (!email.endsWith("@nsworld.net") || !grade || !classNo) return alert("학교 이메일과 담당 학급을 확인해 주세요.");
   if (state.teachers[email] && !confirm(`${email}의 담임 학급을 ${grade}학년 ${classNo}반으로 수정할까요?`)) return;
   const role = state.admins[email] ? "admin" : "teacher";
-  await setDoc(doc(db, "access", email), { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
+  const data = { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email };
+  if (state.coaches[email]) data.coachDepartment = state.coaches[email];
+  await setDoc(doc(db, "access", email), data);
   state.teachers[email] = { grade, classNo };
   if (role === "admin") state.admins[email] = { grade, classNo };
   syncCurrentHomeroom(email, grade, classNo);
@@ -1590,7 +1656,9 @@ async function bulkAssignTeachers() {
   const batch = writeBatch(db);
   assignments.forEach(({ email, grade, classNo }) => {
     const role = state.admins[email] ? "admin" : "teacher";
-    batch.set(doc(db, "access", email), { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
+    const data = { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email };
+    if (state.coaches[email]) data.coachDepartment = state.coaches[email];
+    batch.set(doc(db, "access", email), data);
     state.teachers[email] = { grade, classNo };
     if (role === "admin") state.admins[email] = { grade, classNo };
   });
@@ -1627,7 +1695,9 @@ async function importTeachersCsv() {
       const batch = writeBatch(db);
       assignments.slice(start, start + 400).forEach(({ email, grade, classNo }) => {
         const role = state.admins[email] ? "admin" : "teacher";
-        batch.set(doc(db, "access", email), { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
+        const data = { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email };
+        if (state.coaches[email]) data.coachDepartment = state.coaches[email];
+        batch.set(doc(db, "access", email), data);
         state.teachers[email] = { grade, classNo };
         if (role === "admin") state.admins[email] = { grade, classNo };
       });
@@ -1655,8 +1725,12 @@ async function clearTeacherAssignments() {
     const batch = writeBatch(db);
     assignments.forEach((email) => {
       if (state.admins[email]) {
-        batch.set(doc(db, "access", email), { role: "admin", updatedAt: serverTimestamp(), updatedBy: session.email });
+        const data = { role: "admin", updatedAt: serverTimestamp(), updatedBy: session.email };
+        if (state.coaches[email]) data.coachDepartment = state.coaches[email];
+        batch.set(doc(db, "access", email), data);
         state.admins[email] = {};
+      } else if (state.coaches[email]) {
+        batch.set(doc(db, "access", email), { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email });
       } else {
         batch.delete(doc(db, "access", email));
       }
@@ -1688,13 +1762,17 @@ function parseTeacherAssignments(text) {
 function renderTeacherList() {
   if (!isAdmin()) return;
   const entries = Object.entries(state.teachers).sort(([a], [b]) => a.localeCompare(b));
-  els.teacherList.innerHTML = entries.length ? entries.map(([email, value]) => `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(value.grade)}학년 ${escapeHtml(value.classNo)}반</span></div><button type="button" data-remove-teacher="${escapeAttr(email)}">삭제</button></div>`).join("") : `<p class="note">배정된 담임교사가 없습니다.</p>`;
+  els.teacherList.innerHTML = entries.length ? entries.map(([email, value]) => `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(value.grade)}학년 ${escapeHtml(value.classNo)}반${state.coaches[email] ? " · 방과후강사 겸임" : ""}</span></div><button type="button" data-remove-teacher="${escapeAttr(email)}">삭제</button></div>`).join("") : `<p class="note">배정된 담임교사가 없습니다.</p>`;
   els.teacherList.querySelectorAll("[data-remove-teacher]").forEach((button) => button.addEventListener("click", async () => {
     if (!confirm(`${button.dataset.removeTeacher}의 담임 배정을 삭제할까요?`)) return;
     const email = button.dataset.removeTeacher;
     if (state.admins[email]) {
-      await setDoc(doc(db, "access", email), { role: "admin", updatedAt: serverTimestamp(), updatedBy: session.email });
+      const data = { role: "admin", updatedAt: serverTimestamp(), updatedBy: session.email };
+      if (state.coaches[email]) data.coachDepartment = state.coaches[email];
+      await setDoc(doc(db, "access", email), data);
       state.admins[email] = {};
+    } else if (state.coaches[email]) {
+      await setDoc(doc(db, "access", email), { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email });
     } else {
       await deleteDoc(doc(db, "access", email));
     }
@@ -1962,8 +2040,9 @@ async function registerPushToken() {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
   const tokenId = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
   const audiences = notificationAudiences();
-  const language = session.role === "coach" ? coachLanguage : "ko";
-  const syncSignature = JSON.stringify({ tokenId, uid: auth.currentUser.uid, email: session.email, role: session.role, audiences, language });
+  const language = session.availableRoles.includes("coach") ? coachLanguage : "ko";
+  const role = notificationRole();
+  const syncSignature = JSON.stringify({ tokenId, uid: auth.currentUser.uid, email: session.email, role, audiences, language });
   const previousSync = readPushTokenSync();
   if (previousSync?.signature === syncSignature && Date.now() - Number(previousSync.syncedAt || 0) < PUSH_TOKEN_SYNC_INTERVAL) {
     pushTokenActive = true;
@@ -1973,7 +2052,7 @@ async function registerPushToken() {
     token,
     uid: auth.currentUser.uid,
     email: session.email,
-    role: session.role,
+    role,
     audiences,
     language,
     active: true,
