@@ -282,7 +282,8 @@ label {
   width: 100%;
 }
 
-.coach-language-control {
+.coach-language-control,
+.account-mode-control {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -290,13 +291,15 @@ label {
   align-items: center;
 }
 
-.coach-language-control span {
+.coach-language-control span,
+.account-mode-control span {
   color: var(--ink);
   font-size: 13px;
   font-weight: 700;
 }
 
-.coach-language-control select {
+.coach-language-control select,
+.account-mode-control select {
   min-width: 0;
   min-height: 40px;
 }
@@ -1755,7 +1758,8 @@ dialog h2 {
     width: auto;
   }
 
-  .coach-language-control {
+  .coach-language-control,
+  .account-mode-control {
     grid-column: 1 / -1;
   }
 
