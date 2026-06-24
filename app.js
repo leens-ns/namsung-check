@@ -556,6 +556,28 @@ function applyCoachLanguage() {
   if (session?.role !== "coach") {
     document.documentElement.lang = "ko";
     els.coachLanguageControl.classList.add("is-hidden");
+    els.logoutBtn.textContent = "로그아웃";
+    els.lookupTab.textContent = "출결 조회";
+    els.manualLink.textContent = "사용 매뉴얼";
+    els.mainTitle.textContent = "오늘 출결";
+    els.todayText.textContent = new Intl.DateTimeFormat("ko-KR", { dateStyle: "full" }).format(new Date());
+    els.lookupDescription.textContent = "일별 상세 또는 월별·학년도별 학생 출결 합계를 확인합니다.";
+    const modeLabels = { day: "일별", month: "월별", schoolYear: "학년도별" };
+    document.querySelectorAll("[data-lookup-mode]").forEach((button) => { button.textContent = modeLabels[button.dataset.lookupMode]; });
+    els.lookupDateLabel.textContent = "조회 날짜";
+    els.lookupMonthLabel.textContent = "조회 월";
+    els.lookupSchoolYearLabel.textContent = "학년도";
+    els.lookupDepartmentLabel.textContent = "부서";
+    els.refreshLookupBtn.textContent = "↻ 최신 출결 새로고침";
+    els.notificationDialogTitle.textContent = "알림함";
+    els.clearNotificationsBtn.textContent = "알림 모두 지우기";
+    els.notificationCloseBtn.textContent = "닫기";
+    els.alarmConfirmBtn.textContent = "확인하기";
+    els.installCloseBtn.textContent = "닫기";
+    els.runInstallBtn.textContent = "설치하기";
+    ["present", "late", "early", "absent", "unset"].forEach((status) => { els[`${status}CountLabel`].textContent = statusLabel[status]; });
+    updateInstallUi();
+    updateNotificationPermissionUi();
     return;
   }
   document.documentElement.lang = coachLanguage;
