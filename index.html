@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="icon" href="icon-192.png" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260625-3" />
+    <link rel="stylesheet" href="styles.css?v=20260630-1" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
@@ -68,7 +68,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260625-3" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260630-1" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -80,9 +80,10 @@
           </div>
           <div class="topbar-tools">
             <button id="installAppHeaderBtn" class="install-app-header-button" type="button">홈 화면에 설치</button>
+            <button id="notificationEnableHeaderBtn" class="notification-enable-button" type="button">알림 설정</button>
             <button id="notificationCenterBtn" class="notification-button" type="button" aria-label="알림함">
               <span aria-hidden="true">🔔</span>
-              <span id="notificationButtonLabel">알림 켜기</span>
+              <span id="notificationButtonLabel">받은 알림</span>
               <strong id="notificationBadge" class="notification-badge is-hidden">0</strong>
             </button>
             <div id="statusStrip" class="status-strip">
@@ -205,15 +206,11 @@
               <h2>방과후강사 계정 등록</h2>
               <p class="subtle">이메일 등록만으로는 접속할 수 없습니다. 강사가 같은 이메일의 Google 계정으로 인증해야 해당 부서 학생만 조회됩니다.</p>
               <a class="example-download" href="examples/coach-assignments-example.csv" download>강사 배정 예시 CSV 다운로드</a>
-              <label>
-                강사 이메일
-                <input id="coachEmailInput" type="email" placeholder="coach@example.com" />
-              </label>
-              <label>
-                담당 부서
-                <select id="coachDepartmentInput"></select>
-              </label>
-              <button id="addCoachBtn" class="primary" type="button">강사 등록</button>
+              <div class="coach-quick-assign">
+                <input id="coachEmailInput" type="email" aria-label="강사 이메일" placeholder="coach@example.com" />
+                <select id="coachDepartmentInput" aria-label="담당 부서"></select>
+                <button id="addCoachBtn" class="primary" type="button">강사 등록</button>
+              </div>
               <div class="file-action">
                 <input id="coachCsvFileInput" type="file" accept=".csv,text/csv" aria-label="방과후강사 CSV 파일" />
                 <button id="importCoachesBtn" type="button">CSV 일괄 등록</button>
@@ -224,6 +221,7 @@
 
             <section class="department-settings-section">
               <h2>방과후 부서 목록</h2>
+              <p class="subtle">학생 추가와 방과후강사 계정 등록의 부서 선택지는 이 목록과 연동됩니다.</p>
               <div class="department-settings-grid">
                 <div class="department-day-editor">
                   <strong>월요일</strong>
@@ -242,6 +240,7 @@
                   <div id="fridayDepartmentList" class="department-list"></div>
                 </div>
               </div>
+              <p id="unregisteredDepartmentNotice" class="note department-sync-note is-hidden"></p>
             </section>
 
             <section>
@@ -470,6 +469,6 @@
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260625-3"></script>
+    <script type="module" src="app.js?v=20260630-1"></script>
   </body>
 </html>
