@@ -6,10 +6,11 @@
     <meta name="theme-color" content="#174a7c" />
     <title>남성초등학교 출결관리 시스템 사용 매뉴얼</title>
     <style>
+      @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
       :root { color-scheme:light; --ink:#172432; --muted:#5d6b78; --line:#d7e0e8; --blue:#174a7c; --green:#267052; --red:#a63d3d; }
       * { box-sizing:border-box; }
       html { scroll-behavior:smooth; }
-      body { margin:0; color:var(--ink); background:#f5f7fa; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; line-height:1.65; }
+      body { margin:0; color:var(--ink); background:#f5f7fa; font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif; line-height:1.65; }
       [hidden] { display:none !important; }
       header { padding:26px 20px; color:#fff; background:var(--blue); }
       header div, main, nav div { width:min(860px,100%); margin:0 auto; }
@@ -41,7 +42,7 @@
     <div id="manualGate" class="gate">
       <h2>계정 확인 중</h2>
       <p id="manualGateMessage">로그인 계정의 매뉴얼을 불러오고 있습니다.</p>
-      <a id="manualGateLink" href="index.html?v=20260630-1" hidden>메인 화면에서 로그인</a>
+      <a id="manualGateLink" href="index.html?v=20260630-2" hidden>메인 화면에서 로그인</a>
     </div>
 
     <div id="manualApp" hidden>
@@ -54,7 +55,7 @@
       </header>
       <nav aria-label="매뉴얼 목차">
         <div>
-          <a id="manualHomeLink" href="index.html?v=20260630-1">메인 화면으로</a>
+          <a id="manualHomeLink" href="index.html?v=20260630-2">메인 화면으로</a>
           <a href="#common" data-manual-nav="common">공통</a>
           <a href="#teacher" data-manual-nav="teacher">교사</a>
           <a href="#coach" data-manual-nav="coach">방과후강사</a>
@@ -148,6 +149,6 @@
     </div>
 
     <script src="config.js"></script>
-    <script type="module" src="manual.js?v=20260630-1"></script>
+    <script type="module" src="manual.js?v=20260630-2"></script>
   </body>
 </html>
