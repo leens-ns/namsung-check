@@ -1,14 +1,14 @@
 const APP_URL = "./";
-const CACHE_NAME = "namsung-attendance-20260701-1";
+const CACHE_NAME = "namsung-attendance-20260701-2";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20260701-1",
-  "./app.js?v=20260701-1",
+  "./styles.css?v=20260701-2",
+  "./app.js?v=20260701-2",
   "./config.js",
   "./manifest.webmanifest",
-  "./manual.html?v=20260701-1",
-  "./manual.js?v=20260701-1",
+  "./manual.html?v=20260701-2",
+  "./manual.js?v=20260701-2",
   "./logo.svg",
   "./icon-192.png",
   "./icon-512.png",

@@ -5,7 +5,7 @@ import { doc, getDoc, getFirestore } from "https://www.gstatic.com/firebasejs/11
 const ADMIN_EMAIL = "leens@nsworld.net";
 const COACH_LANGUAGE_KEY = "namsung-coach-language";
 const ACCOUNT_MODE_KEY = "namsung-account-mode";
-const roleLabel = { admin: "관리자", teacher: "담임교사", coach: "방과후강사" };
+const roleLabel = { admin: "관리자", teacher: "담임교사", coach: "방과후강사", external: "외부수업강사" };
 const gate = document.getElementById("manualGate");
 const gateMessage = document.getElementById("manualGateMessage");
 const gateLink = document.getElementById("manualGateLink");
@@ -50,12 +50,13 @@ async function resolveRole(email, db) {
   const roles = [];
   if (savedRole === "teacher") roles.push("teacher");
   if (savedRole === "coach" || data.coachDepartment) roles.push("coach");
+  if (savedRole === "external" || Array.isArray(data.externalClasses)) roles.push("external");
   const selectedMode = localStorage.getItem(`${ACCOUNT_MODE_KEY}:${email}`);
   return roles.includes(selectedMode) ? selectedMode : roles[0] || "";
 }
 
 function showManual(role) {
-  const allowed = role === "admin" ? ["common", "teacher", "coach", "admin"] : ["common", role];
+  const allowed = role === "admin" ? ["common", "teacher", "coach", "external", "admin"] : ["common", role];
   document.querySelectorAll("[data-manual-section]").forEach((section) => {
     section.hidden = !allowed.includes(section.dataset.manualSection);
   });

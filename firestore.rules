@@ -33,6 +33,13 @@ service cloud.firestore {
       );
     }
 
+    function isExternalInstructor() {
+      return signedIn() && exists(accessPath())
+        && get(accessPath()).data.keys().hasAny(['externalClasses'])
+        && get(accessPath()).data.externalClasses is list
+        && get(accessPath()).data.externalClasses.size() > 0;
+    }
+
     function isHomeroomTeacher() {
       return isTeacher() && exists(accessPath()) && get(accessPath()).data.role == 'teacher';
     }
@@ -78,10 +85,17 @@ service cloud.firestore {
         : get(accessPath()).data.coachDepartment;
     }
 
+    function ownsExternalClass(data) {
+      return isExternalInstructor()
+        && (data.grade + '-' + data.classNo) in get(accessPath()).data.externalClasses;
+    }
+
     function validAccess(accountEmail, data) {
-      return data.role in ['admin', 'teacher', 'coach']
+      return data.role in ['admin', 'teacher', 'coach', 'external']
         && data.updatedBy == email()
         && (!data.keys().hasAny(['coachDepartment']) || data.coachDepartment is string)
+        && (!data.keys().hasAny(['externalClasses']) || data.externalClasses is list)
+        && (!data.keys().hasAny(['externalCourse']) || data.externalCourse is string)
         && (
           (data.role == 'admin' && accountEmail.matches('.*@nsworld[.]net$'))
           || (data.role == 'teacher'
@@ -90,6 +104,9 @@ service cloud.firestore {
             && data.classNo is string)
           || (data.role == 'coach'
             && data.department is string)
+          || (data.role == 'external'
+            && data.externalClasses is list
+            && data.externalClasses.size() > 0)
         );
     }
 
@@ -107,7 +124,7 @@ service cloud.firestore {
     }
 
     match /students/{studentId} {
-      allow read: if isAdmin() || ownsClass(resource.data) || (isCoach() && coachDepartment() in resource.data.departments);
+      allow read: if isAdmin() || ownsClass(resource.data) || ownsExternalClass(resource.data) || (isCoach() && coachDepartment() in resource.data.departments);
       allow create: if validStudent(request.resource.data) && (isAdmin() || ownsClass(request.resource.data));
       allow update: if validStudent(request.resource.data) && (isAdmin() || (ownsClass(resource.data) && ownsClass(request.resource.data)));
       allow delete: if isAdmin() || ownsClass(resource.data);
@@ -121,6 +138,7 @@ service cloud.firestore {
     match /attendance/{recordId} {
       allow read: if isAdmin()
         || (ownsAttendance(resource.data))
+        || ownsExternalClass(resource.data)
         || (isCoach() && coachDepartment() in resource.data.departments);
       allow create, update: if validAttendance(request.resource.data)
         && (isAdmin() || ownsAttendance(request.resource.data));

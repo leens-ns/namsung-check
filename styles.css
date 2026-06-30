@@ -1122,7 +1122,8 @@ h1 {
 }
 
 .teacher-quick-assign,
-.coach-quick-assign {
+.coach-quick-assign,
+.external-quick-assign {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 110px auto;
   gap: 8px;
@@ -1130,6 +1131,10 @@ h1 {
 
 .coach-quick-assign {
   grid-template-columns: minmax(0, 1fr) minmax(150px, .65fr) auto;
+}
+
+.external-quick-assign {
+  grid-template-columns: minmax(0, 1fr) minmax(130px, .55fr) 110px auto;
 }
 
 .settings-inline-action,
@@ -2231,7 +2236,8 @@ dialog h2 {
   }
 
   .teacher-quick-assign,
-  .coach-quick-assign {
+  .coach-quick-assign,
+  .external-quick-assign {
     grid-template-columns: 1fr;
   }
 
