@@ -107,11 +107,11 @@ let deferredInstallPrompt = null;
 let coachLanguage = "ko";
 
 const els = Object.fromEntries([
-  "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole", "accountModeControl", "accountModeSelect", "coachLanguageControl", "coachLanguageLabel", "coachLanguageSelect",
+  "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "notificationEnableHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole", "accountModeControl", "accountModeSelect", "coachLanguageControl", "coachLanguageLabel", "coachLanguageSelect",
   "logoutBtn", "todayText", "mainTitle", "manualLink", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "alarmConfirmBtn", "notificationDialogTitle", "notificationCloseBtn", "installCloseBtn", "lookupScope", "lookupScopeField", "lookupScopeLabel", "lookupDate", "lookupDateField", "lookupMonth", "lookupMonthField", "lookupSchoolYear", "lookupSchoolYearField", "lookupDepartment", "lookupDepartmentField", "lookupPeriodSummary",
   "lookupTable", "refreshLookupBtn", "lookupDescription", "lookupDateLabel", "lookupMonthLabel", "lookupSchoolYearLabel", "lookupDepartmentLabel", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
-  "enableNotificationsBtn", "maskContactDefault", "allowAllStudentsLookup", "csvFileInput", "deleteAllStudentsBtn", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "clearCoachAssignmentsBtn", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherCsvFileInput", "importTeachersBtn", "clearTeacherAssignmentsBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "usageCheckDay", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn", "usageReminderBanner", "usageReminderLink", "firebaseUsageLink", "dismissUsageReminderBtn", "cleanupHealthDot", "cleanupHealthText", "deploymentHealthDot", "deploymentHealthText", "reminderHealthDot", "reminderHealthText",
+  "enableNotificationsBtn", "maskContactDefault", "allowAllStudentsLookup", "csvFileInput", "deleteAllStudentsBtn", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "clearCoachAssignmentsBtn", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "unregisteredDepartmentNotice", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherCsvFileInput", "importTeachersBtn", "clearTeacherAssignmentsBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "usageCheckDay", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn", "usageReminderBanner", "usageReminderLink", "firebaseUsageLink", "dismissUsageReminderBtn", "cleanupHealthDot", "cleanupHealthText", "deploymentHealthDot", "deploymentHealthText", "reminderHealthDot", "reminderHealthText",
   "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn",
   "statusStrip", "presentCountItem", "lateCountItem", "earlyCountItem", "absentCountItem", "unsetCountItem", "presentCount", "lateCount", "earlyCount", "absentCount", "unsetCount", "presentCountLabel", "lateCountLabel", "earlyCountLabel", "absentCountLabel", "unsetCountLabel"
 ].map((id) => [id, document.getElementById(id)]));
@@ -213,6 +213,7 @@ function bindEvents() {
   els.reviewTime.addEventListener("change", updateReviewTime);
   els.coachReviewTime.addEventListener("change", updateCoachReviewTime);
   els.enableNotificationsBtn.addEventListener("click", () => enableNotifications(true));
+  els.notificationEnableHeaderBtn.addEventListener("click", () => enableNotifications(true));
   els.testPopupBtn.addEventListener("click", () => showReviewAlarm("review"));
   els.addAdminBtn.addEventListener("click", addAdmin);
   els.addCoachBtn.addEventListener("click", addCoach);
@@ -916,17 +917,18 @@ function scopedLookupStudents(department) {
 }
 
 function refreshDepartments() {
-  const catalogDepartments = [
-    ...state.settings.afterschoolCourses.monday.map((course) => `월요:${course}`),
-    ...state.settings.afterschoolCourses.friday.map((course) => `금요:${course}`)
-  ];
-  const departments = [...new Set([...catalogDepartments, ...state.students.flatMap((student) => studentDepartments(student))])]
+  const catalogDepartments = configuredAfterschoolDepartments();
+  const studentOnlyDepartments = state.students.flatMap((student) => studentDepartments(student))
+    .filter((department) => !catalogDepartments.includes(department) && !["방과후 미수강", "미수강", "없음", "-"].includes(department))
+    .sort((a, b) => a.localeCompare(b, "ko"));
+  const departments = [...new Set([...catalogDepartments, ...studentOnlyDepartments])]
     .filter((department) => !["방과후 미수강", "미수강", "없음", "-"].includes(department)).sort((a, b) => a.localeCompare(b, "ko"));
   const currentDepartment = els.lookupDepartment.value;
   fillSelect(els.lookupDepartment, ["전체", ...departments], session.role === "coach" ? session.department : departments.includes(currentDepartment) ? currentDepartment : "전체");
   if (session.role !== "coach" && els.lookupDepartment.options[0]) els.lookupDepartment.options[0].textContent = "부서 구분 없이";
   refreshLookupScopes();
-  fillSelect(els.coachDepartmentInput, departments, departments[0] || "");
+  fillSelect(els.coachDepartmentInput, catalogDepartments, catalogDepartments[0] || "");
+  renderUnregisteredDepartmentNotice(studentOnlyDepartments);
   const homeroomClass = hasHomeroom() ? `${session.grade}학년 ${session.classNo}반` : "";
   const assignedClass = session.role === "teacher" ? homeroomClass : "";
   const selectedClass = assignedClass || (!attendanceClassInitialized && homeroomClass ? homeroomClass : els.classFilter.value || "전체");
@@ -939,6 +941,22 @@ function refreshDepartments() {
   const allClasses = Array.from({ length: 6 }, (_, grade) => Array.from({ length: state.settings.maxClassesPerGrade }, (_, classIndex) => `${grade + 1}-${classIndex + 1}`)).flat();
   fillSelect(els.teacherClassSelect, allClasses, els.teacherClassSelect.value || "1-1");
   els.studentClassInput.max = String(state.settings.maxClassesPerGrade);
+}
+
+function configuredAfterschoolDepartments() {
+  return [
+    ...state.settings.afterschoolCourses.monday.map((course) => `월요:${course}`),
+    ...state.settings.afterschoolCourses.friday.map((course) => `금요:${course}`)
+  ].sort((a, b) => a.localeCompare(b, "ko"));
+}
+
+function renderUnregisteredDepartmentNotice(departments) {
+  if (!els.unregisteredDepartmentNotice || !isAdmin()) return;
+  const uniqueDepartments = [...new Set(departments)];
+  els.unregisteredDepartmentNotice.classList.toggle("is-hidden", uniqueDepartments.length === 0);
+  els.unregisteredDepartmentNotice.textContent = uniqueDepartments.length
+    ? `학생 명단에는 있지만 방과후 부서 목록에 없는 항목이 있습니다: ${uniqueDepartments.slice(0, 12).join(", ")}${uniqueDepartments.length > 12 ? " 외" : ""}. 강사 등록 선택지에는 표시하지 않습니다. 필요한 항목만 요일별 부서 목록에 추가해 주세요.`
+    : "";
 }
 
 function fillSelect(select, values, selected) {
@@ -1066,12 +1084,7 @@ function openStudentDialog(student = null) {
 }
 
 function fillAfterschoolCourseSelect(select, day, selected = "") {
-  const prefix = day === "monday" ? "월요:" : "금요:";
-  const registered = state.students.flatMap((student) => studentDepartments(student))
-    .filter((department) => department.startsWith(prefix) || (day === "monday" && !department.includes(":")))
-    .map((department) => department.replace(prefix, ""))
-    .filter((department) => department && !["방과후 미수강", "미수강", "없음", "-"].includes(department));
-  const courses = [...new Set([...(state.settings.afterschoolCourses[day] || []), ...registered, selected].filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko"));
+  const courses = [...new Set([...(state.settings.afterschoolCourses[day] || []), selected].filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko"));
   select.innerHTML = `<option value="">부서 선택</option>${courses.map((course) => `<option value="${escapeAttr(course)}"${course === selected ? " selected" : ""}>${escapeHtml(course)}</option>`).join("")}`;
 }
 
@@ -1529,7 +1542,7 @@ async function importCoachesCsv() {
   const file = els.coachCsvFileInput.files?.[0];
   if (!file) return alert("방과후강사 CSV 파일을 선택해 주세요.");
   try {
-    const rows = parseCsv((await file.text()).replace(/^\uFEFF/, ""));
+    const rows = parseCsv((await readCsvText(file)).replace(/^\uFEFF/, ""));
     const headers = rows.shift().map((header) => header.trim().toLowerCase());
     const assignments = rows.filter((row) => row.some(Boolean)).map((row, index) => {
       const item = Object.fromEntries(headers.map((header, headerIndex) => [header, String(row[headerIndex] || "").trim()]));
@@ -1729,7 +1742,7 @@ async function importTeachersCsv() {
   const file = els.teacherCsvFileInput.files?.[0];
   if (!file) return alert("담임교사 배정 CSV 파일을 선택해 주세요.");
   try {
-    const rows = parseCsv((await file.text()).replace(/^\uFEFF/, ""));
+    const rows = parseCsv((await readCsvText(file)).replace(/^\uFEFF/, ""));
     const headers = rows.shift().map((header) => header.trim().toLowerCase());
     const parsed = rows.filter((row) => row.some((value) => String(value).trim())).map((row, index) => {
       const item = Object.fromEntries(headers.map((header, headerIndex) => [header, String(row[headerIndex] || "").trim()]));
@@ -1874,7 +1887,7 @@ async function importCsv() {
   const file = els.csvFileInput.files?.[0];
   if (!file) return alert("관리자 기기에서 CSV 파일을 선택해 주세요.");
   try {
-    const csvText = await file.text();
+    const csvText = await readCsvText(file);
     const rows = parseCsv(csvText.replace(/^\uFEFF/, ""));
     const headers = rows.shift().map((header) => header.trim());
     const parsed = rows.map((row, index) => ({ row, line: index + 2 })).filter(({ row }) => row.some((value) => String(value).trim()));
@@ -1999,6 +2012,18 @@ function parseCsv(csv) {
     else value += char;
   }
   row.push(value); rows.push(row); return rows;
+}
+
+async function readCsvText(file) {
+  const buffer = await file.arrayBuffer();
+  const utf8 = new TextDecoder("utf-8").decode(buffer);
+  if (!utf8.includes("\uFFFD")) return utf8;
+  try {
+    const korean = new TextDecoder("euc-kr").decode(buffer);
+    return korean.includes("\uFFFD") ? utf8 : korean;
+  } catch {
+    return utf8;
+  }
 }
 
 function loadAlarms() {
@@ -2156,12 +2181,16 @@ function updateNotificationPermissionUi() {
   const granted = "Notification" in window && Notification.permission === "granted";
   const denied = "Notification" in window && Notification.permission === "denied";
   const eligible = canReceiveNotifications();
-  els.notificationButtonLabel.textContent = session?.role === "coach"
+  els.notificationButtonLabel.textContent = session?.role === "coach" ? coachText("notificationTitle") : "받은 알림";
+  els.notificationCenterBtn.disabled = false;
+  els.notificationCenterBtn.title = "받은 알림을 확인합니다.";
+  const enableLabel = session?.role === "coach"
     ? localPreview ? coachText("notificationsUnsupported") : granted ? coachText("notificationsOn") : denied ? coachText("notificationsPermission") : coachText("notificationsEnable")
     : localPreview ? "체험판 알림 미지원" : !eligible ? "알림 대상 아님" : granted ? "알림 켜짐" : denied ? "알림 허용 필요" : "알림 켜기";
-  els.notificationCenterBtn.disabled = !eligible;
-  els.notificationCenterBtn.title = localPreview ? "실제 배포 주소에서 알림을 설정할 수 있습니다." : denied ? "Chrome 사이트 설정에서 알림을 허용해 주세요." : "";
-  els.notificationCenterBtn.classList.toggle("needs-permission", !localPreview && eligible && !granted);
+  els.notificationEnableHeaderBtn.textContent = enableLabel;
+  els.notificationEnableHeaderBtn.disabled = localPreview || granted || !eligible;
+  els.notificationEnableHeaderBtn.title = localPreview ? "실제 배포 주소에서 알림을 설정할 수 있습니다." : denied ? "브라우저 사이트 설정에서 알림을 허용해 주세요." : "";
+  els.notificationEnableHeaderBtn.classList.toggle("needs-permission", !localPreview && eligible && !granted);
   els.enableNotificationsBtn.textContent = localPreview ? "체험판에서는 알림 설정 불가" : granted ? "브라우저 알림 켜짐" : denied ? "Chrome 알림 허용 필요" : "브라우저 알림 켜기";
   els.enableNotificationsBtn.disabled = localPreview || granted;
 }
@@ -2198,10 +2227,6 @@ function updateNotificationBadge() {
 }
 
 async function openNotificationCenter() {
-  if (location.protocol !== "file:" && "Notification" in window && Notification.permission === "denied") {
-    alert("Chrome 주소창 왼쪽의 사이트 설정에서 알림을 '허용'으로 변경해 주세요.");
-  }
-  if (canReceiveNotifications() && "Notification" in window && Notification.permission === "default") await enableNotifications(false);
   const items = alarms.notifications || [];
   els.notificationList.innerHTML = items.length ? items.map((item) => `<article class="notification-item ${item.read ? "" : "is-unread"}"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p><time>${new Intl.DateTimeFormat(session?.role === "coach" ? coachLocale() : "ko-KR", { dateStyle: "short", timeStyle: "short" }).format(new Date(item.time))}</time></article>`).join("") : `<p class="empty-notifications">${session?.role === "coach" ? coachText("noNotifications") : "도착한 알림이 없습니다."}</p>`;
   items.forEach((item) => { item.read = true; });
