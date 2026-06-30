@@ -29,7 +29,7 @@ jobs:
           access_token_scopes: https://www.googleapis.com/auth/cloud-platform
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "20"
           package-manager-cache: false
       - name: Install Firebase CLI
         run: npm install --prefix "$RUNNER_TEMP/firebase-cli" --no-save --no-package-lock firebase-tools@15.17.0
