@@ -1,3 +1,5 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
+
 :root {
   color-scheme: light;
   --bg: #f5f7fb;
@@ -11,7 +13,7 @@
   --bad: #a93232;
   --good: #22734e;
   --focus: #f3b23a;
-  font-family: Inter, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
 }
 
 * {
@@ -640,7 +642,57 @@ h1 {
 }
 
 .search-box {
-  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.attendance-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(160px, 220px) minmax(270px, 370px);
+  align-items: end;
+  gap: 12px;
+}
+
+.attendance-toolbar .search-box,
+.attendance-toolbar .class-filter,
+.attendance-toolbar .segmented {
+  min-width: 0;
+  margin: 0;
+}
+
+.attendance-toolbar .search-box {
+  display: grid;
+  grid-template-rows: 18px 46px;
+  gap: 7px;
+}
+
+.attendance-toolbar .search-box::before {
+  content: "";
+  min-height: 18px;
+}
+
+.attendance-toolbar .class-filter {
+  display: grid;
+  grid-template-rows: 18px 46px;
+  gap: 7px;
+  width: 100%;
+}
+
+.attendance-toolbar .class-filter select,
+.attendance-toolbar .search-box input,
+.attendance-toolbar .segmented {
+  height: 46px;
+  min-height: 46px;
+}
+
+.attendance-toolbar .segmented {
+  align-self: end;
+  grid-template-columns: repeat(3, minmax(76px, 1fr));
+  width: 100%;
+}
+
+.attendance-toolbar .segment {
+  min-height: 36px;
+  padding: 0 12px;
 }
 
 .segmented {
@@ -1834,6 +1886,20 @@ dialog h2 {
     flex-direction: column;
   }
 
+  .attendance-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .attendance-toolbar .search-box {
+    grid-template-rows: 46px;
+  }
+
+  .attendance-toolbar .search-box::before {
+    display: none;
+  }
+
   .lookup-toolbar {
     display: grid;
     grid-template-columns: 1fr;
@@ -2053,6 +2119,11 @@ dialog h2 {
     touch-action: manipulation;
   }
 
+  .attendance-toolbar .segmented {
+    grid-auto-flow: initial;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .lookup-mode-tabs {
     width: 100%;
   }
@@ -2237,7 +2308,7 @@ dialog h2 {
     width: 100%;
   }
 
-  .segmented {
+  .toolbar:not(.attendance-toolbar) .segmented {
     grid-auto-flow: row;
   }
 
