@@ -372,7 +372,8 @@ label {
   height: 64px;
 }
 
-.notification-button {
+.notification-button,
+.notification-enable-button {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -385,7 +386,16 @@ label {
   font-weight: 700;
 }
 
-.notification-button.needs-permission {
+.notification-enable-button {
+  border-color: var(--brand);
+  background: #eef5fc;
+}
+
+.notification-enable-button:disabled {
+  opacity: 1;
+}
+
+.notification-enable-button.needs-permission {
   border-color: #d39827;
   background: #fff8e6;
   color: #76520d;
@@ -1059,10 +1069,15 @@ h1 {
   gap: 16px;
 }
 
-.teacher-quick-assign {
+.teacher-quick-assign,
+.coach-quick-assign {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 110px auto;
   gap: 8px;
+}
+
+.coach-quick-assign {
+  grid-template-columns: minmax(0, 1fr) minmax(150px, .65fr) auto;
 }
 
 .settings-inline-action,
@@ -1079,6 +1094,10 @@ h1 {
 
 .department-settings-section {
   grid-column: span 2;
+}
+
+.department-sync-note {
+  margin-top: 12px;
 }
 
 .maintenance-settings-section {
@@ -1937,7 +1956,8 @@ dialog h2 {
     grid-column: 1 / -1;
   }
 
-  .notification-button {
+  .notification-button,
+  .notification-enable-button {
     min-height: 52px;
     height: 52px;
     width: 100%;
@@ -2139,7 +2159,8 @@ dialog h2 {
     grid-column: 1 / -1;
   }
 
-  .teacher-quick-assign {
+  .teacher-quick-assign,
+  .coach-quick-assign {
     grid-template-columns: 1fr;
   }
 
