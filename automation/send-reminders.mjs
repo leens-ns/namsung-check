@@ -1,6 +1,6 @@
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "namsung-check";
 const ACCESS_TOKEN = process.env.GCP_ACCESS_TOKEN;
-const APP_URL = process.env.APP_URL || "https://leens-ns.github.io/namsung-check/";
+const APP_URL = process.env.APP_URL || "https://namsung-check.firebaseapp.com/";
 const DATABASE_ROOT = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 const FCM_URL = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
 const TIME_ZONE = "Asia/Seoul";

@@ -389,7 +389,7 @@ async function resolveAccess(user) {
   const coachDepartment = String(data.role === "coach" ? data.department || "" : data.coachDepartment || "");
   const availableRoles = [];
   if (email === ADMIN_EMAIL || data.role === "admin") availableRoles.push("admin");
-  else if (email.endsWith("@nsworld.net") && data.role !== "coach") availableRoles.push("teacher");
+  else if (data.role === "teacher") availableRoles.push("teacher");
   if (coachDepartment) availableRoles.push("coach");
   if (!availableRoles.length) return null;
   const savedMode = localStorage.getItem(`${ACCOUNT_MODE_KEY}:${email}`);

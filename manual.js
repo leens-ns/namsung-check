@@ -48,7 +48,7 @@ async function resolveRole(email, db) {
   const savedRole = data.role || "";
   if (email === ADMIN_EMAIL || savedRole === "admin") return "admin";
   const roles = [];
-  if (email.endsWith("@nsworld.net") && savedRole !== "coach") roles.push("teacher");
+  if (savedRole === "teacher") roles.push("teacher");
   if (savedRole === "coach" || data.coachDepartment) roles.push("coach");
   const selectedMode = localStorage.getItem(`${ACCOUNT_MODE_KEY}:${email}`);
   return roles.includes(selectedMode) ? selectedMode : roles[0] || "";

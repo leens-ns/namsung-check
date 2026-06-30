@@ -41,4 +41,4 @@ jobs:
         env:
           GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
           FIREBASE_PROJECT_ID: namsung-check
-          APP_URL: https://leens-ns.github.io/namsung-check/
+          APP_URL: https://namsung-check.firebaseapp.com/
