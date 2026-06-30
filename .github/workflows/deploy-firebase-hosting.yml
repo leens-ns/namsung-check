@@ -38,4 +38,14 @@ jobs:
           GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
           GOOGLE_SERVICE_ACCOUNT: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
           NODE_PATH: ${{ runner.temp }}/firebase-cli/node_modules
-        run: node automation/deploy-hosting.cjs
+        run: |
+          for attempt in 1 2 3; do
+            echo "Firebase Hosting deploy attempt ${attempt}/3"
+            if node automation/deploy-hosting.cjs; then
+              exit 0
+            fi
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
