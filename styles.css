@@ -1123,29 +1123,35 @@ h1 {
 
 .settings-layout {
   display: grid;
-  grid-template-columns: repeat(3, minmax(240px, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 16px;
+  align-items: start;
+}
+
+.settings-layout > section {
+  grid-column: span 4;
+  min-width: 0;
 }
 
 .external-instructor-section {
-  grid-column: span 2;
+  grid-column: span 8;
 }
 
 .teacher-quick-assign,
 .coach-quick-assign,
 .external-quick-assign {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px auto;
+  grid-template-columns: minmax(0, 1fr) 132px 104px;
   align-items: stretch;
   gap: 8px;
 }
 
 .coach-quick-assign {
-  grid-template-columns: minmax(0, 1fr) minmax(150px, .65fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 190px) 104px;
 }
 
 .external-quick-assign {
-  grid-template-columns: minmax(220px, 1.35fr) minmax(150px, .8fr) minmax(96px, .45fr) minmax(96px, auto);
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 190px) minmax(116px, 140px) 104px;
 }
 
 .teacher-quick-assign > *,
@@ -1160,8 +1166,12 @@ h1 {
 .settings-inline-action,
 .file-action {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 112px;
   gap: 8px;
+}
+
+.file-action {
+  grid-template-columns: minmax(0, 1fr) 132px;
 }
 
 .file-action input {
@@ -1169,8 +1179,27 @@ h1 {
   width: 100%;
 }
 
+.settings-layout .button-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.settings-layout .button-row button,
+.settings-layout > section > button {
+  width: 100%;
+  min-height: 46px;
+}
+
+.settings-layout textarea {
+  width: 100%;
+  min-height: 96px;
+}
+
 .department-settings-section {
-  grid-column: span 2;
+  grid-column: span 8;
 }
 
 .department-sync-note {
@@ -1184,13 +1213,13 @@ h1 {
 .maintenance-heading,
 .maintenance-actions,
 .retention-controls {
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: 10px;
 }
 
 .maintenance-heading {
-  justify-content: space-between;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
 }
 
 .maintenance-heading > div {
@@ -1199,7 +1228,7 @@ h1 {
 }
 
 .free-badge {
-  flex: 0 0 auto;
+  align-self: start;
   padding: 5px 8px;
   border: 1px solid #4c8a62;
   border-radius: 6px;
@@ -1210,8 +1239,8 @@ h1 {
 }
 
 .retention-controls {
+  grid-template-columns: minmax(190px, 1.2fr) minmax(130px, .7fr) minmax(150px, .8fr) minmax(130px, .7fr);
   align-items: end;
-  flex-wrap: wrap;
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -1220,11 +1249,10 @@ h1 {
 
 .retention-controls .toggle {
   min-height: 44px;
-  margin-right: auto;
 }
 
 .retention-controls label:not(.toggle) {
-  min-width: 130px;
+  min-width: 0;
 }
 
 .maintenance-status {
@@ -1241,7 +1269,7 @@ h1 {
 }
 
 .maintenance-actions {
-  flex-wrap: wrap;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .button-link {
@@ -1308,7 +1336,7 @@ h1 {
 
 .department-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
   gap: 6px;
   max-height: 230px;
   overflow: auto;
@@ -1963,16 +1991,45 @@ dialog h2 {
     grid-template-columns: 1fr;
   }
 
+  .settings-layout > section,
   .external-instructor-section,
   .department-settings-section,
   .maintenance-settings-section {
-    grid-column: auto;
+    grid-column: 1 / -1;
+  }
+
+  .teacher-quick-assign,
+  .coach-quick-assign,
+  .external-quick-assign {
+    grid-template-columns: 1fr;
+  }
+
+  .retention-controls {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (min-width: 981px) and (max-width: 1280px) {
   .settings-layout {
-    grid-template-columns: repeat(2, minmax(280px, 1fr));
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .settings-layout > section {
+    grid-column: span 6;
+  }
+
+  .external-instructor-section,
+  .department-settings-section,
+  .maintenance-settings-section {
+    grid-column: 1 / -1;
+  }
+
+  .external-quick-assign {
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 180px) minmax(112px, 132px) 104px;
+  }
+
+  .retention-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .lookup-toolbar {
@@ -2348,11 +2405,19 @@ dialog h2 {
     grid-template-columns: 1fr;
   }
 
+  .settings-layout .button-row {
+    grid-template-columns: 1fr;
+  }
+
   .maintenance-heading,
   .maintenance-actions,
   .retention-controls {
     align-items: stretch;
-    flex-direction: column;
+  }
+
+  .maintenance-heading,
+  .maintenance-actions {
+    grid-template-columns: 1fr;
   }
 
   .free-badge {
