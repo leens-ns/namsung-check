@@ -22,6 +22,7 @@ const USAGE_REMINDER_DISMISS_KEY = "namsung-usage-reminder-dismissed";
 const GITHUB_ACTIONS_RUNS_API = "https://api.github.com/repos/leens-ns/namsung-check/actions/runs?per_page=20";
 const PRIMARY_APP_URL = "https://namsung-check.firebaseapp.com/";
 const AUTH_REDIRECT_KEY = "namsung-auth-redirect-started";
+const FIRST_SCHOOL_YEAR = 2026;
 const ORIGINAL_TITLE = document.title;
 const statusLabel = { present: "출석", late: "지각", absent: "결석", early: "조퇴", unset: "미입력" };
 const roleLabel = { admin: "관리자", teacher: "교사", coach: "방과후강사", external: "외부수업강사" };
@@ -901,7 +902,8 @@ function applyCoachLanguage() {
 
 function fillSchoolYearOptions() {
   const current = currentSchoolYear();
-  const years = Array.from({ length: 8 }, (_, index) => current - index);
+  const start = Math.min(FIRST_SCHOOL_YEAR, current);
+  const years = Array.from({ length: current - start + 1 }, (_, index) => current - index);
   fillSelect(els.lookupSchoolYear, years.map(String), String(current));
 }
 
