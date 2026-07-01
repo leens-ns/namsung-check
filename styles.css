@@ -1124,13 +1124,16 @@ h1 {
 .settings-layout {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: minmax(268px, auto);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .settings-layout > section {
   grid-column: span 4;
   min-width: 0;
+  height: 100%;
+  grid-template-rows: auto;
 }
 
 .external-instructor-section {
@@ -1144,6 +1147,13 @@ h1 {
   grid-template-columns: minmax(0, 1fr) 132px 104px;
   align-items: stretch;
   gap: 8px;
+}
+
+.settings-layout input,
+.settings-layout select,
+.settings-layout button {
+  height: 46px;
+  min-height: 46px;
 }
 
 .coach-quick-assign {
@@ -1198,6 +1208,27 @@ h1 {
   min-height: 96px;
 }
 
+.settings-layout .setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 156px;
+  align-items: center;
+  gap: 12px;
+  min-height: 70px;
+  margin: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef2f6;
+}
+
+.settings-layout .setting-row:last-of-type {
+  border-bottom: 0;
+}
+
+.settings-layout .setting-row input,
+.settings-layout .setting-row select {
+  width: 156px;
+  justify-self: end;
+}
+
 .department-settings-section {
   grid-column: span 8;
 }
@@ -1239,7 +1270,7 @@ h1 {
 }
 
 .retention-controls {
-  grid-template-columns: minmax(190px, 1.2fr) minmax(130px, .7fr) minmax(150px, .8fr) minmax(130px, .7fr);
+  grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(150px, 180px));
   align-items: end;
   padding: 14px;
   border: 1px solid var(--line);
@@ -2003,6 +2034,7 @@ dialog h2 {
 
   .settings-layout {
     grid-template-columns: 1fr;
+    grid-auto-rows: auto;
   }
 
   .settings-layout > section,
@@ -2268,6 +2300,19 @@ dialog h2 {
   .setting-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .settings-layout .setting-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    min-height: 0;
+    padding: 8px 0 12px;
+  }
+
+  .settings-layout .setting-row input,
+  .settings-layout .setting-row select {
+    width: 100%;
+    justify-self: stretch;
   }
 
   .statistics-controls {
