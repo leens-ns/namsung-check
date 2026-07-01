@@ -49,3 +49,10 @@ jobs:
             fi
             sleep $((attempt * 10))
           done
+      - name: Deploy Firestore rules and indexes
+        env:
+          GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          GOOGLE_SERVICE_ACCOUNT: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
+          NODE_PATH: ${{ runner.temp }}/firebase-cli/node_modules
+        run: |
+          npx firebase deploy --project namsung-check --only firestore:rules,firestore:indexes
