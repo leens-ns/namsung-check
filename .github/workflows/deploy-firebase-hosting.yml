@@ -55,4 +55,4 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
           NODE_PATH: ${{ runner.temp }}/firebase-cli/node_modules
         run: |
-          npx firebase deploy --project namsung-check --only firestore:rules,firestore:indexes
+          node "$RUNNER_TEMP/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js" deploy --project namsung-check --only firestore:rules,firestore:indexes
