@@ -49,12 +49,10 @@ jobs:
             fi
             sleep $((attempt * 10))
           done
-      - name: Deploy Firestore rules and indexes if permitted
+      - name: Deploy Firestore rules and indexes
         env:
           GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
           GOOGLE_SERVICE_ACCOUNT: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
           NODE_PATH: ${{ runner.temp }}/firebase-cli/node_modules
         run: |
-          if ! node automation/deploy-firestore.cjs; then
-            echo "::warning::Firebase Hosting was deployed, but Firestore rules/indexes were not deployed because the GitHub service account lacks Firebase Rules permission. Grant Firebase Rules Admin to the service account, then rerun this workflow."
-          fi
+          node automation/deploy-firestore.cjs
