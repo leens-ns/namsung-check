@@ -50,7 +50,7 @@ async function resolveRole(email, db) {
   const roles = [];
   if (savedRole === "teacher") roles.push("teacher");
   if (savedRole === "coach" || data.coachDepartment) roles.push("coach");
-  if (savedRole === "external" || Array.isArray(data.externalClasses)) roles.push("external");
+  if (savedRole === "external" || data.externalCourse || Array.isArray(data.externalClasses)) roles.push("external");
   const selectedMode = localStorage.getItem(`${ACCOUNT_MODE_KEY}:${email}`);
   return roles.includes(selectedMode) ? selectedMode : roles[0] || "";
 }

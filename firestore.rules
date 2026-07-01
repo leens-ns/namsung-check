@@ -34,10 +34,14 @@ service cloud.firestore {
     }
 
     function isExternalInstructor() {
-      return signedIn() && exists(accessPath())
-        && get(accessPath()).data.keys().hasAny(['externalClasses'])
-        && get(accessPath()).data.externalClasses is list
-        && get(accessPath()).data.externalClasses.size() > 0;
+      return signedIn() && exists(accessPath()) && (
+        get(accessPath()).data.role == 'external'
+        || (get(accessPath()).data.keys().hasAny(['externalCourse'])
+          && get(accessPath()).data.externalCourse is string)
+        || (get(accessPath()).data.keys().hasAny(['externalClasses'])
+          && get(accessPath()).data.externalClasses is list
+          && get(accessPath()).data.externalClasses.size() > 0)
+      );
     }
 
     function isHomeroomTeacher() {
@@ -86,8 +90,7 @@ service cloud.firestore {
     }
 
     function ownsExternalClass(data) {
-      return isExternalInstructor()
-        && (data.grade + '-' + data.classNo) in get(accessPath()).data.externalClasses;
+      return isExternalInstructor();
     }
 
     function validAccess(accountEmail, data) {
@@ -104,9 +107,7 @@ service cloud.firestore {
             && data.classNo is string)
           || (data.role == 'coach'
             && data.department is string)
-          || (data.role == 'external'
-            && data.externalClasses is list
-            && data.externalClasses.size() > 0)
+          || data.role == 'external'
         );
     }
 
@@ -166,6 +167,8 @@ service cloud.firestore {
               || (!isCoach() && request.resource.data.audiences == ['input', 'review'])
             ))
           || (request.resource.data.role == 'coach' && isCoach()
+            && request.resource.data.audiences == ['coach-review'])
+          || (request.resource.data.role == 'external' && isExternalInstructor()
             && request.resource.data.audiences == ['coach-review'])
         );
       allow read, delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());

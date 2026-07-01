@@ -1123,45 +1123,45 @@ h1 {
 
 .settings-layout {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-auto-rows: minmax(268px, auto);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  grid-auto-rows: auto;
   gap: 16px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .settings-layout > section {
-  grid-column: span 4;
   min-width: 0;
-  height: 100%;
-  grid-template-rows: auto;
+  overflow: hidden;
 }
 
 .external-instructor-section {
-  grid-column: span 8;
+  grid-column: 1 / -1;
 }
 
 .teacher-quick-assign,
 .coach-quick-assign,
 .external-quick-assign {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 132px 104px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   align-items: stretch;
   gap: 8px;
 }
 
 .settings-layout input,
-.settings-layout select,
-.settings-layout button {
+.settings-layout select {
   height: 46px;
   min-height: 46px;
 }
 
-.coach-quick-assign {
-  grid-template-columns: minmax(0, 1fr) minmax(150px, 190px) 104px;
-}
-
-.external-quick-assign {
-  grid-template-columns: minmax(0, 1fr) minmax(150px, 190px) minmax(116px, 140px) 104px;
+.settings-layout button,
+.settings-layout .button-link {
+  height: auto;
+  min-height: 46px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  white-space: normal;
+  overflow-wrap: keep-all;
+  line-height: 1.25;
 }
 
 .teacher-quick-assign > *,
@@ -1176,12 +1176,12 @@ h1 {
 .settings-inline-action,
 .file-action {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 112px;
+  grid-template-columns: minmax(0, 1fr) minmax(104px, max-content);
   gap: 8px;
 }
 
 .file-action {
-  grid-template-columns: minmax(0, 1fr) 132px;
+  grid-template-columns: minmax(0, 1fr) minmax(128px, max-content);
 }
 
 .file-action input {
@@ -1200,7 +1200,6 @@ h1 {
 .settings-layout .button-row button,
 .settings-layout > section > button {
   width: 100%;
-  min-height: 46px;
 }
 
 .settings-layout textarea {
@@ -1230,7 +1229,7 @@ h1 {
 }
 
 .department-settings-section {
-  grid-column: span 8;
+  grid-column: 1 / -1;
 }
 
 .department-sync-note {
@@ -1270,7 +1269,7 @@ h1 {
 }
 
 .retention-controls {
-  grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(150px, 180px));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   align-items: end;
   padding: 14px;
   border: 1px solid var(--line);
@@ -2057,11 +2056,7 @@ dialog h2 {
 
 @media (min-width: 981px) and (max-width: 1280px) {
   .settings-layout {
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-  }
-
-  .settings-layout > section {
-    grid-column: span 6;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
   }
 
   .external-instructor-section,
@@ -2070,12 +2065,8 @@ dialog h2 {
     grid-column: 1 / -1;
   }
 
-  .external-quick-assign {
-    grid-template-columns: minmax(0, 1fr) minmax(150px, 180px) minmax(112px, 132px) 104px;
-  }
-
   .retention-controls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 
   .lookup-toolbar {
@@ -2302,6 +2293,12 @@ dialog h2 {
     flex-direction: column;
   }
 
+  .settings-inline-action,
+  .file-action,
+  .settings-layout .button-row {
+    grid-template-columns: 1fr;
+  }
+
   .settings-layout .setting-row {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -2393,12 +2390,6 @@ dialog h2 {
     grid-column: 1 / -1;
   }
 
-  .teacher-quick-assign,
-  .coach-quick-assign,
-  .external-quick-assign {
-    grid-template-columns: 1fr;
-  }
-
   .coach-item {
     grid-template-columns: minmax(0, 1fr) 72px;
     align-items: center;
@@ -2406,10 +2397,6 @@ dialog h2 {
 
   .coach-item button {
     width: 72px;
-  }
-
-  .department-settings-section {
-    grid-column: auto;
   }
 
   .department-settings-grid {
@@ -2457,15 +2444,6 @@ dialog h2 {
   .setting-row input,
   .setting-row select {
     width: 100%;
-  }
-
-  .settings-inline-action,
-  .file-action {
-    grid-template-columns: 1fr;
-  }
-
-  .settings-layout .button-row {
-    grid-template-columns: 1fr;
   }
 
   .maintenance-heading,
