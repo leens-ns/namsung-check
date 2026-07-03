@@ -26,8 +26,9 @@ jobs:
               path = Path(name)
               if path.exists():
                   text = path.read_text(encoding='utf-8')
-                  for old in ['20260704-1', '20260703-2', '20260703-1']:
+                  for old in ['20260704-2', '20260704-1', '20260703-2', '20260703-1']:
                       text = text.replace(old, version)
+                  text = text.replace('namsung-attendance-20260704-2', 'namsung-attendance-' + version)
                   text = text.replace('namsung-attendance-20260704-1', 'namsung-attendance-' + version)
                   text = text.replace('namsung-attendance-20260703-2', 'namsung-attendance-' + version)
                   path.write_text(text, encoding='utf-8')
