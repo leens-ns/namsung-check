@@ -21,17 +21,26 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          version = '20260704-3'
+          version = '20260704-4'
           for name in ['index.html', 'manual.html', 'demo.html', 'sw.js']:
               path = Path(name)
               if path.exists():
                   text = path.read_text(encoding='utf-8')
-                  for old in ['20260704-2', '20260704-1', '20260703-2', '20260703-1']:
+                  for old in ['20260704-3', '20260704-2', '20260704-1', '20260703-2', '20260703-1']:
                       text = text.replace(old, version)
+                  text = text.replace('namsung-attendance-20260704-3', 'namsung-attendance-' + version)
                   text = text.replace('namsung-attendance-20260704-2', 'namsung-attendance-' + version)
                   text = text.replace('namsung-attendance-20260704-1', 'namsung-attendance-' + version)
                   text = text.replace('namsung-attendance-20260703-2', 'namsung-attendance-' + version)
                   path.write_text(text, encoding='utf-8')
+          sw = Path('sw.js')
+          if sw.exists():
+              text = sw.read_text(encoding='utf-8')
+              needle = '  if (event.request.method !== "GET" || requestUrl.origin !== self.location.origin) return;\n'
+              bypass = needle + '  if (requestUrl.pathname.startsWith("/__/auth/")) return;\n'
+              if 'startsWith("/__/auth/")' not in text:
+                  text = text.replace(needle, bypass)
+              sw.write_text(text, encoding='utf-8')
           app = Path('app.js')
           text = app.read_text(encoding='utf-8')
           text = text.replace('getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged,\n  signInWithRedirect, signOut', 'getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged,\n  signInWithPopup, signInWithRedirect, signOut')
