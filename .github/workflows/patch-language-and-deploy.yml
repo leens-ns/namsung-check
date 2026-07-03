@@ -21,7 +21,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          version = '20260704-2'
+          version = '20260704-3'
           for name in ['index.html', 'manual.html', 'demo.html', 'sw.js']:
               path = Path(name)
               if path.exists():
@@ -34,6 +34,7 @@ jobs:
           app = Path('app.js')
           text = app.read_text(encoding='utf-8')
           text = text.replace('getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged,\n  signInWithRedirect, signOut', 'getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged,\n  signInWithPopup, signInWithRedirect, signOut')
+          text = text.replace('    await signInWithPopup(auth, googleProvider());', '    const popupLogin = signInWithPopup(auth, googleProvider());\n    const result = await Promise.race([\n      popupLogin.then(() => "done"),\n      new Promise((resolve) => setTimeout(() => resolve(document.hasFocus() ? "fallback" : "wait"), 6000))\n    ]);\n    if (result === "fallback" && !auth.currentUser) {\n      await startGoogleRedirect();\n      return;\n    }\n    if (result === "wait") await popupLogin;')
           new_func = '''async function startGoogleInteractiveLogin() {
             try {
               sessionStorage.removeItem(AUTH_REDIRECT_KEY);
