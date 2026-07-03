@@ -1122,20 +1122,22 @@ h1 {
 }
 
 .settings-layout {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
-  grid-auto-rows: auto;
-  gap: 16px;
-  align-items: start;
+  column-count: 2;
+  column-gap: 16px;
 }
 
 .settings-layout > section {
+  display: grid;
+  width: 100%;
+  margin: 0 0 16px;
   min-width: 0;
   overflow: hidden;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .external-instructor-section {
-  grid-column: 1 / -1;
+  break-inside: avoid;
 }
 
 .teacher-quick-assign,
@@ -1156,6 +1158,7 @@ h1 {
 .settings-layout button,
 .settings-layout .button-link {
   height: auto;
+  min-width: 0;
   min-height: 46px;
   padding-top: 8px;
   padding-bottom: 8px;
@@ -1199,7 +1202,9 @@ h1 {
 
 .settings-layout .button-row button,
 .settings-layout > section > button {
+  min-width: 0;
   width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .settings-layout textarea {
@@ -1229,7 +1234,7 @@ h1 {
 }
 
 .department-settings-section {
-  grid-column: 1 / -1;
+  break-inside: avoid;
 }
 
 .department-sync-note {
@@ -1237,7 +1242,7 @@ h1 {
 }
 
 .maintenance-settings-section {
-  grid-column: 1 / -1;
+  break-inside: avoid;
 }
 
 .maintenance-heading,
@@ -1929,10 +1934,17 @@ dialog h2 {
   color: var(--ink);
 }
 
-.notification-item time,
-.empty-notifications {
+.notification-item time {
   color: var(--muted);
   font-size: 12px;
+}
+
+.empty-notifications {
+  margin: 8px 0 18px;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .review-item {
@@ -2032,15 +2044,15 @@ dialog h2 {
   }
 
   .settings-layout {
-    grid-template-columns: 1fr;
-    grid-auto-rows: auto;
+    column-count: 1;
+    column-gap: 0;
   }
 
   .settings-layout > section,
   .external-instructor-section,
   .department-settings-section,
   .maintenance-settings-section {
-    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .teacher-quick-assign,
@@ -2056,13 +2068,14 @@ dialog h2 {
 
 @media (min-width: 981px) and (max-width: 1280px) {
   .settings-layout {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+    column-count: 2;
+    column-gap: 14px;
   }
 
   .external-instructor-section,
   .department-settings-section,
   .maintenance-settings-section {
-    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .retention-controls {
