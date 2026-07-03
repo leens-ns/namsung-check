@@ -294,7 +294,16 @@ async function startGoogleRedirect() {
 async function startGoogleInteractiveLogin() {
   try {
     sessionStorage.removeItem(AUTH_REDIRECT_KEY);
-    await signInWithPopup(auth, googleProvider());
+    const popupLogin = signInWithPopup(auth, googleProvider());
+    const result = await Promise.race([
+      popupLogin.then(() => "done"),
+      new Promise((resolve) => setTimeout(() => resolve(document.hasFocus() ? "fallback" : "wait"), 6000))
+    ]);
+    if (result === "fallback" && !auth.currentUser) {
+      await startGoogleRedirect();
+      return;
+    }
+    if (result === "wait") await popupLogin;
   } catch (error) {
     const fallbackCodes = new Set([
       "auth/popup-blocked",
