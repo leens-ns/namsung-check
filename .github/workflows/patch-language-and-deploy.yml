@@ -1,4 +1,4 @@
-name: Patch login timeout and deploy
+name: Patch popup login and deploy
 on:
   push:
     branches: [main]
@@ -16,68 +16,37 @@ jobs:
       - uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Patch login flow
+      - name: Patch popup login
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
-          version = '20260704-4'
+          import base64
+          version = '20260704-5'
           for name in ['index.html', 'manual.html', 'demo.html', 'sw.js']:
               path = Path(name)
               if path.exists():
                   text = path.read_text(encoding='utf-8')
-                  for old in ['20260704-3', '20260704-2', '20260704-1', '20260703-2', '20260703-1']:
+                  for old in ['20260704-4', '20260704-3', '20260704-2', '20260704-1', '20260703-2']:
                       text = text.replace(old, version)
-                  text = text.replace('namsung-attendance-20260704-3', 'namsung-attendance-' + version)
-                  text = text.replace('namsung-attendance-20260704-2', 'namsung-attendance-' + version)
-                  text = text.replace('namsung-attendance-20260704-1', 'namsung-attendance-' + version)
-                  text = text.replace('namsung-attendance-20260703-2', 'namsung-attendance-' + version)
+                  for old in ['namsung-attendance-20260704-4', 'namsung-attendance-20260704-3', 'namsung-attendance-20260704-2']:
+                      text = text.replace(old, 'namsung-attendance-' + version)
                   path.write_text(text, encoding='utf-8')
           sw = Path('sw.js')
           if sw.exists():
               text = sw.read_text(encoding='utf-8')
               needle = '  if (event.request.method !== "GET" || requestUrl.origin !== self.location.origin) return;\n'
-              bypass = needle + '  if (requestUrl.pathname.startsWith("/__/auth/")) return;\n'
               if 'startsWith("/__/auth/")' not in text:
-                  text = text.replace(needle, bypass)
+                  text = text.replace(needle, needle + '  if (requestUrl.pathname.startsWith("/__/auth/")) return;\n')
               sw.write_text(text, encoding='utf-8')
           app = Path('app.js')
           text = app.read_text(encoding='utf-8')
           text = text.replace('getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged,\n  signInWithRedirect, signOut', 'getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged,\n  signInWithPopup, signInWithRedirect, signOut')
-          text = text.replace('    await signInWithPopup(auth, googleProvider());', '    const popupLogin = signInWithPopup(auth, googleProvider());\n    const result = await Promise.race([\n      popupLogin.then(() => "done"),\n      new Promise((resolve) => setTimeout(() => resolve(document.hasFocus() ? "fallback" : "wait"), 6000))\n    ]);\n    if (result === "fallback" && !auth.currentUser) {\n      await startGoogleRedirect();\n      return;\n    }\n    if (result === "wait") await popupLogin;')
-          new_func = '''async function startGoogleInteractiveLogin() {
-            try {
-              sessionStorage.removeItem(AUTH_REDIRECT_KEY);
-              const popupLogin = signInWithPopup(auth, googleProvider());
-              const result = await Promise.race([
-                popupLogin.then(() => "done"),
-                new Promise((resolve) => setTimeout(() => resolve(document.hasFocus() ? "fallback" : "wait"), 6000))
-              ]);
-              if (result === "fallback" && !auth.currentUser) {
-                await startGoogleRedirect();
-                return;
-              }
-              if (result === "wait") await popupLogin;
-            } catch (error) {
-              const fallbackCodes = new Set([
-                "auth/popup-blocked",
-                "auth/popup-closed-by-user",
-                "auth/cancelled-popup-request",
-                "auth/operation-not-supported-in-this-environment"
-              ]);
-              if (fallbackCodes.has(error.code)) {
-                await startGoogleRedirect();
-                return;
-              }
-              showLoginError(readableError(error));
-              els.googleSignInButton.disabled = false;
-              els.googleSignInButton.textContent = "Google 계정으로 로그인";
-            }
-          }
-
-          async function completeRedirectLogin'''
-          text = re.sub(r'async function startGoogleInteractiveLogin\(\) \{.*?\n          async function completeRedirectLogin', new_func, text, flags=re.S)
-          text = text.replace('"auth/network-request-failed": "네트워크 연결을 확인한 뒤 다시 로그인해 주세요."', '"auth/network-request-failed": "로그인 연결이 중단되었습니다. 새로고침 후 다시 로그인해 주세요."')
+          text = text.replace('    await signInWithPopup(auth, googleProvider());', '    const popupLogin = signInWithPopup(auth, googleProvider());\n    const result = await Promise.race([\n      popupLogin.then(() => "done"),\n      new Promise((resolve) => setTimeout(() => resolve(document.hasFocus() ? "fallback" : "wait"), 6000))\n    ]);\n    if (result === "fallback" && !auth.currentUser) {\n      throw Object.assign(new Error("Google 로그인 팝업이 열리지 않았습니다."), { code: "auth/popup-blocked" });\n    }\n    if (result === "wait") await popupLogin;')
+          text = text.replace('    if (result === "fallback" && !auth.currentUser) {\n      await startGoogleRedirect();\n      return;\n    }', '    if (result === "fallback" && !auth.currentUser) {\n      throw Object.assign(new Error("Google 로그인 팝업이 열리지 않았습니다."), { code: "auth/popup-blocked" });\n    }')
+          text = text.replace(base64.b64decode("""ICAgIGNvbnN0IGZhbGxiYWNrQ29kZXMgPSBuZXcgU2V0KFsKICAgICAgImF1dGgvcG9wdXAtYmxvY2tlZCIsCiAgICAgICJhdXRoL3BvcHVwLWNsb3NlZC1ieS11c2VyIiwKICAgICAgImF1dGgvY2FuY2VsbGVkLXBvcHVwLXJlcXVlc3QiLAogICAgICAiYXV0aC9vcGVyYXRpb24tbm90LXN1cHBvcnRlZC1pbi10aGlzLWVudmlyb25tZW50IgogICAgXSk7CiAgICBpZiAoZmFsbGJhY2tDb2Rlcy5oYXMoZXJyb3IuY29kZSkpIHsKICAgICAgYXdhaXQgc3RhcnRHb29nbGVSZWRpcmVjdCgpOwogICAgICByZXR1cm47CiAgICB9Cg==""").decode('utf-8'), '')
+          marker = '    "auth/unauthorized-domain": "현재 접속 주소가 Firebase 로그인 허용 목록에 없습니다. 관리자에게 알려 주세요.",\n'
+          if '"auth/popup-blocked"' not in text:
+              text = text.replace(marker, marker + '    "auth/popup-blocked": "Google 로그인 팝업이 열리지 않았습니다. 브라우저에서 팝업을 허용한 뒤 다시 로그인해 주세요.",\n    "auth/popup-closed-by-user": "Google 로그인 창이 닫혔습니다. 다시 로그인해 주세요.",\n    "auth/cancelled-popup-request": "Google 로그인 요청이 중단되었습니다. 다시 로그인해 주세요.",\n    "auth/operation-not-supported-in-this-environment": "이 브라우저에서는 팝업 로그인이 제한됩니다. Chrome 또는 Safari 최신 버전에서 다시 시도해 주세요.",\n')
           app.write_text(text, encoding='utf-8')
           PY
       - name: Commit patched files
@@ -88,7 +57,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No patch changes to commit."
           else
-            git commit -m "Stabilize Google login fallback"
+            git commit -m "Use popup login without broken redirect fallback"
             git push
           fi
       - id: auth
