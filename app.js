@@ -28,7 +28,7 @@ const statusLabel = { present: "출석", late: "지각", absent: "결석", early
 const roleLabel = { admin: "관리자", teacher: "교사", coach: "방과후강사", external: "외부수업강사" };
 const COACH_I18N = {
   ko: {
-    language: "언어", accountMode: "사용 모드", teacherMode: "담임교사 모드", coachMode: "방과후강사 모드", adminMode: "관리자 모드", coach: "방과후강사", logout: "로그아웃", lookup: "출결 조회", manual: "사용 매뉴얼", title: "방과후 출결",
+    language: "Language", accountMode: "사용 모드", teacherMode: "담임교사 모드", coachMode: "방과후강사 모드", adminMode: "관리자 모드", coach: "방과후강사", logout: "로그아웃", lookup: "출결 조회", manual: "사용 매뉴얼", title: "방과후 출결",
     description: "일별 상세 또는 월별·학년도별 학생 출결 합계를 확인합니다.", day: "일별", month: "월별", schoolYear: "학년도별",
     lookupDate: "조회 날짜", lookupMonth: "조회 월", schoolYearLabel: "학년도", department: "부서", refresh: "↻ 최신 출결 새로고침",
     student: "학생", status: "출결", memo: "특이사항", present: "출석", absent: "결석", late: "지각", early: "조퇴", unset: "미입력", records: "기록",
