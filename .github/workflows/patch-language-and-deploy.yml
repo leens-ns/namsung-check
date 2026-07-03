@@ -1,0 +1,102 @@
+name: Patch language selector and deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/patch-language-and-deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  patch-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Patch app files
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          version = '20260703-2'
+          for name in ['index.html', 'demo.html', 'manual.html', 'sw.js']:
+              path = Path(name)
+              if path.exists():
+                  text = path.read_text(encoding='utf-8')
+                  text = text.replace('20260703-1', version)
+                  path.write_text(text, encoding='utf-8')
+
+          index = Path('index.html')
+          text = index.read_text(encoding='utf-8')
+          text = text.replace('<span id="coachLanguageLabel">언어</span>', '<span id="coachLanguageLabel">Language</span>')
+          text = text.replace('<select id="coachLanguageSelect" aria-label="화면 언어">', '<select id="coachLanguageSelect" aria-label="Language selection">')
+          marker = '<script src="config.js"></script>\n    <script type="module" src="app.js?v=20260703-2"></script>'
+          inject = '''<script src="config.js"></script>
+    <script>
+      (() => {
+        const syncLanguageLabel = () => {
+          const label = document.getElementById("coachLanguageLabel");
+          const select = document.getElementById("coachLanguageSelect");
+          if (label) label.textContent = "Language";
+          if (select) select.setAttribute("aria-label", "Language selection");
+        };
+        syncLanguageLabel();
+        new MutationObserver(syncLanguageLabel).observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+      })();
+    </script>
+    <script type="module" src="app.js?v=20260703-2"></script>'''
+          if 'syncLanguageLabel' not in text:
+              text = text.replace(marker, inject)
+          index.write_text(text, encoding='utf-8')
+
+          app = Path('app.js')
+          text = app.read_text(encoding='utf-8')
+          text = text.replace('language: "언어", accountMode: "사용 모드"', 'language: "Language", accountMode: "사용 모드"')
+          app.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit patched files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html app.js demo.html manual.html sw.js
+          if git diff --cached --quiet; then
+            echo "No patch changes to commit."
+          else
+            git commit -m "Fix language selector label"
+            git push
+          fi
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: namsung-check
+          workload_identity_provider: projects/36959618515/locations/global/workloadIdentityPools/github/providers/namsung-check-v2
+          service_account: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          package-manager-cache: false
+      - name: Install Firebase CLI
+        run: npm install --prefix "$RUNNER_TEMP/firebase-cli" --no-save --no-package-lock firebase-tools@15.17.0
+      - name: Deploy Firebase Hosting
+        env:
+          GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          GOOGLE_SERVICE_ACCOUNT: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
+          NODE_PATH: ${{ runner.temp }}/firebase-cli/node_modules
+        run: node automation/deploy-hosting.cjs
+      - name: Deploy Firestore rules and indexes
+        env:
+          GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          GOOGLE_SERVICE_ACCOUNT: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
+          NODE_PATH: ${{ runner.temp }}/firebase-cli/node_modules
+        run: node automation/deploy-firestore.cjs
