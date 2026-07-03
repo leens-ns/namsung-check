@@ -1,16 +1,13 @@
 name: Patch language selector and deploy
-
 on:
   push:
     branches: [main]
     paths:
       - .github/workflows/patch-language-and-deploy.yml
   workflow_dispatch:
-
 permissions:
   contents: write
   id-token: write
-
 jobs:
   patch-and-deploy:
     runs-on: ubuntu-latest
@@ -30,34 +27,11 @@ jobs:
                   text = path.read_text(encoding='utf-8')
                   text = text.replace('20260703-1', version)
                   path.write_text(text, encoding='utf-8')
-
           index = Path('index.html')
           text = index.read_text(encoding='utf-8')
           text = text.replace('<span id="coachLanguageLabel">언어</span>', '<span id="coachLanguageLabel">Language</span>')
           text = text.replace('<select id="coachLanguageSelect" aria-label="화면 언어">', '<select id="coachLanguageSelect" aria-label="Language selection">')
-          marker = '<script src="config.js"></script>\n    <script type="module" src="app.js?v=20260703-2"></script>'
-          inject = '''<script src="config.js"></script>
-    <script>
-      (() => {
-        const syncLanguageLabel = () => {
-          const label = document.getElementById("coachLanguageLabel");
-          const select = document.getElementById("coachLanguageSelect");
-          if (label) label.textContent = "Language";
-          if (select) select.setAttribute("aria-label", "Language selection");
-        };
-        syncLanguageLabel();
-        new MutationObserver(syncLanguageLabel).observe(document.documentElement, {
-          childList: true,
-          subtree: true,
-          characterData: true
-        });
-      })();
-    </script>
-    <script type="module" src="app.js?v=20260703-2"></script>'''
-          if 'syncLanguageLabel' not in text:
-              text = text.replace(marker, inject)
           index.write_text(text, encoding='utf-8')
-
           app = Path('app.js')
           text = app.read_text(encoding='utf-8')
           text = text.replace('language: "언어", accountMode: "사용 모드"', 'language: "Language", accountMode: "사용 모드"')
