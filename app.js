@@ -300,21 +300,10 @@ async function startGoogleInteractiveLogin() {
       new Promise((resolve) => setTimeout(() => resolve(document.hasFocus() ? "fallback" : "wait"), 6000))
     ]);
     if (result === "fallback" && !auth.currentUser) {
-      await startGoogleRedirect();
-      return;
+      throw Object.assign(new Error("Google 로그인 팝업이 열리지 않았습니다."), { code: "auth/popup-blocked" });
     }
     if (result === "wait") await popupLogin;
   } catch (error) {
-    const fallbackCodes = new Set([
-      "auth/popup-blocked",
-      "auth/popup-closed-by-user",
-      "auth/cancelled-popup-request",
-      "auth/operation-not-supported-in-this-environment"
-    ]);
-    if (fallbackCodes.has(error.code)) {
-      await startGoogleRedirect();
-      return;
-    }
     showLoginError(readableError(error));
     els.googleSignInButton.disabled = false;
     els.googleSignInButton.textContent = "Google 계정으로 로그인";
