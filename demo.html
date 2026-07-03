@@ -3,14 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#174a7c" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="남성초 출결" />
-    <title>남성초등학교 출결관리 시스템</title>
+    <title>남성초등학교 출결관리 시스템 체험판</title>
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-    <link rel="icon" href="icon-192.png" type="image/png" />
     <link rel="stylesheet" href="styles.css?v=20260704-1" />
   </head>
   <body>
@@ -19,12 +13,14 @@
         <img src="logo.svg" alt="" />
         <p class="eyebrow">남성초등학교</p>
         <h1 id="login-title">출결관리 시스템</h1>
-        <p>관리자가 등록한 이메일과 동일한 Google 계정으로 로그인해 주세요.</p>
-        <button id="googleSignInButton" class="google-signin-button" type="button">Google 계정으로 로그인</button>
-        <button id="installAppBtn" class="install-app-button" type="button">홈 화면에 설치</button>
-        <div id="googleSetupNotice" class="setup-notice is-hidden">
-          Google OAuth 클라이언트 ID 설정이 필요합니다.
+        <p>확인할 사용자 유형을 선택해 주세요.</p>
+        <div class="demo-role-buttons">
+          <button type="button" data-demo-role="admin">관리자로 체험</button>
+          <button type="button" data-demo-role="teacher">교사로 체험</button>
+          <button type="button" data-demo-role="coach">방과후강사로 체험</button>
+          <button type="button" data-demo-role="external">외부수업강사로 체험</button>
         </div>
+        <div class="setup-notice">체험판 역할 버튼은 실제 로그인을 생략합니다. 운영 앱은 등록된 이메일과 같은 Google 계정 인증이 필수입니다.</div>
         <p id="loginError" class="login-error" role="alert"></p>
       </div>
     </section>
@@ -48,19 +44,6 @@
             <span id="userEmail"></span>
             <small id="userRole"></small>
           </div>
-          <label id="accountModeControl" class="account-mode-control is-hidden">
-            <span>사용 모드</span>
-            <select id="accountModeSelect" aria-label="사용 모드"></select>
-          </label>
-          <label id="coachLanguageControl" class="coach-language-control is-hidden">
-            <span id="coachLanguageLabel">Language</span>
-            <select id="coachLanguageSelect" aria-label="Language selection">
-              <option value="ko">한국어</option>
-              <option value="en">English</option>
-              <option value="fr">Français</option>
-              <option value="es">Español</option>
-            </select>
-          </label>
           <button id="logoutBtn" type="button">로그아웃</button>
         </section>
 
@@ -68,7 +51,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260704-1" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a class="tab manual-link" href="manual.html?v=20260704-1" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -76,10 +59,9 @@
         <header class="topbar">
           <div>
             <p id="todayText" class="eyebrow"></p>
-            <h1 id="mainTitle">오늘 출결</h1>
+            <h1>오늘 출결</h1>
           </div>
           <div class="topbar-tools">
-            <button id="installAppHeaderBtn" class="install-app-header-button" type="button">홈 화면에 설치</button>
             <button id="notificationEnableHeaderBtn" class="notification-enable-button" type="button">알림 설정</button>
             <button id="notificationCenterBtn" class="notification-button" type="button" aria-label="알림함">
               <span aria-hidden="true">🔔</span>
@@ -87,22 +69,14 @@
               <strong id="notificationBadge" class="notification-badge is-hidden">0</strong>
             </button>
             <div id="statusStrip" class="status-strip">
-              <span id="presentCountItem"><strong id="presentCount">0</strong><small id="presentCountLabel">출석</small></span>
-              <span id="lateCountItem"><strong id="lateCount">0</strong><small id="lateCountLabel">지각</small></span>
-              <span id="earlyCountItem"><strong id="earlyCount">0</strong><small id="earlyCountLabel">조퇴</small></span>
-              <span id="absentCountItem"><strong id="absentCount">0</strong><small id="absentCountLabel">결석</small></span>
-              <button id="unsetCountItem" class="status-count-button" type="button"><strong id="unsetCount">0</strong><small id="unsetCountLabel">미입력</small></button>
+              <span id="presentCountItem"><strong id="presentCount">0</strong>출석</span>
+              <span id="lateCountItem"><strong id="lateCount">0</strong>지각</span>
+              <span id="earlyCountItem"><strong id="earlyCount">0</strong>조퇴</span>
+              <span id="absentCountItem"><strong id="absentCount">0</strong>결석</span>
+              <span id="unsetCountItem"><strong id="unsetCount">0</strong>미입력</span>
             </div>
           </div>
         </header>
-
-        <aside id="usageReminderBanner" class="usage-reminder-banner is-hidden" aria-label="Firebase 사용량 확인 안내">
-          <a id="usageReminderLink" href="https://console.firebase.google.com/project/namsung-check/firestore/databases/-default-/usage" target="_blank" rel="noopener">
-            <strong>이번 달 Firebase 사용량을 확인해 주세요.</strong>
-            <span>읽기·쓰기·저장 공간이 무료 범위인지 확인합니다.</span>
-          </a>
-          <button id="dismissUsageReminderBtn" type="button" aria-label="이번 달 안내 닫기">×</button>
-        </aside>
 
         <section id="attendanceView" class="view is-visible" aria-labelledby="attendance-title">
           <p id="attendanceDayNotice" class="attendance-day-notice"></p>
@@ -140,39 +114,21 @@
         <section id="lookupView" class="view" aria-labelledby="lookup-title">
           <div class="section-heading">
             <div>
-              <h2 id="lookup-title">출결 조회</h2>
-              <p id="lookupDescription">일별 상세 또는 월별·학년도별 학생 출결 합계를 확인합니다.</p>
+              <h2 id="lookup-title">방과후강사 조회</h2>
+              <p>강사는 자기 부서 학생의 방과후 출석·결석만 조회합니다.</p>
             </div>
           </div>
-          <div class="lookup-mode-tabs" role="tablist" aria-label="조회 기간">
-            <button class="lookup-mode-button is-active" data-lookup-mode="day" type="button">일별</button>
-            <button class="lookup-mode-button" data-lookup-mode="month" type="button">월별</button>
-            <button class="lookup-mode-button" data-lookup-mode="schoolYear" type="button">학년도별</button>
-          </div>
-          <div class="toolbar lookup-toolbar">
-            <label id="lookupScopeField">
-              <span id="lookupScopeLabel">조회 대상</span>
-              <select id="lookupScope"></select>
-            </label>
-            <label id="lookupDateField">
-              <span id="lookupDateLabel">조회 날짜</span>
+          <div class="toolbar">
+            <label>
+              조회 날짜
               <input id="lookupDate" type="date" />
             </label>
-            <label id="lookupMonthField" class="is-hidden">
-              <span id="lookupMonthLabel">조회 월</span>
-              <input id="lookupMonth" type="month" />
-            </label>
-            <label id="lookupSchoolYearField" class="is-hidden">
-              <span id="lookupSchoolYearLabel">학년도</span>
-              <select id="lookupSchoolYear"></select>
-            </label>
-            <label id="lookupDepartmentField">
-              <span id="lookupDepartmentLabel">부서</span>
+            <label>
+              부서
               <select id="lookupDepartment"></select>
             </label>
             <button id="refreshLookupBtn" class="refresh-button" type="button">↻ 최신 출결 새로고침</button>
           </div>
-          <div id="lookupPeriodSummary" class="lookup-period-summary is-hidden" role="status"></div>
           <div id="lookupTable" class="table"></div>
         </section>
 
@@ -188,24 +144,21 @@
             </section>
 
             <section>
-              <h2>학생 명단 전체 관리</h2>
-              <p class="subtle">CSV를 올리면 기존 학생 명단과 연락처를 새 파일 기준으로 전체 교체합니다.</p>
-              <a class="example-download" href="examples/student-roster-example.csv" download>학생 명단 예시 CSV 다운로드</a>
+              <h2>학생 명단 가져오기</h2>
+              <p class="subtle">관리자 기기에 저장된 CSV 파일만 사용할 수 있습니다.</p>
               <label>
                 CSV 파일
                 <input id="csvFileInput" type="file" accept=".csv,text/csv" />
               </label>
               <div class="button-row">
-                <button id="importBtn" class="primary" type="button">CSV로 명단 전체 교체</button>
-                <button id="deleteAllStudentsBtn" class="danger-button" type="button">학생 명단·연락처 전체 삭제</button>
+                <button id="importBtn" class="primary" type="button">CSV 파일 가져오기</button>
               </div>
-              <p class="note">CSV에 없는 기존 학생은 삭제됩니다. 출결 기록은 유지됩니다. 필수 열: 이름, 학년, 반, 번호, 부서 · 선택 열: id, 학부모연락처</p>
+              <p class="note">공개 링크는 사용하지 않습니다. 권장 열: 이름, 학년, 반, 번호, 부서, 학부모연락처</p>
             </section>
 
             <section>
               <h2>방과후강사 계정 등록</h2>
-              <p class="subtle">이메일 등록만으로는 접속할 수 없습니다. 강사가 같은 이메일의 Google 계정으로 인증해야 해당 부서 학생만 조회됩니다.</p>
-              <a class="example-download" href="examples/coach-assignments-example.csv" download>강사 배정 예시 CSV 다운로드</a>
+              <p class="subtle">이메일 등록만으로는 접속할 수 없습니다. 실제 앱에서는 같은 이메일의 Google 계정 인증이 필수입니다.</p>
               <div class="coach-quick-assign">
                 <input id="coachEmailInput" type="email" aria-label="강사 이메일" placeholder="coach@example.com" />
                 <select id="coachDepartmentInput" aria-label="담당 부서"></select>
@@ -216,25 +169,20 @@
                 <button id="importCoachesBtn" type="button">CSV 일괄 등록</button>
               </div>
               <div id="coachList" class="coach-list"></div>
-              <button id="clearCoachAssignmentsBtn" class="danger-button" type="button">강사 배정 전체 해제</button>
             </section>
 
-            <section class="external-instructor-section">
-              <h2>외부수업강사 계정 등록</h2>
-              <p class="subtle">외부수업강사는 로그인 후 조회할 학년·반을 직접 선택합니다. 학년 전체·학생 전체 조회는 제공하지 않습니다.</p>
-              <a class="example-download" href="examples/external-instructor-assignments-example.csv" download>외부수업강사 계정 예시 CSV 다운로드</a>
-              <div class="external-quick-assign">
-                <input id="externalEmailInput" type="email" aria-label="외부수업강사 이메일" placeholder="instructor@example.com" />
-                <select id="externalCourseInput" aria-label="외부수업명"></select>
-                <select id="externalClassSelect" class="is-hidden" aria-label="조회 반"></select>
-                <button id="addExternalBtn" class="primary" type="button">강사 등록</button>
-              </div>
-              <div class="file-action">
-                <input id="externalCsvFileInput" type="file" accept=".csv,text/csv" aria-label="외부수업강사 CSV 파일" />
-                <button id="importExternalsBtn" type="button">CSV 일괄 등록</button>
-              </div>
-              <div id="externalList" class="coach-list"></div>
-              <button id="clearExternalAssignmentsBtn" class="danger-button" type="button">외부수업강사 권한 전체 해제</button>
+            <section>
+              <h2>운영 범위</h2>
+              <p class="subtle">선택한 요일에만 담임교사가 출결을 입력하고 교직원·강사 알림이 발송됩니다.</p>
+              <fieldset class="weekday-selector">
+                <legend>방과후 운영 요일</legend>
+                <label><input type="checkbox" data-attendance-day="1" />월</label>
+                <label><input type="checkbox" data-attendance-day="2" />화</label>
+                <label><input type="checkbox" data-attendance-day="3" />수</label>
+                <label><input type="checkbox" data-attendance-day="4" />목</label>
+                <label><input type="checkbox" data-attendance-day="5" />금</label>
+              </fieldset>
+              <label class="max-class-setting">학년별 최대 반 수<input id="maxClassesPerGrade" type="number" min="1" max="10" value="3" /></label>
             </section>
 
             <section class="department-settings-section">
@@ -262,49 +210,14 @@
             </section>
 
             <section>
-              <h2>외부수업 목록</h2>
-              <p class="subtle">외부수업강사 등록 화면의 수업 선택지입니다. 강사는 로그인 후 조회할 학년·반을 직접 선택합니다.</p>
-              <div class="settings-inline-action">
-                <input id="externalCourseNameInput" type="text" aria-label="외부수업명" placeholder="외부수업명" />
-                <button id="addExternalCourseBtn" type="button">추가</button>
-              </div>
-              <div id="externalCourseList" class="department-list"></div>
-            </section>
-
-            <section>
-              <h2>운영 범위</h2>
-              <p class="subtle">선택한 요일에만 담임교사가 출결을 입력하고 교직원·강사 알림이 발송됩니다.</p>
-              <fieldset class="weekday-selector">
-                <legend>방과후 운영 요일</legend>
-                <label><input type="checkbox" data-attendance-day="1" />월</label>
-                <label><input type="checkbox" data-attendance-day="2" />화</label>
-                <label><input type="checkbox" data-attendance-day="3" />수</label>
-                <label><input type="checkbox" data-attendance-day="4" />목</label>
-                <label><input type="checkbox" data-attendance-day="5" />금</label>
-              </fieldset>
-              <label class="max-class-setting">
-                학년별 최대 반 수
-                <input id="maxClassesPerGrade" type="number" min="1" max="10" value="3" />
-              </label>
-            </section>
-
-            <section>
               <h2>담임교사 학급 배정</h2>
-              <a class="example-download" href="examples/teacher-assignments-example.csv" download>담임 배정 예시 CSV 다운로드</a>
               <div class="teacher-quick-assign">
                 <input id="teacherEmailInput" type="email" aria-label="교사 이메일" placeholder="teacher@nsworld.net" />
                 <select id="teacherClassSelect" aria-label="담당 학급"></select>
                 <button id="addTeacherBtn" class="primary" type="button">배정</button>
               </div>
               <textarea id="teacherBulkInput" rows="4" placeholder="teacher1@nsworld.net, 3-1&#10;teacher2@nsworld.net, 4-2"></textarea>
-              <div class="button-row teacher-assignment-actions">
-                <button id="bulkAssignTeachersBtn" type="button">여러 명 일괄 배정</button>
-                <button id="clearTeacherAssignmentsBtn" class="danger-button" type="button">담임 배정 전체 해제</button>
-              </div>
-              <div class="file-action">
-                <input id="teacherCsvFileInput" type="file" accept=".csv,text/csv" aria-label="담임교사 배정 CSV 파일" />
-                <button id="importTeachersBtn" type="button">CSV 일괄 배정</button>
-              </div>
+              <button id="bulkAssignTeachersBtn" type="button">여러 명 일괄 배정</button>
               <div id="teacherList" class="coach-list"></div>
             </section>
 
@@ -341,11 +254,6 @@
                 <input id="maskContactDefault" type="checkbox" checked />
                 <span>학부모 연락처 비공개</span>
               </label>
-              <label class="toggle">
-                <input id="allowAllStudentsLookup" type="checkbox" />
-                <span>관리자 학생 전체 조회 허용</span>
-              </label>
-              <p class="subtle">끄면 관리자 조회 대상에서 ‘학생 전체’를 숨겨 불필요한 대량 조회를 줄입니다.</p>
               <p class="security-note">
                 leens@nsworld.net은 기본 관리자이며 삭제할 수 없습니다.
               </p>
@@ -361,36 +269,46 @@
               </div>
               <div class="retention-controls">
                 <label class="toggle">
-                  <input id="autoCleanupEnabled" type="checkbox" />
+                  <input type="checkbox" checked />
                   <span>오래된 출결 자동 삭제</span>
                 </label>
                 <label>
                   보관 기간
-                  <select id="retentionMonths">
-                    <option value="12">12개월</option>
-                    <option value="24" selected>24개월</option>
-                    <option value="36">36개월</option>
-                    <option value="60">60개월</option>
+                  <select>
+                    <option>12개월</option>
+                    <option selected>24개월</option>
+                    <option>36개월</option>
+                    <option>60개월</option>
                   </select>
                 </label>
-                <button id="saveRetentionSettingsBtn" class="primary" type="button">보관 설정 저장</button>
+                <button class="primary" type="button">보관 설정 저장</button>
                 <label>
                   Firebase 사용량 확인일
-                  <select id="usageCheckDay"></select>
+                  <select>
+                    <option selected>1일</option>
+                    <option>5일</option>
+                    <option>10일</option>
+                    <option>15일</option>
+                    <option>20일</option>
+                    <option>25일</option>
+                  </select>
                 </label>
               </div>
               <p class="security-note">자동 삭제된 출결은 복구할 수 없습니다. 학생 명단과 연락처는 삭제하지 않으며, 한 번에 최대 10,000건만 정리합니다.</p>
-              <div id="cleanupStatus" class="maintenance-status" role="status">자동 정리 실행 기록을 확인하는 중입니다.</div>
+              <div class="maintenance-status" role="status">
+                <strong>체험판 상태</strong>
+                <span>실제 실행 기록은 배포된 운영 앱에서 확인합니다.</span>
+              </div>
               <div class="system-health-list" aria-label="자동 작업 상태">
-                <div><span id="cleanupHealthDot" class="health-dot is-pending" aria-hidden="true"></span><strong>자동 정리</strong><small id="cleanupHealthText">확인 전</small></div>
-                <div><span id="deploymentHealthDot" class="health-dot is-pending" aria-hidden="true"></span><strong>웹앱 배포</strong><small id="deploymentHealthText">확인 전</small></div>
-                <div><span id="reminderHealthDot" class="health-dot is-pending" aria-hidden="true"></span><strong>출결 알림</strong><small id="reminderHealthText">확인 전</small></div>
+                <div><span class="health-dot is-pending" aria-hidden="true"></span><strong>자동 정리</strong><small>확인 전</small></div>
+                <div><span class="health-dot is-pending" aria-hidden="true"></span><strong>웹앱 배포</strong><small>확인 전</small></div>
+                <div><span class="health-dot is-pending" aria-hidden="true"></span><strong>출결 알림</strong><small>확인 전</small></div>
               </div>
               <div class="maintenance-actions">
-                <a id="firebaseUsageLink" class="button-link" href="https://console.firebase.google.com/project/namsung-check/firestore/databases/-default-/usage" target="_blank" rel="noopener">Firebase 사용량 확인</a>
+                <a class="button-link" href="https://console.firebase.google.com/project/namsung-check/firestore/databases/-default-/usage" target="_blank" rel="noopener">Firebase 사용량 확인</a>
                 <a class="button-link" href="https://github.com/leens-ns/namsung-check/actions/workflows/cleanup-old-attendance.yml" target="_blank" rel="noopener">자동 정리 실행 상태</a>
                 <a class="button-link" href="https://github.com/leens-ns/namsung-check/actions" target="_blank" rel="noopener">배포·알림 전체 상태</a>
-                <button id="refreshCleanupStatusBtn" type="button">상태 새로고침</button>
+                <button type="button">상태 새로고침</button>
               </div>
               <p class="note">무료 기준: 저장 1GiB, 읽기 50,000건/일, 쓰기·삭제 각 20,000건/일. 한도를 넘기지 않았는지 월 1회 확인합니다.</p>
               <details class="maintenance-guide">
@@ -398,7 +316,6 @@
                 <ol>
                   <li><strong>Firebase 사용량 확인</strong>에서 저장 공간과 일일 읽기·쓰기·삭제가 무료 기준 미만인지 확인합니다.</li>
                   <li><strong>배포·알림 전체 상태</strong>에서 최근 작업들이 초록색 성공인지 확인합니다.</li>
-                  <li>이 화면의 마지막 실행일과 삭제 건수를 확인합니다.</li>
                   <li>GitHub 작업이 비활성화되어 있으면 해당 작업에서 <strong>Enable workflow</strong>를 누릅니다.</li>
                 </ol>
               </details>
@@ -446,7 +363,7 @@
           <h2>저장 전 최종 확인</h2>
           <button value="cancel" aria-label="닫기" type="submit">×</button>
         </header>
-        <p class="review-save-notice"><strong>아직 서버에 저장되지 않았습니다.</strong> 아래 내용을 확인한 뒤 저장을 완료하세요.</p>
+        <p class="review-save-notice"><strong>아직 저장되지 않았습니다.</strong> 아래 내용을 확인한 뒤 저장을 완료하세요.</p>
         <div id="reviewList" class="review-list"></div>
         <footer>
           <button value="cancel" type="submit">수정하기</button>
@@ -463,7 +380,7 @@
         </header>
         <p id="alarmDialogBody">오늘 학생 출결을 확인해 주세요.</p>
         <footer>
-          <button id="alarmConfirmBtn" value="ok" class="primary" type="submit">확인하기</button>
+          <button value="ok" class="primary" type="submit">확인하기</button>
         </footer>
       </form>
     </dialog>
@@ -471,32 +388,17 @@
     <dialog id="notificationDialog">
       <form method="dialog">
         <header>
-          <h2 id="notificationDialogTitle">알림함</h2>
+          <h2>알림함</h2>
           <button value="ok" aria-label="닫기" type="submit">×</button>
         </header>
         <div id="notificationList" class="notification-list"></div>
         <footer>
           <button id="clearNotificationsBtn" value="ok" type="button">알림 모두 지우기</button>
-          <button id="notificationCloseBtn" value="ok" class="primary" type="submit">닫기</button>
+          <button value="ok" class="primary" type="submit">닫기</button>
         </footer>
       </form>
     </dialog>
 
-    <dialog id="installDialog">
-      <form method="dialog">
-        <header>
-          <h2 id="installDialogTitle">출결관리 앱 설치</h2>
-          <button value="cancel" aria-label="닫기" type="submit">×</button>
-        </header>
-        <p id="installDialogBody" class="install-dialog-body"></p>
-        <footer>
-          <button id="installCloseBtn" value="cancel" type="submit">닫기</button>
-          <button id="runInstallBtn" class="primary" value="default" type="button">설치하기</button>
-        </footer>
-      </form>
-    </dialog>
-
-    <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260704-1"></script>
+    <script src="demo-app.js?v=20260704-1"></script>
   </body>
 </html>

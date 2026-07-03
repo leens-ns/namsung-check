@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import {
   getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged,
-  signInWithRedirect, signOut
+  signInWithPopup, signInWithRedirect, signOut
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 import {
   collection, deleteDoc, deleteField, doc, getDoc, getDocs, getFirestore,
@@ -261,7 +261,7 @@ async function loginWithGoogle() {
     location.assign(`${PRIMARY_APP_URL}?login=1`);
     return;
   }
-  await startGoogleRedirect();
+  await startGoogleInteractiveLogin();
 }
 
 function isPrimaryAuthHost() {
@@ -285,6 +285,27 @@ async function startGoogleRedirect() {
     await signInWithRedirect(auth, googleProvider());
   } catch (error) {
     sessionStorage.removeItem(AUTH_REDIRECT_KEY);
+    showLoginError(readableError(error));
+    els.googleSignInButton.disabled = false;
+    els.googleSignInButton.textContent = "Google 계정으로 로그인";
+  }
+}
+
+async function startGoogleInteractiveLogin() {
+  try {
+    sessionStorage.removeItem(AUTH_REDIRECT_KEY);
+    await signInWithPopup(auth, googleProvider());
+  } catch (error) {
+    const fallbackCodes = new Set([
+      "auth/popup-blocked",
+      "auth/popup-closed-by-user",
+      "auth/cancelled-popup-request",
+      "auth/operation-not-supported-in-this-environment"
+    ]);
+    if (fallbackCodes.has(error.code)) {
+      await startGoogleRedirect();
+      return;
+    }
     showLoginError(readableError(error));
     els.googleSignInButton.disabled = false;
     els.googleSignInButton.textContent = "Google 계정으로 로그인";
@@ -2532,7 +2553,7 @@ function showLoginError(message) { els.loginError.textContent = message; }
 function readableError(error) {
   const messages = {
     "auth/unauthorized-domain": "현재 접속 주소가 Firebase 로그인 허용 목록에 없습니다. 관리자에게 알려 주세요.",
-    "auth/network-request-failed": "네트워크 연결을 확인한 뒤 다시 로그인해 주세요.",
+    "auth/network-request-failed": "로그인 연결이 중단되었습니다. 새로고침 후 다시 로그인해 주세요.",
     "auth/web-storage-unsupported": "브라우저의 쿠키와 사이트 저장소를 허용한 뒤 다시 로그인해 주세요.",
     "auth/redirect-cancelled-by-user": "Google 로그인이 취소되었습니다. 다시 로그인해 주세요.",
     "permission-denied": "이 작업을 수행할 권한이 없습니다."
