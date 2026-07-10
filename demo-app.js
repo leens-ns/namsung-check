@@ -562,7 +562,7 @@ function openReview() {
   if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
   els.reviewList.innerHTML = getScopedStudents().map((student) => {
     const record = getTodayRecord(student.id);
-    return `<div class="review-item"><div><strong>${escapeHtml(student.name)}</strong><span class="student-meta">${escapeHtml(student.department)} · ${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div class="status-${record.status}">${statusLabel[record.status] || statusLabel.unset}${record.memo ? ` · ${escapeHtml(record.memo)}` : ""}</div></div>`;
+    return `<div class="review-item"><div class="review-identity"><strong>${escapeHtml(student.name)}</strong><span class="student-meta">${escapeHtml(student.department)} · ${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div class="status-${record.status}">${statusLabel[record.status] || statusLabel.unset}${record.memo ? ` · ${escapeHtml(record.memo)}` : ""}</div></div>`;
   }).join("");
   els.reviewDialog.showModal();
 }

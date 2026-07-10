@@ -1327,7 +1327,7 @@ function openReview() {
   if (!students.length) return alert(hasHomeroom() ? "현재 학급에 등록된 학생이 없습니다." : "담당 학급을 먼저 배정해 주세요.");
   els.reviewList.innerHTML = students.map((student) => {
     const record = getTodayRecord(student.id);
-    return `<div class="review-item"><div><strong>${escapeHtml(student.name)}</strong><span class="student-meta">${escapeHtml(departmentLabel(student))} · ${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div class="status-${record.status}">${statusLabel[record.status] || statusLabel.unset}${record.memo ? ` · ${escapeHtml(record.memo)}` : ""}</div></div>`;
+    return `<div class="review-item"><div class="review-identity"><strong>${escapeHtml(student.name)}</strong><span class="student-meta">${escapeHtml(departmentLabel(student))} · ${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div class="status-${record.status}">${statusLabel[record.status] || statusLabel.unset}${record.memo ? ` · ${escapeHtml(record.memo)}` : ""}</div></div>`;
   }).join("");
   els.reviewDialog.showModal();
 }

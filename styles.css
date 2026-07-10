@@ -1956,6 +1956,17 @@ dialog h2 {
   border-radius: 8px;
 }
 
+.review-identity {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.review-identity .student-meta {
+  display: block;
+  margin-top: 0;
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -2434,6 +2445,7 @@ dialog h2 {
   }
 
   .bulk-actions {
+    grid-template-columns: 1fr;
     align-items: stretch;
     flex-direction: column;
   }
