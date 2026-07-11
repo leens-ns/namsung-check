@@ -20,57 +20,6 @@ jobs:
           token: ${{ github.token }}
       - name: Update icon source and cache references
         run: |
-          cat > logo.svg <<'SVG'
-<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" role="img" aria-label="남성초등학교 출결관리 시스템">
-  <defs>
-    <linearGradient id="bg" x1="18" y1="8" x2="78" y2="88" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#1F5B91"/>
-      <stop offset="1" stop-color="#123D68"/>
-    </linearGradient>
-  </defs>
-  <rect width="96" height="96" rx="22" fill="url(#bg)"/>
-  <rect x="20" y="18" width="56" height="60" rx="10" fill="#FFFFFF"/>
-  <path d="M30 18h36c5.5 0 10 4.5 10 10v7H20v-7c0-5.5 4.5-10 10-10z" fill="#F0B23B"/>
-  <path d="M33 13v12M63 13v12" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
-  <path d="M31 45h10M31 57h10M31 69h10M49 45h16M49 57h12" stroke="#D6E0EA" stroke-width="5" stroke-linecap="round"/>
-  <circle cx="66" cy="65" r="20" fill="#24865F"/>
-  <path d="M56 65.5l7 7.2L77 56" fill="none" stroke="#FFFFFF" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
-
-SVG
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-
-          version = "20260712-1"
-          for path in ["index.html", "demo.html", "sw.js", "manual.html", "manifest.webmanifest"]:
-              p = Path(path)
-              if not p.exists():
-                  continue
-              text = p.read_text(encoding="utf-8")
-              text = re.sub(r"202607\d{2}-\d+", version, text)
-name: Patch attendance app icon
-
-on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/patch-attendance-app-icon.yml"
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
-  patch:
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          token: ${{ github.token }}
-      - name: Update icon source and cache references
-        run: |
           python3 <<'PY'
           from pathlib import Path
           import base64
@@ -86,58 +35,6 @@ jobs:
                   continue
               text = p.read_text(encoding="utf-8")
               text = re.sub(r"202607\d{2}-\d+", version, text)
-              text = text.replace('href="apple-touch-icon.png"', f'href="apple-touch-icon.png?v={version}"')
-              text = text.replace('href="icon-192.png"', f'href="icon-192.png?v={version}"')
-              text = text.replace('src="logo.svg"', f'src="logo.svg?v={version}"')
-              text = re.sub(r'"src": "icon-192\.png(?:\?v=[^"]+)?"', f'"src": "icon-192.png?v={version}"', text)
-              text = re.sub(r'"src": "icon-512\.png(?:\?v=[^"]+)?"', f'"src": "icon-512.png?v={version}"', text)
-              text = re.sub(r'"src": "icon-maskable-512\.png(?:\?v=[^"]+)?"', f'"src": "icon-maskable-512.png?v={version}"', text)
-              text = re.sub(r'const CACHE_NAME = "[^"]+";', f'const CACHE_NAME = "namsung-attendance-{version}";', text)
-              for asset in ["logo.svg", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png"]:
-                  text = re.sub(rf'"\./{re.escape(asset)}(?:\?v=[^"]+)?"', f'"./{asset}?v={version}"', text)
-              p.write_text(text, encoding="utf-8")
-          PY
-      - name: Generate PNG app icons
-        run: |
-          npm install --prefix "$RUNNER_TEMP/icon-tools" --no-save --no-package-lock sharp@0.34.5
-          NODE_PATH="$RUNNER_TEMP/icon-tools/node_modules" node <<'NODE'
-          const fs = require('fs');
-          const sharp = require('sharp');
-          const svg = fs.readFileSync('logo.svg');
-          const jobs = [
-            ['icon-192.png', 192],
-            ['icon-512.png', 512],
-            ['apple-touch-icon.png', 180],
-            ['icon-maskable-512.png', 512]
-          ];
-          (async () => {
-            for (const [name, size] of jobs) {
-              if (name === 'icon-maskable-512.png') {
-                const inner = await sharp(svg).resize(388, 388).png().toBuffer();
-                await sharp({ create: { width: size, height: size, channels: 4, background: '#174a7c' } })
-                  .composite([{ input: inner, left: 62, top: 62 }])
-                  .png()
-                  .toFile(name);
-              } else {
-                await sharp(svg).resize(size, size).png().toFile(name);
-              }
-            }
-          })().catch((error) => {
-            console.error(error);
-            process.exit(1);
-          });
-          NODE
-      - name: Commit icon update
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add logo.svg manifest.webmanifest index.html demo.html sw.js icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png
-          if git diff --cached --quiet; then
-            echo "No icon changes needed."
-          else
-            git commit -m "Replace app icon with attendance check mark"
-            git push
-          fi
               text = text.replace('href="apple-touch-icon.png"', f'href="apple-touch-icon.png?v={version}"')
               text = text.replace('href="icon-192.png"', f'href="icon-192.png?v={version}"')
               text = text.replace('src="logo.svg"', f'src="logo.svg?v={version}"')
