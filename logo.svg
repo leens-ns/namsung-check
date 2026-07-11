@@ -1,6 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" role="img" aria-label="남성초등학교 출결관리 시스템">
-  <rect width="96" height="96" rx="20" fill="#174A7C"/>
-  <path d="M22 28h52v40H22z" fill="#fff"/>
-  <path d="M30 38h12v8H30zm18 0h18v8H48zM30 52h12v8H30zm18 0h18v8H48z" fill="#3D8B7D"/>
-  <path d="M22 28h52v10H22z" fill="#F3B23A"/>
+  <defs>
+    <linearGradient id="bg" x1="18" y1="8" x2="78" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1F5B91"/>
+      <stop offset="1" stop-color="#123D68"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="22" fill="url(#bg)"/>
+  <rect x="20" y="18" width="56" height="60" rx="10" fill="#FFFFFF"/>
+  <path d="M30 18h36c5.5 0 10 4.5 10 10v7H20v-7c0-5.5 4.5-10 10-10z" fill="#F0B23B"/>
+  <path d="M33 13v12M63 13v12" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+  <path d="M31 45h10M31 57h10M31 69h10M49 45h16M49 57h12" stroke="#D6E0EA" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="66" cy="65" r="20" fill="#24865F"/>
+  <path d="M56 65.5l7 7.2L77 56" fill="none" stroke="#FFFFFF" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
