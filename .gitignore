@@ -1,0 +1,18 @@
+# 개인정보와 인증 자료는 저장소에 올리지 않습니다.
+private-data/
+data/
+local-data/
+*.local.csv
+*.private.csv
+*.student-data.csv
+*.contacts.csv
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*service-account*.json
+*credentials*.json
+firebase-debug.log
+.DS_Store
+*.swp
