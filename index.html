@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png?v=20260712-1" />
     <link rel="icon" href="icon-192.png?v=20260712-1" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260712-1" />
+    <link rel="stylesheet" href="styles.css?v=20260806-1" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
@@ -19,8 +19,9 @@
         <img src="logo.svg?v=20260712-1" alt="" />
         <p class="eyebrow">남성초등학교</p>
         <h1 id="login-title">출결관리 시스템</h1>
-        <p>관리자가 등록한 이메일과 동일한 Google 계정으로 로그인해 주세요.</p>
-        <button id="googleSignInButton" class="google-signin-button" type="button">Google 계정으로 로그인</button>
+        <p class="login-description">관리자가 등록한 이메일과 동일한 Google 계정으로 로그인해 주세요.</p>
+        <p id="loginStatus" class="login-status" role="status" aria-live="polite">로그인 환경을 확인하고 있습니다...</p>
+        <button id="googleSignInButton" class="google-signin-button" type="button" disabled>Google 계정으로 로그인</button>
         <button id="installAppBtn" class="install-app-button" type="button">홈 화면에 설치</button>
         <div id="googleSetupNotice" class="setup-notice is-hidden">
           Google OAuth 클라이언트 ID 설정이 필요합니다.
@@ -497,6 +498,6 @@
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260712-1"></script>
+    <script type="module" src="app.js?v=20260806-1"></script>
   </body>
 </html>

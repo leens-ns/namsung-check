@@ -22,6 +22,11 @@ const USAGE_REMINDER_DISMISS_KEY = "namsung-usage-reminder-dismissed";
 const GITHUB_ACTIONS_RUNS_API = "https://api.github.com/repos/leens-ns/namsung-check/actions/runs?per_page=20";
 const PRIMARY_APP_URL = "https://namsung-check.firebaseapp.com/";
 const AUTH_REDIRECT_KEY = "namsung-auth-redirect-started";
+const AUTH_REDIRECT_TIMEOUT = 12000;
+const AUTH_POPUP_OPEN_TIMEOUT = 8000;
+const AUTH_POPUP_MAX_TIMEOUT = 60000;
+const AUTH_DATA_TIMEOUT = 25000;
+const BACKGROUND_SERVICE_TIMEOUT = 5000;
 const FIRST_SCHOOL_YEAR = 2026;
 const ORIGINAL_TITLE = document.title;
 const statusLabel = { present: "출석", late: "지각", absent: "결석", early: "조퇴", unset: "미입력" };
@@ -107,9 +112,12 @@ let activeAttendanceDate = todayKey();
 let dateRolloverPromise = null;
 let deferredInstallPrompt = null;
 let coachLanguage = "ko";
+let authBootstrapReady = false;
+let authTransitionId = 0;
+let loginBusy = false;
 
 const els = Object.fromEntries([
-  "loginScreen", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "notificationEnableHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole", "accountModeControl", "accountModeSelect", "coachLanguageControl", "coachLanguageLabel", "coachLanguageSelect",
+  "loginScreen", "loginStatus", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "notificationEnableHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole", "accountModeControl", "accountModeSelect", "coachLanguageControl", "coachLanguageLabel", "coachLanguageSelect",
   "logoutBtn", "todayText", "mainTitle", "manualLink", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "alarmConfirmBtn", "notificationDialogTitle", "notificationCloseBtn", "installCloseBtn", "lookupScope", "lookupScopeField", "lookupScopeLabel", "lookupDate", "lookupDateField", "lookupMonth", "lookupMonthField", "lookupSchoolYear", "lookupSchoolYearField", "lookupDepartment", "lookupDepartmentField", "lookupPeriodSummary",
   "lookupTable", "refreshLookupBtn", "lookupDescription", "lookupDateLabel", "lookupMonthLabel", "lookupSchoolYearLabel", "lookupDepartmentLabel", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
@@ -142,8 +150,8 @@ async function init() {
   fillSchoolYearOptions();
   fillSelect(els.usageCheckDay, Array.from({ length: 28 }, (_, index) => `${index + 1}일`), "1일");
   bindEvents();
+  setLoginState("checking", "로그인 환경을 확인하고 있습니다...");
   alarms.notifications ||= [];
-  notificationRegistration = await registerNotificationWorker();
   updateNotificationPermissionUi();
   updateNotificationBadge();
   updateInstallUi();
@@ -152,7 +160,7 @@ async function init() {
   const config = window.NSWORLD_CONFIG?.firebase;
   if (!config || !config.apiKey || config.apiKey.startsWith("YOUR_")) {
     els.googleSetupNotice.classList.remove("is-hidden");
-    els.googleSignInButton.disabled = true;
+    setLoginState("unavailable", "관리자 설정이 완료되지 않아 로그인을 사용할 수 없습니다.");
     return;
   }
 
@@ -160,11 +168,80 @@ async function init() {
     const app = initializeApp(config);
     auth = getAuth(app);
     db = getFirestore(app);
-    await setupMessaging(app);
-    onAuthStateChanged(auth, handleAuthChange);
-    await completeRedirectLogin();
+    onAuthStateChanged(auth, (user) => { void handleAuthChange(user); });
+    void initializeBackgroundServices(app);
+    void completeRedirectBootstrap();
   } catch (error) {
     showLoginError(readableError(error));
+  }
+}
+
+function setLoginState(nextState, message = "") {
+  if (!els.loginScreen) return;
+  const busy = ["checking", "loading", "redirecting"].includes(nextState);
+  els.loginScreen.dataset.authState = nextState;
+  els.loginScreen.setAttribute("aria-busy", String(busy));
+  if (els.loginStatus) els.loginStatus.textContent = message || (nextState === "ready" ? "관리자가 등록한 이메일과 동일한 Google 계정으로 로그인해 주세요." : "");
+  if (els.googleSignInButton) {
+    const disabled = !auth || !authBootstrapReady || loginBusy || nextState === "unavailable" || busy;
+    els.googleSignInButton.disabled = disabled;
+    els.googleSignInButton.textContent = loginBusy ? "Google 로그인 확인 중..." : "Google 계정으로 로그인";
+  }
+}
+
+function withTimeout(promise, milliseconds, code = "auth/timeout") {
+  const task = Promise.resolve(promise);
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(Object.assign(new Error("요청 시간이 초과되었습니다."), { code }));
+    }, milliseconds);
+    task.then((value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    }, (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
+}
+
+async function completeRedirectBootstrap() {
+  let failed = false;
+  try {
+    await withTimeout(completeRedirectLogin(), AUTH_REDIRECT_TIMEOUT, "auth/redirect-timeout");
+  } catch (error) {
+    failed = true;
+    showLoginError(readableError(error));
+  } finally {
+    authBootstrapReady = true;
+    if (!failed && !auth.currentUser && !loginBusy && !els.loginScreen.classList.contains("is-hidden")) {
+      setLoginState("ready", "관리자가 등록한 이메일과 동일한 Google 계정으로 로그인해 주세요.");
+    }
+  }
+}
+
+async function initializeBackgroundServices(app) {
+  try {
+    notificationRegistration = await withTimeout(registerNotificationWorker(), BACKGROUND_SERVICE_TIMEOUT, "auth/background-timeout");
+  } catch {
+    notificationRegistration = null;
+  }
+  updateNotificationPermissionUi();
+  try {
+    await withTimeout(setupMessaging(app), BACKGROUND_SERVICE_TIMEOUT, "auth/background-timeout");
+  } catch {
+    messaging = null;
+  }
+  updateNotificationPermissionUi();
+  if (session && canReceiveNotifications() && "Notification" in window && Notification.permission === "granted") {
+    void withTimeout(registerPushToken(), BACKGROUND_SERVICE_TIMEOUT, "auth/background-timeout").catch(() => {});
   }
 }
 
@@ -253,10 +330,10 @@ function bindEvents() {
 }
 
 async function loginWithGoogle() {
-  if (!auth) return;
+  if (!auth || !authBootstrapReady || loginBusy) return;
   els.loginError.textContent = "";
-  els.googleSignInButton.disabled = true;
-  els.googleSignInButton.textContent = "Google 로그인으로 이동 중...";
+  loginBusy = true;
+  setLoginState("redirecting", "Google 로그인 창을 여는 중입니다...");
   if (!isPrimaryAuthHost()) {
     location.assign(`${PRIMARY_APP_URL}?login=1`);
     return;
@@ -280,40 +357,45 @@ function googleProvider() {
 }
 
 async function startGoogleRedirect() {
+  loginBusy = true;
+  setLoginState("redirecting", "Google 로그인 페이지로 이동 중입니다...");
   try {
     sessionStorage.setItem(AUTH_REDIRECT_KEY, "1");
-    await signInWithRedirect(auth, googleProvider());
+    await withTimeout(signInWithRedirect(auth, googleProvider()), AUTH_REDIRECT_TIMEOUT, "auth/redirect-timeout");
   } catch (error) {
     sessionStorage.removeItem(AUTH_REDIRECT_KEY);
     showLoginError(readableError(error));
-    els.googleSignInButton.disabled = false;
-    els.googleSignInButton.textContent = "Google 계정으로 로그인";
   }
 }
 
 async function startGoogleInteractiveLogin() {
+  loginBusy = true;
+  setLoginState("redirecting", "Google 로그인 창을 여는 중입니다...");
   try {
     sessionStorage.removeItem(AUTH_REDIRECT_KEY);
     const popupLogin = signInWithPopup(auth, googleProvider());
     const result = await Promise.race([
       popupLogin.then(() => "done"),
-      new Promise((resolve) => setTimeout(() => resolve(document.hasFocus() ? "fallback" : "wait"), 6000))
+      new Promise((resolve) => setTimeout(() => resolve(document.hasFocus() ? "fallback" : "wait"), AUTH_POPUP_OPEN_TIMEOUT))
     ]);
     if (result === "fallback" && !auth.currentUser) {
-      throw Object.assign(new Error("Google 로그인 팝업이 열리지 않았습니다."), { code: "auth/popup-blocked" });
+      await startGoogleRedirect();
+      return;
     }
-    if (result === "wait") await popupLogin;
+    if (result === "wait") await withTimeout(popupLogin, AUTH_POPUP_MAX_TIMEOUT, "auth/popup-timeout");
   } catch (error) {
+    if (["auth/popup-blocked", "auth/operation-not-supported-in-this-environment", "auth/popup-timeout"].includes(error.code)) {
+      await startGoogleRedirect();
+      return;
+    }
     showLoginError(readableError(error));
-    els.googleSignInButton.disabled = false;
-    els.googleSignInButton.textContent = "Google 계정으로 로그인";
   }
 }
 
 async function completeRedirectLogin() {
   const requested = new URLSearchParams(location.search).get("login") === "1";
   try {
-    const result = await getRedirectResult(auth);
+    const result = await withTimeout(getRedirectResult(auth), AUTH_REDIRECT_TIMEOUT, "auth/redirect-timeout");
     if (result) {
       sessionStorage.removeItem(AUTH_REDIRECT_KEY);
       history.replaceState({}, "", `${location.pathname}${location.hash}`);
@@ -325,9 +407,7 @@ async function completeRedirectLogin() {
   } catch (error) {
     sessionStorage.removeItem(AUTH_REDIRECT_KEY);
     history.replaceState({}, "", `${location.pathname}${location.hash}`);
-    showLoginError(readableError(error));
-    els.googleSignInButton.disabled = false;
-    els.googleSignInButton.textContent = "Google 계정으로 로그인";
+    throw error;
   }
 }
 
@@ -387,17 +467,24 @@ async function installApp() {
 }
 
 async function handleAuthChange(user) {
+  const transitionId = ++authTransitionId;
   if (!user) {
     resetSessionCache();
     session = null;
+    loginBusy = false;
     document.body.classList.remove("is-authenticated");
     els.loginScreen.classList.remove("is-hidden");
+    setLoginState(authBootstrapReady ? "ready" : "checking", authBootstrapReady ? "관리자가 등록한 이메일과 동일한 Google 계정으로 로그인해 주세요." : "로그인 환경을 확인하고 있습니다...");
     return;
   }
 
+  loginBusy = true;
+  els.loginError.textContent = "";
+  setLoginState("loading", "로그인 정보를 확인하고 출결 자료를 준비하고 있습니다...");
   try {
     resetSessionCache();
-    const access = await resolveAccess(user);
+    const access = await withTimeout(resolveAccess(user), AUTH_DATA_TIMEOUT, "auth/profile-timeout");
+    if (transitionId !== authTransitionId) return;
     if (!access) {
       await signOut(auth);
       throw new Error("등록된 학교 구성원 또는 방과후강사 계정이 아닙니다.");
@@ -409,9 +496,18 @@ async function handleAuthChange(user) {
       externalClasses: access.externalClasses || [], externalCourse: access.externalCourse || "", externalClass: localStorage.getItem(`${ACCOUNT_MODE_KEY}:externalClass:${user.email.toLowerCase()}`) || access.externalClasses?.[0] || "1-1",
       grade: access.grade || "", classNo: access.classNo || ""
     };
-    await loadCloudData();
+    await withTimeout(loadCloudData(), AUTH_DATA_TIMEOUT, "auth/data-timeout");
+    if (transitionId !== authTransitionId) return;
+    loginBusy = false;
     applySession();
   } catch (error) {
+    if (transitionId !== authTransitionId) return;
+    session = null;
+    resetSessionCache();
+    document.body.classList.remove("is-authenticated");
+    els.loginScreen.classList.remove("is-hidden");
+    await signOut(auth).catch(() => {});
+    loginBusy = false;
     showLoginError(readableError(error));
   }
 }
@@ -2546,14 +2642,29 @@ function clearNotifications() {
   els.notificationDialog.close();
 }
 
-function showLoginError(message) { els.loginError.textContent = message; }
+function showLoginError(message) {
+  els.loginError.textContent = message;
+  loginBusy = false;
+  if (els.loginScreen && !els.loginScreen.classList.contains("is-hidden")) {
+    setLoginState("error", "로그인을 완료하지 못했습니다. 아래 버튼으로 다시 시도해 주세요.");
+  }
+}
 
 function readableError(error) {
   const messages = {
     "auth/unauthorized-domain": "현재 접속 주소가 Firebase 로그인 허용 목록에 없습니다. 관리자에게 알려 주세요.",
+    "auth/popup-blocked": "Google 로그인 팝업이 열리지 않았습니다. 브라우저에서 팝업을 허용한 뒤 다시 로그인해 주세요.",
+    "auth/popup-closed-by-user": "Google 로그인 창이 닫혔습니다. 다시 로그인해 주세요.",
+    "auth/cancelled-popup-request": "Google 로그인 요청이 중단되었습니다. 다시 로그인해 주세요.",
+    "auth/operation-not-supported-in-this-environment": "이 브라우저에서는 팝업 로그인이 제한됩니다. Chrome 또는 Safari 최신 버전에서 다시 시도해 주세요.",
     "auth/network-request-failed": "로그인 연결이 중단되었습니다. 새로고침 후 다시 로그인해 주세요.",
     "auth/web-storage-unsupported": "브라우저의 쿠키와 사이트 저장소를 허용한 뒤 다시 로그인해 주세요.",
     "auth/redirect-cancelled-by-user": "Google 로그인이 취소되었습니다. 다시 로그인해 주세요.",
+    "auth/redirect-timeout": "Google 로그인 연결이 오래 걸리고 있습니다. 다시 로그인해 주세요.",
+    "auth/popup-timeout": "Google 로그인 창의 응답이 오래 걸렸습니다. 다시 로그인해 주세요.",
+    "auth/profile-timeout": "계정 권한 확인이 오래 걸렸습니다. 네트워크를 확인한 뒤 다시 로그인해 주세요.",
+    "auth/data-timeout": "출결 자료를 불러오는 데 시간이 오래 걸렸습니다. 잠시 후 다시 로그인해 주세요.",
+    "auth/timeout": "로그인 연결이 오래 걸렸습니다. 다시 로그인해 주세요.",
     "permission-denied": "이 작업을 수행할 권한이 없습니다."
   };
   return messages[error.code] || error.message || "처리 중 오류가 발생했습니다.";

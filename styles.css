@@ -67,9 +67,42 @@ body.is-authenticated .app-shell {
   margin: 4px 0 8px;
 }
 
-.login-box > p:not(.eyebrow, .login-error) {
+.login-box > p.login-description {
   margin: 0 0 24px;
   color: var(--muted);
+}
+
+.login-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 22px;
+  margin: -8px 0 16px;
+  color: var(--brand);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.login-screen[data-auth-state="checking"] .login-status::before,
+.login-screen[data-auth-state="loading"] .login-status::before,
+.login-screen[data-auth-state="redirecting"] .login-status::before {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 2px solid #c8d7e7;
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  content: "";
+  animation: login-spinner 800ms linear infinite;
+}
+
+.login-screen[data-auth-state="error"] .login-status {
+  color: #a33a3a;
+}
+
+@keyframes login-spinner {
+  to { transform: rotate(360deg); }
 }
 
 .google-signin {

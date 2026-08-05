@@ -48,7 +48,10 @@ async function init() {
   els.coachReviewTime.value = state.settings.coachReviewTime;
   bindEvents();
   state.notifications ||= [];
-  notificationRegistration = await registerNotificationWorker();
+  void registerNotificationWorker().then((registration) => {
+    notificationRegistration = registration;
+    updateNotificationPermissionUi();
+  });
   updateNotificationPermissionUi();
   updateNotificationBadge();
   setInterval(() => { checkDateRollover(); checkAlarms(); }, 30000);
