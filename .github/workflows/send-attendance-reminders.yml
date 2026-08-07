@@ -2,7 +2,8 @@ name: Send attendance reminders
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # 정각의 예약 작업 부하를 피하면서 10분 간격으로 확인합니다.
+    - cron: "3-59/10 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -12,6 +13,8 @@ permissions:
 concurrency:
   group: attendance-reminders
   cancel-in-progress: false
+  # 예약 작업이 대기 중일 때 다음 예약이 앞선 대기 작업을 취소하지 않도록 합니다.
+  queue: max
 
 jobs:
   send:
