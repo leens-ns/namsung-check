@@ -44,7 +44,7 @@
     <div id="manualGate" class="gate">
       <h2>계정 확인 중</h2>
       <p id="manualGateMessage">로그인 계정의 매뉴얼을 불러오고 있습니다.</p>
-      <a id="manualGateLink" href="index.html?v=20260809-7" hidden>메인 화면에서 로그인</a>
+      <a id="manualGateLink" href="index.html?v=20260809-8" hidden>메인 화면에서 로그인</a>
     </div>
 
     <div id="manualApp" hidden>
@@ -57,7 +57,7 @@
       </header>
       <nav aria-label="매뉴얼 목차">
         <div>
-          <a id="manualHomeLink" href="index.html?v=20260809-7">메인 화면으로</a>
+          <a id="manualHomeLink" href="index.html?v=20260809-8">메인 화면으로</a>
           <a href="#common" data-manual-nav="common">공통</a>
           <a href="#teacher" data-manual-nav="teacher">담임교사</a>
           <a href="#coach" data-manual-nav="coach">방과후강사</a>
@@ -162,7 +162,7 @@
             <li><strong>오래된 출결 자동 삭제</strong>를 켠 뒤 <strong>보관 설정 저장</strong>을 누릅니다.</li>
             <li>Firebase 사용량 확인일을 정하면 해당 날짜부터 상단 안내와 관리자 알림이 표시됩니다. 안내나 사용량 확인 버튼을 누르면 모든 관리자 화면에서 사라지고 다음 달에 다시 표시됩니다.</li>
             <li><strong>상태 새로고침</strong>에서 자동 정리·웹앱 배포·출결 알림이 모두 초록색인지 확인합니다.</li>
-            <li>출결 알림에 <strong>웹 푸시 공개 키 없음</strong>이 표시되면 Firebase 프로젝트의 웹 푸시 인증서 공개 키를 등록하고 다시 배포합니다.</li>
+            <li>출결 알림에 <strong>기본 웹 푸시 인증 사용</strong>이 표시되어도 정상입니다. 기기에서 알림 연결에 실패할 때만 Firebase 프로젝트의 웹 푸시 인증서를 등록합니다.</li>
             <li>GitHub 작업이 비활성화되어 있으면 해당 작업에서 <strong>Enable workflow</strong>를 눌러 다시 켭니다.</li>
           </ol>
           <p class="note warning">삭제된 출결은 복구할 수 없습니다. 자동 정리는 출결 기록만 대상으로 하며 학생 명단과 학부모 연락처는 유지합니다.</p>
@@ -170,12 +170,12 @@
       </main>
       <footer>
         <p id="manualFooter">남성초등학교 출결관리 시스템 사용 매뉴얼</p>
-        <a id="manualPrivacyLink" href="privacy.html?v=20260809-7" target="_blank" rel="noopener">개인정보 처리방침</a>
+        <a id="manualPrivacyLink" href="privacy.html?v=20260809-8" target="_blank" rel="noopener">개인정보 처리방침</a>
         <p id="manualCopyright">© 2026 남성초등학교. All rights reserved.</p>
       </footer>
     </div>
 
     <script src="config.js"></script>
-    <script type="module" src="manual.js?v=20260809-7"></script>
+    <script type="module" src="manual.js?v=20260809-8"></script>
   </body>
 </html>
