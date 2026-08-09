@@ -99,6 +99,8 @@ service cloud.firestore {
         && (!data.keys().hasAny(['coachDepartment']) || data.coachDepartment is string)
         && (!data.keys().hasAny(['externalClasses']) || data.externalClasses is list)
         && (!data.keys().hasAny(['externalCourse']) || data.externalCourse is string)
+        && (!data.keys().hasAny(['employmentStartDate']) || data.employmentStartDate is string)
+        && (!data.keys().hasAny(['employmentEndDate']) || data.employmentEndDate is string)
         && (
           (data.role == 'admin' && accountEmail.matches('.*@nsworld[.]net$'))
           || (data.role == 'teacher'
@@ -134,6 +136,19 @@ service cloud.firestore {
     match /contacts/{studentId} {
       allow read: if isAdmin();
       allow write: if isAdmin();
+    }
+
+    match /privacyAcknowledgements/{accountEmail} {
+      allow read: if isAdmin() || (signedIn() && accountEmail == email());
+      allow create, update: if signedIn()
+        && accountEmail == email()
+        && request.resource.data.keys().hasOnly(['email', 'uid', 'policyVersion', 'accepted', 'acceptedAt'])
+        && request.resource.data.email == email()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.policyVersion is string
+        && request.resource.data.accepted == true
+        && request.resource.data.acceptedAt is timestamp;
+      allow delete: if isAdmin() || (signedIn() && accountEmail == email());
     }
 
     match /attendance/{recordId} {

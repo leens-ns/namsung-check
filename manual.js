@@ -45,6 +45,9 @@ async function loadManual(user, db) {
 async function resolveRole(email, db) {
   const access = await getDoc(doc(db, "access", email));
   const data = access.exists() ? access.data() : {};
+  const start = normalizeDateInput(data.employmentStartDate);
+  const end = normalizeDateInput(data.employmentEndDate);
+  if (employmentPeriodStatus(start, end) !== "active") return "";
   const savedRole = data.role || "";
   if (email === ADMIN_EMAIL || savedRole === "admin") return "admin";
   const roles = [];
@@ -53,6 +56,19 @@ async function resolveRole(email, db) {
   if (savedRole === "external" || data.externalCourse || Array.isArray(data.externalClasses)) roles.push("external");
   const selectedMode = localStorage.getItem(`${ACCOUNT_MODE_KEY}:${email}`);
   return roles.includes(selectedMode) ? selectedMode : roles[0] || "";
+}
+
+function normalizeDateInput(value) {
+  const text = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
+}
+
+function employmentPeriodStatus(start, end) {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (start && today < start) return "not-started";
+  if (end && today > end) return "expired";
+  return "active";
 }
 
 function showManual(role) {

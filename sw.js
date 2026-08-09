@@ -1,19 +1,20 @@
 const APP_URL = "./";
-const CACHE_NAME = "namsung-attendance-20260806-1";
+const CACHE_NAME = "namsung-attendance-20260809-1";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20260806-1",
-  "./app.js?v=20260806-1",
+  "./styles.css?v=20260809-1",
+  "./app.js?v=20260809-1",
   "./config.js",
   "./manifest.webmanifest",
-  "./manual.html?v=20260712-1",
-  "./manual.js?v=20260712-1",
-  "./logo.svg?v=20260712-1",
-  "./icon-192.png?v=20260712-1",
-  "./icon-512.png?v=20260712-1",
-  "./icon-maskable-512.png?v=20260712-1",
-  "./apple-touch-icon.png?v=20260712-1"
+  "./manual.html?v=20260809-1",
+  "./privacy.html?v=20260809-1",
+  "./manual.js?v=20260809-1",
+  "./logo.svg?v=20260809-1",
+  "./icon-192.png?v=20260809-1",
+  "./icon-512.png?v=20260809-1",
+  "./icon-maskable-512.png?v=20260809-1",
+  "./apple-touch-icon.png?v=20260809-1"
 ];
 
 self.addEventListener("install", (event) => {

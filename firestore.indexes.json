@@ -26,7 +26,6 @@
     { "collectionGroup": "attendance", "fieldPath": "updatedBy", "indexes": [] },
     { "collectionGroup": "contacts", "fieldPath": "parentPhone", "indexes": [] },
     { "collectionGroup": "notificationTokens", "fieldPath": "audiences", "indexes": [] },
-    { "collectionGroup": "notificationTokens", "fieldPath": "email", "indexes": [] },
     { "collectionGroup": "notificationTokens", "fieldPath": "role", "indexes": [] },
     { "collectionGroup": "notificationTokens", "fieldPath": "token", "indexes": [] },
     { "collectionGroup": "notificationTokens", "fieldPath": "uid", "indexes": [] },

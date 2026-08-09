@@ -72,6 +72,18 @@ body.is-authenticated .app-shell {
   color: var(--muted);
 }
 
+.privacy-login-notice {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.privacy-login-notice a {
+  color: var(--brand);
+  font-weight: 700;
+}
+
 .login-status {
   display: flex;
   align-items: center;
@@ -1216,6 +1228,64 @@ h1 {
   gap: 8px;
 }
 
+.account-period-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(150px, 1fr)) minmax(132px, max-content);
+  align-items: end;
+  gap: 8px;
+}
+
+.account-period-form > input,
+.account-period-form > label,
+.account-period-form > button {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+}
+
+.account-period-form > input {
+  height: 46px;
+}
+
+.account-period-form > label {
+  gap: 5px;
+}
+
+.account-period-form > label > input {
+  height: 46px;
+}
+
+.account-period-list {
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.account-period-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(170px, auto);
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.account-period-item strong,
+.account-period-item span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.account-period-item span {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
 .file-action {
   grid-template-columns: minmax(0, 1fr) minmax(128px, max-content);
 }
@@ -1934,6 +2004,31 @@ dialog h2 {
   font-size: 20px;
 }
 
+.privacy-consent-summary {
+  margin: 18px 0 12px;
+  padding: 14px;
+  border-left: 4px solid var(--brand-2);
+  background: #eef7f4;
+  line-height: 1.65;
+}
+
+.privacy-consent-check {
+  display: flex;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 9px;
+  margin: 18px 0;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.privacy-consent-check input {
+  width: 18px;
+  min-height: 18px;
+  margin: 2px 0 0;
+}
+
 .review-list {
   display: grid;
   gap: 8px;
@@ -2107,6 +2202,15 @@ dialog h2 {
 
   .retention-controls {
     grid-template-columns: 1fr;
+  }
+
+  .account-period-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .account-period-form > input,
+  .account-period-form > button {
+    grid-column: 1 / -1;
   }
 }
 
@@ -2354,6 +2458,25 @@ dialog h2 {
   .file-action,
   .settings-layout .button-row {
     grid-template-columns: 1fr;
+  }
+
+  .account-period-form {
+    grid-template-columns: 1fr;
+  }
+
+  .account-period-form > input,
+  .account-period-form > label,
+  .account-period-form > button {
+    grid-column: auto;
+  }
+
+  .account-period-item {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .account-period-item span {
+    text-align: left;
   }
 
   .settings-layout .setting-row {

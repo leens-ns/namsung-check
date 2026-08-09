@@ -9,20 +9,21 @@
     <meta name="apple-mobile-web-app-title" content="남성초 출결" />
     <title>남성초등학교 출결관리 시스템</title>
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="apple-touch-icon.png?v=20260712-1" />
-    <link rel="icon" href="icon-192.png?v=20260712-1" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260806-1" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png?v=20260809-1" />
+    <link rel="icon" href="icon-192.png?v=20260809-1" type="image/png" />
+    <link rel="stylesheet" href="styles.css?v=20260809-1" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
       <div class="login-box">
-        <img src="logo.svg?v=20260712-1" alt="" />
+        <img src="logo.svg?v=20260809-1" alt="" />
         <p class="eyebrow">남성초등학교</p>
         <h1 id="login-title">출결관리 시스템</h1>
         <p class="login-description">관리자가 등록한 이메일과 동일한 Google 계정으로 로그인해 주세요.</p>
         <p id="loginStatus" class="login-status" role="status" aria-live="polite">로그인 환경을 확인하고 있습니다...</p>
         <button id="googleSignInButton" class="google-signin-button" type="button" disabled>Google 계정으로 로그인</button>
         <button id="installAppBtn" class="install-app-button" type="button">홈 화면에 설치</button>
+        <p class="privacy-login-notice"><a href="privacy.html?v=20260809-1" target="_blank" rel="noopener">개인정보 처리 안내</a>를 확인한 뒤 로그인할 수 있습니다.</p>
         <div id="googleSetupNotice" class="setup-notice is-hidden">
           Google OAuth 클라이언트 ID 설정이 필요합니다.
         </div>
@@ -34,7 +35,7 @@
       <aside class="sidebar">
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">
-            <img src="logo.svg?v=20260712-1" alt="" />
+            <img src="logo.svg?v=20260809-1" alt="" />
           </div>
           <div>
             <strong>남성초등학교 출결관리</strong>
@@ -69,7 +70,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260712-1" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260809-1" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -186,6 +187,29 @@
                 <button id="addAdminBtn" class="primary" type="button">추가</button>
               </div>
               <div id="adminList" class="coach-list"></div>
+            </section>
+
+            <section>
+              <h2>사용자 보유기간</h2>
+              <p class="subtle">이용자별 개인정보는 남성초등학교 근무 시작일부터 근무 만료일까지 보유하는 기준으로 관리합니다. 실제 날짜는 계정별로 입력해 주세요.</p>
+              <div class="account-period-form">
+                <input id="accountEmailInput" type="email" aria-label="보유기간 대상 계정 이메일" placeholder="user@nsworld.net" />
+                <label>근무 시작일<input id="employmentStartDateInput" type="date" /></label>
+                <label>근무 만료일<input id="employmentEndDateInput" type="date" /></label>
+                <button id="saveEmploymentPeriodBtn" class="primary" type="button">보유기간 저장</button>
+              </div>
+              <div id="employmentPeriodList" class="account-period-list"></div>
+              <p class="note">날짜를 비워 저장하면 해당 날짜 설정을 삭제합니다. 근무 만료 후에는 관리자 설정에서 회원탈퇴를 실행해 시스템 이용을 해제해 주세요.</p>
+            </section>
+
+            <section>
+              <h2>회원탈퇴 처리</h2>
+              <p class="subtle">관리자만 실행할 수 있습니다. 시스템 접근 권한, 개인정보 안내 확인 기록, 등록된 알림 토큰을 삭제합니다.</p>
+              <div class="settings-inline-action">
+                <input id="withdrawAccountEmailInput" type="email" aria-label="탈퇴 처리할 계정 이메일" placeholder="user@nsworld.net" />
+                <button id="withdrawAccountBtn" class="danger-button" type="button">회원탈퇴 처리</button>
+              </div>
+              <p class="note">학생·출결 기록과 Google 계정 자체는 삭제하지 않습니다. 출결 기록은 학교 보관 기준에 따라 별도로 관리합니다.</p>
             </section>
 
             <section>
@@ -334,6 +358,8 @@
               </div>
               <button id="testPopupBtn" type="button">알림 테스트</button>
               <button id="enableNotificationsBtn" class="primary" type="button">브라우저 알림 켜기</button>
+              <button id="disableNotificationsBtn" type="button">이 기기 알림 등록 해제</button>
+              <p class="note">알림 등록 해제는 이 시스템의 FCM 토큰을 삭제합니다. 브라우저 권한을 완전히 차단하려면 브라우저 사이트 설정에서 알림을 끄세요.</p>
             </section>
 
             <section>
@@ -497,7 +523,22 @@
       </form>
     </dialog>
 
+    <dialog id="privacyConsentDialog">
+      <form method="dialog">
+        <header>
+          <h2>개인정보 처리 안내 확인</h2>
+        </header>
+        <p class="privacy-consent-summary">이 시스템은 Google 계정 이메일, 권한 정보, 학생 명단과 출결 정보를 학교 출결관리 목적으로 처리합니다. 브라우저 알림을 허용하면 알림 토큰이 추가로 등록됩니다.</p>
+        <p><a href="privacy.html?v=20260809-1" target="_blank" rel="noopener">개인정보 처리방침 전문 보기</a></p>
+        <label class="privacy-consent-check"><input id="privacyConsentCheckbox" type="checkbox" /> 개인정보 처리 안내와 보유기간 기준을 확인했습니다.</label>
+        <footer>
+          <button id="privacyDeclineBtn" type="button">로그인 취소</button>
+          <button id="privacyAcceptBtn" class="primary" type="button" disabled>확인하고 계속</button>
+        </footer>
+      </form>
+    </dialog>
+
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260806-1"></script>
+    <script type="module" src="app.js?v=20260809-1"></script>
   </body>
 </html>

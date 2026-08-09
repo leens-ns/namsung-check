@@ -19,6 +19,8 @@ const LOOKUP_REFRESH_COOLDOWN = 10 * 1000;
 const COACH_LANGUAGE_KEY = "namsung-coach-language";
 const ACCOUNT_MODE_KEY = "namsung-account-mode";
 const USAGE_REMINDER_DISMISS_KEY = "namsung-usage-reminder-dismissed";
+const PRIVACY_POLICY_VERSION = "2026-08-09";
+const PRIVACY_CONSENT_COLLECTION = "privacyAcknowledgements";
 const GITHUB_ACTIONS_RUNS_API = "https://api.github.com/repos/leens-ns/namsung-check/actions/runs?per_page=20";
 const PRIMARY_APP_URL = "https://namsung-check.firebaseapp.com/";
 const AUTH_REDIRECT_KEY = "namsung-auth-redirect-started";
@@ -88,7 +90,7 @@ const DEFAULT_AFTERSCHOOL_COURSES = {
 const DEFAULT_EXTERNAL_COURSES = ["외부수업"];
 
 const state = {
-  students: [], records: {}, contacts: {}, admins: { [ADMIN_EMAIL]: {} }, coaches: {}, teachers: {}, externals: {}, accessRoles: {},
+  students: [], records: {}, contacts: {}, admins: { [ADMIN_EMAIL]: {} }, coaches: {}, teachers: {}, externals: {}, accessRoles: {}, accountPeriods: {},
   settings: { morningTime: "08:30", reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 4, attendanceDays: [1, 5], maxClassesPerGrade: 3, contactVisible: false, allowAllStudentsLookup: false, usageCheckDay: 1, usageLastConfirmedMonth: "", autoCleanupEnabled: false, retentionMonths: 24, afterschoolCourses: structuredClone(DEFAULT_AFTERSCHOOL_COURSES), externalCourses: [...DEFAULT_EXTERNAL_COURSES] },
   maintenance: null, systemHealth: null
 };
@@ -115,14 +117,16 @@ let coachLanguage = "ko";
 let authBootstrapReady = false;
 let authTransitionId = 0;
 let loginBusy = false;
+let pendingPrivacyUser = null;
+let pendingPrivacyResolve = null;
 
 const els = Object.fromEntries([
   "loginScreen", "loginStatus", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "notificationEnableHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole", "accountModeControl", "accountModeSelect", "coachLanguageControl", "coachLanguageLabel", "coachLanguageSelect",
-  "logoutBtn", "todayText", "mainTitle", "manualLink", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
+  "logoutBtn", "todayText", "mainTitle", "manualLink", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "disableNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "alarmConfirmBtn", "notificationDialogTitle", "notificationCloseBtn", "installCloseBtn", "lookupScope", "lookupScopeField", "lookupScopeLabel", "lookupDate", "lookupDateField", "lookupMonth", "lookupMonthField", "lookupSchoolYear", "lookupSchoolYearField", "lookupDepartment", "lookupDepartmentField", "lookupPeriodSummary",
   "lookupTable", "refreshLookupBtn", "lookupDescription", "lookupDateLabel", "lookupMonthLabel", "lookupSchoolYearLabel", "lookupDepartmentLabel", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
-  "enableNotificationsBtn", "maskContactDefault", "allowAllStudentsLookup", "csvFileInput", "deleteAllStudentsBtn", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "clearCoachAssignmentsBtn", "externalEmailInput", "externalCourseInput", "externalClassSelect", "addExternalBtn", "externalCsvFileInput", "importExternalsBtn", "externalList", "clearExternalAssignmentsBtn", "externalCourseNameInput", "addExternalCourseBtn", "externalCourseList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "unregisteredDepartmentNotice", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherCsvFileInput", "importTeachersBtn", "clearTeacherAssignmentsBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "usageCheckDay", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn", "usageReminderBanner", "usageReminderLink", "firebaseUsageLink", "dismissUsageReminderBtn", "cleanupHealthDot", "cleanupHealthText", "deploymentHealthDot", "deploymentHealthText", "reminderHealthDot", "reminderHealthText",
-  "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn",
+  "enableNotificationsBtn", "maskContactDefault", "allowAllStudentsLookup", "csvFileInput", "deleteAllStudentsBtn", "adminEmailInput", "addAdminBtn", "adminList", "accountEmailInput", "employmentStartDateInput", "employmentEndDateInput", "saveEmploymentPeriodBtn", "employmentPeriodList", "withdrawAccountEmailInput", "withdrawAccountBtn", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "clearCoachAssignmentsBtn", "externalEmailInput", "externalCourseInput", "externalClassSelect", "addExternalBtn", "externalCsvFileInput", "importExternalsBtn", "externalList", "clearExternalAssignmentsBtn", "externalCourseNameInput", "addExternalCourseBtn", "externalCourseList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "unregisteredDepartmentNotice", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherCsvFileInput", "importTeachersBtn", "clearTeacherAssignmentsBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "usageCheckDay", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn", "usageReminderBanner", "usageReminderLink", "firebaseUsageLink", "dismissUsageReminderBtn", "cleanupHealthDot", "cleanupHealthText", "deploymentHealthDot", "deploymentHealthText", "reminderHealthDot", "reminderHealthText",
+  "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn", "privacyConsentDialog", "privacyConsentCheckbox", "privacyAcceptBtn", "privacyDeclineBtn",
   "statusStrip", "presentCountItem", "lateCountItem", "earlyCountItem", "absentCountItem", "unsetCountItem", "presentCount", "lateCount", "earlyCount", "absentCount", "unsetCount", "presentCountLabel", "lateCountLabel", "earlyCountLabel", "absentCountLabel", "unsetCountLabel"
 ].map((id) => [id, document.getElementById(id)]));
 
@@ -250,7 +254,7 @@ function bindEvents() {
   els.installAppBtn.addEventListener("click", openInstallFlow);
   els.installAppHeaderBtn.addEventListener("click", openInstallFlow);
   els.runInstallBtn.addEventListener("click", installApp);
-  els.logoutBtn.addEventListener("click", () => auth && signOut(auth));
+  els.logoutBtn.addEventListener("click", logoutUser);
   els.coachLanguageSelect.addEventListener("change", () => {
     coachLanguage = els.coachLanguageSelect.value;
     localStorage.setItem(COACH_LANGUAGE_KEY, coachLanguage);
@@ -303,8 +307,11 @@ function bindEvents() {
   els.coachReviewTime.addEventListener("change", updateCoachReviewTime);
   els.enableNotificationsBtn.addEventListener("click", () => enableNotifications(true));
   els.notificationEnableHeaderBtn.addEventListener("click", () => enableNotifications(true));
+  els.disableNotificationsBtn.addEventListener("click", () => revokePushToken(true));
   els.testPopupBtn.addEventListener("click", () => showReviewAlarm("review"));
   els.addAdminBtn.addEventListener("click", addAdmin);
+  els.saveEmploymentPeriodBtn.addEventListener("click", saveEmploymentPeriod);
+  els.withdrawAccountBtn.addEventListener("click", withdrawAccount);
   els.addCoachBtn.addEventListener("click", addCoach);
   els.importCoachesBtn.addEventListener("click", importCoachesCsv);
   els.clearCoachAssignmentsBtn.addEventListener("click", clearCoachAssignments);
@@ -327,6 +334,13 @@ function bindEvents() {
   [els.usageReminderLink, els.firebaseUsageLink].forEach((link) => link.addEventListener("click", markUsageChecked));
   els.notificationCenterBtn.addEventListener("click", openNotificationCenter);
   els.clearNotificationsBtn.addEventListener("click", clearNotifications);
+  els.privacyConsentCheckbox.addEventListener("change", () => { els.privacyAcceptBtn.disabled = !els.privacyConsentCheckbox.checked; });
+  els.privacyAcceptBtn.addEventListener("click", acceptPrivacyAcknowledgement);
+  els.privacyDeclineBtn.addEventListener("click", declinePrivacyAcknowledgement);
+  els.privacyConsentDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    declinePrivacyAcknowledgement();
+  });
 }
 
 async function loginWithGoogle() {
@@ -485,6 +499,10 @@ async function handleAuthChange(user) {
     resetSessionCache();
     const access = await withTimeout(resolveAccess(user), AUTH_DATA_TIMEOUT, "auth/profile-timeout");
     if (transitionId !== authTransitionId) return;
+    if (access?.unavailable) {
+      await signOut(auth);
+      throw new Error(access.employmentStatus === "not-started" ? "아직 근무 시작일이 되지 않은 계정입니다." : "근무 만료일이 지난 계정입니다. 관리자에게 확인해 주세요.");
+    }
     if (!access) {
       await signOut(auth);
       throw new Error("등록된 학교 구성원 또는 방과후강사 계정이 아닙니다.");
@@ -494,8 +512,13 @@ async function handleAuthChange(user) {
       picture: user.photoURL || "", role: access.role, availableRoles: access.availableRoles,
       department: access.role === "coach" ? access.coachDepartment : "", coachDepartment: access.coachDepartment || "",
       externalClasses: access.externalClasses || [], externalCourse: access.externalCourse || "", externalClass: localStorage.getItem(`${ACCOUNT_MODE_KEY}:externalClass:${user.email.toLowerCase()}`) || access.externalClasses?.[0] || "1-1",
-      grade: access.grade || "", classNo: access.classNo || ""
+      grade: access.grade || "", classNo: access.classNo || "",
+      employmentStartDate: access.employmentStartDate || "", employmentEndDate: access.employmentEndDate || ""
     };
+    if (!await withTimeout(ensurePrivacyAcknowledgement(user), AUTH_DATA_TIMEOUT, "privacy/acknowledgement-timeout")) {
+      await signOut(auth);
+      throw new Error("개인정보 안내를 확인해야 시스템을 사용할 수 있습니다.");
+    }
     await withTimeout(loadCloudData(), AUTH_DATA_TIMEOUT, "auth/data-timeout");
     if (transitionId !== authTransitionId) return;
     loginBusy = false;
@@ -521,6 +544,10 @@ async function resolveAccess(user) {
   const coachDepartment = String(data.role === "coach" ? data.department || "" : data.coachDepartment || "");
   const externalClasses = normalizeClassKeys(data.externalClasses || []);
   const externalCourse = String(data.externalCourse || "");
+  const employmentStartDate = normalizeDateInput(data.employmentStartDate);
+  const employmentEndDate = normalizeDateInput(data.employmentEndDate);
+  const employmentStatus = employmentPeriodStatus(employmentStartDate, employmentEndDate);
+  if (employmentStatus !== "active") return { unavailable: true, employmentStatus };
   const availableRoles = [];
   if (email === ADMIN_EMAIL || data.role === "admin") availableRoles.push("admin");
   else if (data.role === "teacher") availableRoles.push("teacher");
@@ -529,7 +556,58 @@ async function resolveAccess(user) {
   if (!availableRoles.length) return null;
   const savedMode = localStorage.getItem(`${ACCOUNT_MODE_KEY}:${email}`);
   const role = availableRoles.includes(savedMode) ? savedMode : availableRoles[0];
-  return { role, availableRoles, grade, classNo, coachDepartment, externalClasses, externalCourse };
+  return { role, availableRoles, grade, classNo, coachDepartment, externalClasses, externalCourse, employmentStartDate, employmentEndDate };
+}
+
+function employmentPeriodStatus(start, end) {
+  const today = todayKey();
+  if (start && today < start) return "not-started";
+  if (end && today > end) return "expired";
+  return "active";
+}
+
+async function ensurePrivacyAcknowledgement(user) {
+  const email = user.email?.toLowerCase() || "";
+  const acknowledgement = await getDoc(doc(db, PRIVACY_CONSENT_COLLECTION, email));
+  if (acknowledgement.exists() && acknowledgement.data().policyVersion === PRIVACY_POLICY_VERSION && acknowledgement.data().accepted === true) return true;
+  return openPrivacyAcknowledgement(user);
+}
+
+function openPrivacyAcknowledgement(user) {
+  pendingPrivacyUser = user;
+  els.privacyConsentCheckbox.checked = false;
+  els.privacyAcceptBtn.disabled = true;
+  if (!els.privacyConsentDialog.open) els.privacyConsentDialog.showModal();
+  setLoginState("loading", "개인정보 안내 확인이 필요합니다.");
+  return new Promise((resolve) => { pendingPrivacyResolve = resolve; });
+}
+
+async function acceptPrivacyAcknowledgement() {
+  if (!pendingPrivacyUser || !els.privacyConsentCheckbox.checked) return;
+  const user = pendingPrivacyUser;
+  const resolve = pendingPrivacyResolve;
+  els.privacyAcceptBtn.disabled = true;
+  try {
+    await setDoc(doc(db, PRIVACY_CONSENT_COLLECTION, user.email.toLowerCase()), {
+      email: user.email.toLowerCase(), uid: user.uid, policyVersion: PRIVACY_POLICY_VERSION, accepted: true,
+      acceptedAt: serverTimestamp()
+    });
+    pendingPrivacyUser = null;
+    pendingPrivacyResolve = null;
+    els.privacyConsentDialog.close();
+    resolve?.(true);
+  } catch (error) {
+    els.privacyAcceptBtn.disabled = false;
+    alert(`개인정보 안내 확인 저장 실패: ${readableError(error)}`);
+  }
+}
+
+function declinePrivacyAcknowledgement() {
+  const resolve = pendingPrivacyResolve;
+  pendingPrivacyUser = null;
+  pendingPrivacyResolve = null;
+  els.privacyConsentDialog.close();
+  resolve?.(false);
 }
 
 async function loadCloudData() {
@@ -756,6 +834,11 @@ function renderMaintenanceStatus() {
 
 function currentMonthKey() {
   return todayKey().slice(0, 7);
+}
+
+function normalizeDateInput(value) {
+  const text = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
 }
 
 function updateUsageReminderBanner() {
@@ -1675,7 +1758,7 @@ async function addAdmin() {
   if (!email.endsWith("@nsworld.net")) return alert("관리자는 학교 이메일(@nsworld.net)만 등록할 수 있습니다.");
   if (email === ADMIN_EMAIL || state.admins[email]) return alert("이미 관리자 계정으로 등록되어 있습니다.");
   const homeroom = state.teachers[email] || state.admins[email] || {};
-  const adminData = { role: "admin", updatedAt: serverTimestamp(), updatedBy: session.email };
+  const adminData = withAccountMetadata(email, { role: "admin", updatedAt: serverTimestamp(), updatedBy: session.email });
   if (homeroom.grade && homeroom.classNo) Object.assign(adminData, { grade: homeroom.grade, classNo: homeroom.classNo });
   withSupplementalRoles(email, adminData);
   await setDoc(doc(db, "access", email), adminData);
@@ -1716,6 +1799,71 @@ function renderAdminList() {
   }));
 }
 
+async function saveEmploymentPeriod() {
+  if (!isAdmin()) return;
+  const email = els.accountEmailInput.value.trim().toLowerCase();
+  const start = normalizeDateInput(els.employmentStartDateInput.value);
+  const end = normalizeDateInput(els.employmentEndDateInput.value);
+  if (!email || !email.includes("@")) return alert("대상 계정 이메일을 확인해 주세요.");
+  if ((start && !end) || (!start && end)) return alert("근무 시작일과 근무 만료일을 모두 입력해 주세요. 기간을 지우려면 두 날짜를 모두 비워 저장하세요.");
+  if (start && end && start > end) return alert("근무 시작일은 근무 만료일보다 늦을 수 없습니다.");
+  const accessSnapshot = await getDoc(doc(db, "access", email));
+  if (!accessSnapshot.exists()) return alert("등록된 계정이 없습니다. 먼저 계정이나 권한을 등록해 주세요.");
+  await setDoc(doc(db, "access", email), {
+    employmentStartDate: start || deleteField(), employmentEndDate: end || deleteField(),
+    updatedAt: serverTimestamp(), updatedBy: session.email
+  }, { merge: true });
+  if (start && end) state.accountPeriods[email] = { start, end };
+  else delete state.accountPeriods[email];
+  els.accountEmailInput.value = "";
+  els.employmentStartDateInput.value = "";
+  els.employmentEndDateInput.value = "";
+  renderEmploymentPeriodList();
+  alert(`${email}의 근무기간을 저장했습니다.`);
+}
+
+function renderEmploymentPeriodList() {
+  if (!isAdmin() || !els.employmentPeriodList) return;
+  const entries = Object.entries(state.accountPeriods)
+    .filter(([, period]) => period.start || period.end)
+    .sort(([a], [b]) => a.localeCompare(b));
+  els.employmentPeriodList.innerHTML = entries.length
+    ? entries.map(([email, period]) => `<div class="account-period-item"><strong>${escapeHtml(email)}</strong><span>${escapeHtml(period.start || "시작일 미설정")} ~ ${escapeHtml(period.end || "만료일 미설정")}</span></div>`).join("")
+    : `<p class="note">아직 근무기간을 설정한 계정이 없습니다.</p>`;
+}
+
+async function withdrawAccount() {
+  if (!isAdmin()) return;
+  const email = els.withdrawAccountEmailInput.value.trim().toLowerCase();
+  if (!email || !email.includes("@")) return alert("탈퇴 처리할 계정 이메일을 확인해 주세요.");
+  if (email === ADMIN_EMAIL) return alert("기본 관리자 계정은 탈퇴 처리할 수 없습니다.");
+  if (email === session.email) return alert("현재 로그인한 관리자 계정은 스스로 탈퇴 처리할 수 없습니다.");
+  const accessSnapshot = await getDoc(doc(db, "access", email));
+  if (!accessSnapshot.exists()) return alert("등록된 계정을 찾을 수 없습니다.");
+  if (!confirm(`${email}의 시스템 이용을 해제하고 등록된 알림 토큰을 삭제할까요?\n학생·출결 기록은 보존되며 Google 계정 자체는 삭제되지 않습니다.`)) return;
+  if (prompt("실수를 막기 위해 '회원탈퇴'를 입력해 주세요.") !== "회원탈퇴") return alert("탈퇴 처리를 취소했습니다.");
+  els.withdrawAccountBtn.disabled = true;
+  try {
+    const tokenSnapshot = await getDocs(query(collection(db, "notificationTokens"), where("email", "==", email)));
+    await deleteDocumentRefs(tokenSnapshot.docs.map((item) => item.ref));
+    await deleteDoc(doc(db, "privacyAcknowledgements", email));
+    await deleteDoc(doc(db, "access", email));
+    delete state.accountPeriods[email];
+    await loadCoachList();
+    renderAdminList();
+    renderTeacherList();
+    renderCoachList();
+    renderExternalList();
+    renderEmploymentPeriodList();
+    els.withdrawAccountEmailInput.value = "";
+    alert(`${email}의 시스템 이용을 해제했습니다. Firebase Google 계정 자체는 삭제되지 않았습니다.`);
+  } catch (error) {
+    alert(`회원탈퇴 처리 실패: ${readableError(error)}`);
+  } finally {
+    els.withdrawAccountBtn.disabled = false;
+  }
+}
+
 async function addCoach() {
   if (!isAdmin()) return;
   const email = els.coachEmailInput.value.trim().toLowerCase();
@@ -1723,8 +1871,8 @@ async function addCoach() {
   if (!email || !email.includes("@") || !department) return alert("강사 이메일과 담당 부서를 확인해 주세요.");
   const hasPrimaryRole = Boolean(state.admins[email] || state.teachers[email] || state.externals[email]);
   const coachData = hasPrimaryRole
-    ? { coachDepartment: department, updatedAt: serverTimestamp(), updatedBy: session.email }
-    : { role: "coach", department, updatedAt: serverTimestamp(), updatedBy: session.email };
+    ? withAccountMetadata(email, { coachDepartment: department, updatedAt: serverTimestamp(), updatedBy: session.email })
+    : withAccountMetadata(email, { role: "coach", department, updatedAt: serverTimestamp(), updatedBy: session.email });
   await setDoc(doc(db, "access", email), coachData, { merge: hasPrimaryRole });
   els.coachEmailInput.value = "";
   await loadCoachList();
@@ -1754,8 +1902,8 @@ async function importCoachesCsv() {
       uniqueAssignments.slice(start, start + 400).forEach(({ email, department }) => {
         const hasPrimaryRole = Boolean(state.admins[email] || state.teachers[email] || state.externals[email]);
         const data = hasPrimaryRole
-          ? { coachDepartment: department, updatedAt: serverTimestamp(), updatedBy: session.email }
-          : { role: "coach", department, updatedAt: serverTimestamp(), updatedBy: session.email };
+          ? withAccountMetadata(email, { coachDepartment: department, updatedAt: serverTimestamp(), updatedBy: session.email })
+          : withAccountMetadata(email, { role: "coach", department, updatedAt: serverTimestamp(), updatedBy: session.email });
         batch.set(doc(db, "access", email), data, { merge: hasPrimaryRole });
       });
       await batch.commit();
@@ -1786,10 +1934,12 @@ async function loadCoachList() {
   state.teachers = {};
   state.externals = {};
   state.accessRoles = {};
+  state.accountPeriods = {};
   const snapshot = await getDocs(collection(db, "access"));
   snapshot.forEach((item) => {
     const data = item.data();
     state.accessRoles[item.id] = data.role || "";
+    if (data.employmentStartDate || data.employmentEndDate) state.accountPeriods[item.id] = { start: normalizeDateInput(data.employmentStartDate), end: normalizeDateInput(data.employmentEndDate) };
     if (item.data().role === "admin") {
       const assignment = item.data().grade && item.data().classNo
         ? { grade: String(item.data().grade), classNo: String(item.data().classNo) }
@@ -1805,9 +1955,11 @@ async function loadCoachList() {
   const currentAssignment = state.admins[session.email] || state.teachers[session.email] || {};
   if (currentAssignment.grade && currentAssignment.classNo) syncCurrentHomeroom(session.email, currentAssignment.grade, currentAssignment.classNo);
   accessCatalogLoaded = true;
+  renderEmploymentPeriodList();
 }
 
 function withSupplementalRoles(email, data) {
+  withAccountMetadata(email, data);
   if (state.coaches[email]) data.coachDepartment = state.coaches[email];
   if (state.externals[email]) {
     data.externalCourse = state.externals[email].course || "외부수업";
@@ -1815,8 +1967,16 @@ function withSupplementalRoles(email, data) {
   return data;
 }
 
+function withAccountMetadata(email, data) {
+  const period = state.accountPeriods[email];
+  if (!period) return data;
+  if (period.start) data.employmentStartDate = period.start;
+  if (period.end) data.employmentEndDate = period.end;
+  return data;
+}
+
 function externalAccessData(email) {
-  return { role: "external", externalCourse: state.externals[email]?.course || "외부수업", updatedAt: serverTimestamp(), updatedBy: session.email };
+  return withAccountMetadata(email, { role: "external", externalCourse: state.externals[email]?.course || "외부수업", updatedAt: serverTimestamp(), updatedBy: session.email });
 }
 
 function renderCoachList() {
@@ -1881,8 +2041,8 @@ async function addExternalInstructor() {
   if (!email || !email.includes("@")) return alert("외부수업강사 이메일을 확인해 주세요.");
   const hasPrimaryRole = Boolean(state.admins[email] || state.teachers[email] || state.coaches[email]);
   const data = hasPrimaryRole
-    ? { externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email }
-    : { role: "external", externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email };
+    ? withAccountMetadata(email, { externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email })
+    : withAccountMetadata(email, { role: "external", externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email });
   await setDoc(doc(db, "access", email), data, { merge: hasPrimaryRole });
   els.externalEmailInput.value = "";
   await loadCoachList();
@@ -1917,8 +2077,8 @@ async function importExternalsCsv() {
       assignments.slice(start, start + 400).forEach(({ email, course }) => {
         const hasPrimaryRole = Boolean(state.admins[email] || state.teachers[email] || state.coaches[email]);
         const data = hasPrimaryRole
-          ? { externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email }
-          : { role: "external", externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email };
+          ? withAccountMetadata(email, { externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email })
+          : withAccountMetadata(email, { role: "external", externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email });
         batch.set(doc(db, "access", email), data, { merge: hasPrimaryRole });
       });
       await batch.commit();
@@ -1945,7 +2105,7 @@ function renderExternalList() {
     if (state.admins[email] || state.teachers[email]) {
       await setDoc(doc(db, "access", email), { externalClasses: deleteField(), externalCourse: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email }, { merge: true });
     } else if (state.coaches[email]) {
-      await setDoc(doc(db, "access", email), { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email });
+      await setDoc(doc(db, "access", email), withAccountMetadata(email, { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email }));
     } else {
       await deleteDoc(doc(db, "access", email));
     }
@@ -1968,7 +2128,7 @@ async function clearExternalAssignments() {
         if (state.admins[email] || state.teachers[email]) {
           batch.set(doc(db, "access", email), { externalClasses: deleteField(), externalCourse: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email }, { merge: true });
         } else if (state.coaches[email]) {
-          batch.set(doc(db, "access", email), { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email });
+          batch.set(doc(db, "access", email), withAccountMetadata(email, { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email }));
         } else {
           batch.delete(doc(db, "access", email));
         }
@@ -2060,7 +2220,7 @@ async function addTeacherAssignment() {
   if (!email.endsWith("@nsworld.net") || !grade || !classNo) return alert("학교 이메일과 담당 학급을 확인해 주세요.");
   if (state.teachers[email] && !confirm(`${email}의 담임 학급을 ${grade}학년 ${classNo}반으로 수정할까요?`)) return;
   const role = state.admins[email] ? "admin" : "teacher";
-  const data = { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email };
+  const data = withAccountMetadata(email, { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
   withSupplementalRoles(email, data);
   await setDoc(doc(db, "access", email), data);
   state.teachers[email] = { grade, classNo };
@@ -2080,7 +2240,7 @@ async function bulkAssignTeachers() {
   const batch = writeBatch(db);
   assignments.forEach(({ email, grade, classNo }) => {
     const role = state.admins[email] ? "admin" : "teacher";
-    const data = { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email };
+    const data = withAccountMetadata(email, { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
     withSupplementalRoles(email, data);
     batch.set(doc(db, "access", email), data);
     state.teachers[email] = { grade, classNo };
@@ -2119,7 +2279,7 @@ async function importTeachersCsv() {
       const batch = writeBatch(db);
       assignments.slice(start, start + 400).forEach(({ email, grade, classNo }) => {
         const role = state.admins[email] ? "admin" : "teacher";
-        const data = { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email };
+        const data = withAccountMetadata(email, { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
         withSupplementalRoles(email, data);
         batch.set(doc(db, "access", email), data);
         state.teachers[email] = { grade, classNo };
@@ -2546,6 +2706,42 @@ function readPushTokenSync() {
   catch { return null; }
 }
 
+async function revokePushToken(showMessage = false) {
+  const previousSync = readPushTokenSync();
+  let tokenId = "";
+  try {
+    const signature = previousSync?.signature ? JSON.parse(previousSync.signature) : null;
+    tokenId = String(signature?.tokenId || "");
+  } catch {
+    tokenId = "";
+  }
+  try {
+    if (!tokenId && messaging && notificationRegistration && "Notification" in window && Notification.permission === "granted") {
+      const token = await getToken(messaging, { serviceWorkerRegistration: notificationRegistration });
+      if (token) tokenId = await tokenDocumentId(token);
+    }
+    if (tokenId && db) await deleteDoc(doc(db, "notificationTokens", tokenId));
+    localStorage.removeItem(PUSH_TOKEN_SYNC_KEY);
+    pushTokenActive = false;
+    updateNotificationPermissionUi();
+    if (showMessage) alert("이 기기의 출결 알림 등록을 해제했습니다. 브라우저 사이트 설정에서 알림 권한을 완전히 차단할 수도 있습니다.");
+    return true;
+  } catch (error) {
+    if (showMessage) alert(`알림 등록 해제 실패: ${readableError(error)}`);
+    return false;
+  }
+}
+
+async function logoutUser() {
+  if (!auth) return;
+  await signOut(auth);
+}
+
+async function tokenDocumentId(token) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 async function enableNotifications(showConfirmation = false) {
   if (!canReceiveNotifications()) return "denied";
   if (location.protocol === "file:") {
@@ -2593,6 +2789,8 @@ function updateNotificationPermissionUi() {
   els.notificationEnableHeaderBtn.classList.toggle("needs-permission", !localPreview && eligible && !granted);
   els.enableNotificationsBtn.textContent = localPreview ? "체험판에서는 알림 설정 불가" : granted ? "브라우저 알림 켜짐" : denied ? "Chrome 알림 허용 필요" : "브라우저 알림 켜기";
   els.enableNotificationsBtn.disabled = localPreview || granted;
+  els.disableNotificationsBtn.textContent = granted ? "이 기기 알림 등록 해제" : "알림 등록 없음";
+  els.disableNotificationsBtn.disabled = localPreview || !granted;
 }
 
 function showReviewAlarm(audience = "review") {
