@@ -33,7 +33,9 @@
       .gate h2 { margin-bottom:8px; }
       .gate p { color:var(--muted); }
       .gate a { display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:0 18px; border-radius:7px; color:#fff; background:var(--blue); font-weight:700; text-decoration:none; }
-      footer { padding:20px; color:var(--muted); text-align:center; }
+      footer { display:grid; justify-items:center; gap:7px; padding:20px 16px max(20px,env(safe-area-inset-bottom)); color:var(--muted); font-size:13px; text-align:center; }
+      footer p { margin:0; }
+      footer a { color:var(--blue); font-weight:700; text-decoration:underline; text-underline-offset:4px; }
       @media (max-width:620px) { header { padding:22px 16px; } h1 { font-size:24px; } section { padding:18px 15px; } nav a { padding:9px 11px; } }
       @media print { nav { display:none; } body { background:#fff; } section { break-inside:avoid; } }
     </style>
@@ -42,7 +44,7 @@
     <div id="manualGate" class="gate">
       <h2>계정 확인 중</h2>
       <p id="manualGateMessage">로그인 계정의 매뉴얼을 불러오고 있습니다.</p>
-      <a id="manualGateLink" href="index.html?v=20260809-5" hidden>메인 화면에서 로그인</a>
+      <a id="manualGateLink" href="index.html?v=20260809-6" hidden>메인 화면에서 로그인</a>
     </div>
 
     <div id="manualApp" hidden>
@@ -55,7 +57,7 @@
       </header>
       <nav aria-label="매뉴얼 목차">
         <div>
-          <a id="manualHomeLink" href="index.html?v=20260809-5">메인 화면으로</a>
+          <a id="manualHomeLink" href="index.html?v=20260809-6">메인 화면으로</a>
           <a href="#common" data-manual-nav="common">공통</a>
           <a href="#teacher" data-manual-nav="teacher">담임교사</a>
           <a href="#coach" data-manual-nav="coach">방과후강사</a>
@@ -166,10 +168,14 @@
           <p class="note warning">삭제된 출결은 복구할 수 없습니다. 자동 정리는 출결 기록만 대상으로 하며 학생 명단과 학부모 연락처는 유지합니다.</p>
         </section>
       </main>
-      <footer id="manualFooter">남성초등학교 출결관리 시스템 사용 매뉴얼</footer>
+      <footer>
+        <p id="manualFooter">남성초등학교 출결관리 시스템 사용 매뉴얼</p>
+        <a id="manualPrivacyLink" href="privacy.html?v=20260809-6" target="_blank" rel="noopener">개인정보 처리 안내</a>
+        <p id="manualCopyright">© 2026 남성초등학교. All rights reserved.</p>
+      </footer>
     </div>
 
     <script src="config.js"></script>
-    <script type="module" src="manual.js?v=20260809-5"></script>
+    <script type="module" src="manual.js?v=20260809-6"></script>
   </body>
 </html>

@@ -36,11 +36,19 @@ body.is-authenticated .app-shell {
 }
 
 .login-screen {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   padding: 24px;
   background: #eef3f8;
+}
+
+.login-screen-content {
+  display: grid;
+  place-items: center;
+  flex: 1 0 auto;
+  width: 100%;
+  padding: 24px 0;
 }
 
 .login-box {
@@ -66,18 +74,6 @@ body.is-authenticated .app-shell {
 .login-box > p.login-description {
   margin: 0 0 24px;
   color: var(--muted);
-}
-
-.privacy-login-notice {
-  margin: 14px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.privacy-login-notice a {
-  color: var(--brand);
-  font-weight: 700;
 }
 
 .login-status {
@@ -399,6 +395,40 @@ label {
 .main {
   min-width: 0;
   padding: 28px;
+}
+
+.site-footer {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 20px 16px max(20px, env(safe-area-inset-bottom));
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.site-footer a {
+  color: var(--brand);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+.login-site-footer {
+  flex: 0 0 auto;
+  padding-top: 12px;
+}
+
+.app-site-footer {
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
 }
 
 .topbar {

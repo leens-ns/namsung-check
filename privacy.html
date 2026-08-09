@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#174a7c" />
     <title>개인정보 처리 안내 · 남성초등학교 출결관리 시스템</title>
-    <link rel="stylesheet" href="styles.css?v=20260809-5" />
+    <link rel="stylesheet" href="styles.css?v=20260809-6" />
     <style>
       .privacy-summary-page {
         width: min(820px, calc(100% - 32px));
@@ -71,6 +71,20 @@
         text-decoration: none;
       }
 
+      .privacy-summary-footer {
+        display: grid;
+        justify-items: center;
+        gap: 12px;
+        margin-top: 20px;
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+      }
+
+      .privacy-summary-footer p {
+        margin: 0;
+      }
+
       @media (max-width: 620px) {
         .privacy-summary-page {
           width: min(100% - 24px, 820px);
@@ -122,7 +136,10 @@
         </article>
       </section>
 
-      <a class="privacy-summary-home" href="index.html?v=20260809-5">메인 화면으로 돌아가기</a>
+      <footer class="privacy-summary-footer">
+        <a class="privacy-summary-home" href="index.html?v=20260809-6">메인 화면으로 돌아가기</a>
+        <p>© 2026 남성초등학교. All rights reserved.</p>
+      </footer>
     </main>
   </body>
 </html>

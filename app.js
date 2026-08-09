@@ -44,7 +44,8 @@ const COACH_I18N = {
     wait: ({ seconds }) => `${seconds}초 후 다시 새로고침할 수 있습니다.`, lookupFailed: "조회 실패",
     install: "홈 화면에 설치", installReady: "앱 설치", notificationsOn: "알림 켜짐", notificationsEnable: "알림 켜기", notificationsPermission: "브라우저 알림 허용 필요", notificationsConnecting: "알림 연결 중", notificationsRetry: "알림 연결 재시도",
     notificationsUnsupported: "체험판 알림 미지원", notificationTitle: "알림함", clearNotifications: "알림 모두 지우기", noNotifications: "도착한 알림이 없습니다.", close: "닫기", confirm: "확인하기", installAction: "설치하기",
-    installTitle: "출결관리 앱 설치", installBody: "설치하면 홈 화면에서 일반 앱처럼 바로 실행할 수 있습니다.", reviewTitle: "방과후 출결 확인 알림", reviewBody: "오늘 방과후 수강 학생의 출결을 확인해 주세요."
+    installTitle: "출결관리 앱 설치", installBody: "설치하면 홈 화면에서 일반 앱처럼 바로 실행할 수 있습니다.", reviewTitle: "방과후 출결 확인 알림", reviewBody: "오늘 방과후 수강 학생의 출결을 확인해 주세요.",
+    privacy: "개인정보 처리 안내", copyright: "© 2026 남성초등학교. All rights reserved."
   },
   en: {
     language: "Language", accountMode: "Account mode", teacherMode: "Homeroom teacher", coachMode: "Afterschool instructor", adminMode: "Administrator", coach: "Afterschool instructor", logout: "Sign out", lookup: "Attendance", manual: "User guide", title: "Afterschool attendance",
@@ -56,7 +57,8 @@ const COACH_I18N = {
     wait: ({ seconds }) => `Please refresh again in ${seconds} seconds.`, lookupFailed: "Could not load attendance",
     install: "Add to Home Screen", installReady: "Install app", notificationsOn: "Notifications on", notificationsEnable: "Turn on notifications", notificationsPermission: "Allow browser notifications", notificationsConnecting: "Connecting notifications", notificationsRetry: "Retry notification setup",
     notificationsUnsupported: "Notifications unavailable in preview", notificationTitle: "Notifications", clearNotifications: "Clear all", noNotifications: "No notifications yet.", close: "Close", confirm: "OK", installAction: "Install",
-    installTitle: "Install attendance app", installBody: "Install the app to open it directly from your Home Screen.", reviewTitle: "Afterschool attendance reminder", reviewBody: "Please check today's attendance before your afterschool class."
+    installTitle: "Install attendance app", installBody: "Install the app to open it directly from your Home Screen.", reviewTitle: "Afterschool attendance reminder", reviewBody: "Please check today's attendance before your afterschool class.",
+    privacy: "Privacy notice", copyright: "© 2026 Namsung Elementary School. All rights reserved."
   },
   fr: {
     language: "Langue", accountMode: "Mode du compte", teacherMode: "Enseignant principal", coachMode: "Intervenant périscolaire", adminMode: "Administrateur", coach: "Intervenant périscolaire", logout: "Se déconnecter", lookup: "Présences", manual: "Guide d’utilisation", title: "Présences périscolaires",
@@ -68,7 +70,8 @@ const COACH_I18N = {
     wait: ({ seconds }) => `Veuillez réessayer dans ${seconds} secondes.`, lookupFailed: "Impossible de charger les présences",
     install: "Ajouter à l’écran d’accueil", installReady: "Installer l’application", notificationsOn: "Notifications activées", notificationsEnable: "Activer les notifications", notificationsPermission: "Autoriser les notifications du navigateur", notificationsConnecting: "Connexion des notifications", notificationsRetry: "Réessayer la connexion",
     notificationsUnsupported: "Notifications indisponibles dans l’aperçu", notificationTitle: "Notifications", clearNotifications: "Tout effacer", noNotifications: "Aucune notification.", close: "Fermer", confirm: "OK", installAction: "Installer",
-    installTitle: "Installer l’application de présence", installBody: "Installez l’application pour l’ouvrir directement depuis l’écran d’accueil.", reviewTitle: "Rappel des présences périscolaires", reviewBody: "Veuillez vérifier les présences avant votre atelier aujourd’hui."
+    installTitle: "Installer l’application de présence", installBody: "Installez l’application pour l’ouvrir directement depuis l’écran d’accueil.", reviewTitle: "Rappel des présences périscolaires", reviewBody: "Veuillez vérifier les présences avant votre atelier aujourd’hui.",
+    privacy: "Avis de confidentialité", copyright: "© 2026 École primaire Namsung. Tous droits réservés."
   },
   es: {
     language: "Idioma", accountMode: "Modo de cuenta", teacherMode: "Tutor", coachMode: "Instructor extraescolar", adminMode: "Administrador", coach: "Instructor de actividades extraescolares", logout: "Cerrar sesión", lookup: "Asistencia", manual: "Guía de uso", title: "Asistencia extraescolar",
@@ -80,7 +83,8 @@ const COACH_I18N = {
     wait: ({ seconds }) => `Vuelve a intentarlo en ${seconds} segundos.`, lookupFailed: "No se pudo cargar la asistencia",
     install: "Añadir a la pantalla de inicio", installReady: "Instalar aplicación", notificationsOn: "Notificaciones activadas", notificationsEnable: "Activar notificaciones", notificationsPermission: "Permitir notificaciones del navegador", notificationsConnecting: "Conectando notificaciones", notificationsRetry: "Reintentar conexión",
     notificationsUnsupported: "Notificaciones no disponibles en la vista previa", notificationTitle: "Notificaciones", clearNotifications: "Borrar todo", noNotifications: "No hay notificaciones.", close: "Cerrar", confirm: "Aceptar", installAction: "Instalar",
-    installTitle: "Instalar la aplicación de asistencia", installBody: "Instala la aplicación para abrirla desde la pantalla de inicio.", reviewTitle: "Recordatorio de asistencia extraescolar", reviewBody: "Comprueba la asistencia antes de la actividad de hoy."
+    installTitle: "Instalar la aplicación de asistencia", installBody: "Instala la aplicación para abrirla desde la pantalla de inicio.", reviewTitle: "Recordatorio de asistencia extraescolar", reviewBody: "Comprueba la asistencia antes de la actividad de hoy.",
+    privacy: "Aviso de privacidad", copyright: "© 2026 Escuela Primaria Namsung. Todos los derechos reservados."
   }
 };
 const DEFAULT_AFTERSCHOOL_COURSES = {
@@ -123,7 +127,7 @@ let pendingPrivacyUser = null;
 let pendingPrivacyResolve = null;
 
 const els = Object.fromEntries([
-  "loginScreen", "loginStatus", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "notificationEnableHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole", "accountModeControl", "accountModeSelect", "coachLanguageControl", "coachLanguageLabel", "coachLanguageSelect",
+  "loginScreen", "loginStatus", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "notificationEnableHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole", "accountModeControl", "accountModeSelect", "coachLanguageControl", "coachLanguageLabel", "coachLanguageSelect", "appPrivacyLink", "appCopyright",
   "logoutBtn", "todayText", "mainTitle", "manualLink", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "disableNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "alarmConfirmBtn", "notificationDialogTitle", "notificationCloseBtn", "installCloseBtn", "lookupScope", "lookupScopeField", "lookupScopeLabel", "lookupDate", "lookupDateField", "lookupMonth", "lookupMonthField", "lookupSchoolYear", "lookupSchoolYearField", "lookupDepartment", "lookupDepartmentField", "lookupPeriodSummary",
   "lookupTable", "refreshLookupBtn", "lookupDescription", "lookupDateLabel", "lookupMonthLabel", "lookupSchoolYearLabel", "lookupDepartmentLabel", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
@@ -1109,6 +1113,8 @@ function applyCoachLanguage() {
     els.alarmConfirmBtn.textContent = "확인하기";
     els.installCloseBtn.textContent = "닫기";
     els.runInstallBtn.textContent = "설치하기";
+    els.appPrivacyLink.textContent = COACH_I18N.ko.privacy;
+    els.appCopyright.textContent = COACH_I18N.ko.copyright;
     ["present", "late", "early", "absent", "unset"].forEach((status) => { els[`${status}CountLabel`].textContent = statusLabel[status]; });
     updateInstallUi();
     updateNotificationPermissionUi();
@@ -1138,6 +1144,8 @@ function applyCoachLanguage() {
   els.alarmConfirmBtn.textContent = coachText("confirm");
   els.installCloseBtn.textContent = coachText("close");
   els.runInstallBtn.textContent = coachText("installAction");
+  els.appPrivacyLink.textContent = coachText("privacy");
+  els.appCopyright.textContent = coachText("copyright");
   ["present", "late", "early", "absent", "unset"].forEach((status) => { els[`${status}CountLabel`].textContent = coachText(status); });
   updateInstallUi();
   updateNotificationPermissionUi();
