@@ -113,22 +113,35 @@ async function readTokenCatalog() {
   })]);
   const rows = await requireJson(tokenResponse, "Unable to read notification tokens");
   const accessRows = await requireJson(accessResponse, "Unable to verify notification recipients");
-  const accessRoles = new Map(accessRows.flatMap((row) => {
+  const accessProfiles = new Map(accessRows.flatMap((row) => {
     if (!row.document) return [];
     const email = decodeURIComponent(row.document.name.split("/").pop()).toLowerCase();
     const primaryRole = stringField(row.document, "role");
     const roles = [primaryRole];
     if (primaryRole !== "coach" && stringField(row.document, "coachDepartment")) roles.push("coach");
-    return [[email, roles]];
+    return [[email, {
+      roles,
+      employmentStartDate: stringField(row.document, "employmentStartDate"),
+      employmentEndDate: stringField(row.document, "employmentEndDate")
+    }]];
   }));
   return rows.flatMap((row) => {
     const document = row.document;
     if (!document) return [];
     const email = String(stringField(document, "email") || "").toLowerCase();
-    const roles = email === "leens@nsworld.net" ? ["admin", ...(accessRoles.get(email)?.includes("coach") ? ["coach"] : [])] : accessRoles.get(email) || [];
+    const profile = accessProfiles.get(email);
+    if (email !== "leens@nsworld.net" && !isEmploymentActive(profile, current.date)) return [];
+    const roles = email === "leens@nsworld.net" ? ["admin", ...(profile?.roles.includes("coach") ? ["coach"] : [])] : profile?.roles || [];
     const token = stringField(document, "token");
     return token ? [{ token, name: document.name, email, roles, language: stringField(document, "language") || "ko", audiences: arrayStringField(document, "audiences") }] : [];
   });
+}
+
+function isEmploymentActive(profile, date) {
+  if (!profile) return false;
+  if (profile.employmentStartDate && date < profile.employmentStartDate) return false;
+  if (profile.employmentEndDate && date > profile.employmentEndDate) return false;
+  return true;
 }
 
 function readActiveTokens(reminder, tokenCatalog) {
@@ -273,7 +286,8 @@ function isDue(currentTime, targetTime) {
   if (!/^\d{2}:\d{2}$/.test(targetTime || "")) return false;
   const toMinutes = (value) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
   const difference = toMinutes(currentTime) - toMinutes(targetTime);
-  return difference >= 0 && difference < 30;
+  // GitHub 예약 작업은 혼잡할 때 늦게 시작될 수 있습니다. 전송 ID가 날짜별 중복 발송을 막습니다.
+  return difference >= 0 && difference < 90;
 }
 
 function shouldWriteHealth(lastRunAt, date) {

@@ -19,7 +19,7 @@ const LOOKUP_REFRESH_COOLDOWN = 10 * 1000;
 const COACH_LANGUAGE_KEY = "namsung-coach-language";
 const ACCOUNT_MODE_KEY = "namsung-account-mode";
 const USAGE_REMINDER_DISMISS_KEY = "namsung-usage-reminder-dismissed";
-const PRIVACY_POLICY_VERSION = "2026-08-09";
+const PRIVACY_POLICY_VERSION = "2026-08-09-r2";
 const PRIVACY_CONSENT_COLLECTION = "privacyAcknowledgements";
 const GITHUB_ACTIONS_RUNS_API = "https://api.github.com/repos/leens-ns/namsung-check/actions/runs?per_page=20";
 const PRIMARY_APP_URL = "https://namsung-check.firebaseapp.com/";
@@ -32,7 +32,7 @@ const BACKGROUND_SERVICE_TIMEOUT = 5000;
 const FIRST_SCHOOL_YEAR = 2026;
 const ORIGINAL_TITLE = document.title;
 const statusLabel = { present: "출석", late: "지각", absent: "결석", early: "조퇴", unset: "미입력" };
-const roleLabel = { admin: "관리자", teacher: "교사", coach: "방과후강사", external: "외부수업강사" };
+const roleLabel = { admin: "관리자", teacher: "담임교사", coach: "방과후강사", external: "외부수업강사" };
 const COACH_I18N = {
   ko: {
     language: "Language", accountMode: "사용 모드", teacherMode: "담임교사 모드", coachMode: "방과후강사 모드", adminMode: "관리자 모드", coach: "방과후강사", logout: "로그아웃", lookup: "출결 조회", manual: "사용 매뉴얼", title: "방과후 출결",
@@ -42,19 +42,19 @@ const COACH_I18N = {
     choosePeriod: "기간을 선택한 뒤 <strong>최신 출결 새로고침</strong>을 눌러 주세요.", noStudents: "조회할 학생이 없습니다.",
     operationSummary: ({ days, records }) => `운영 기록 ${days}일 · 저장된 출결 ${records}건`, schoolYearName: ({ year }) => `${year}학년도`,
     wait: ({ seconds }) => `${seconds}초 후 다시 새로고침할 수 있습니다.`, lookupFailed: "조회 실패",
-    install: "홈 화면에 설치", installReady: "앱 설치", notificationsOn: "알림 켜짐", notificationsEnable: "알림 켜기", notificationsPermission: "알림 허용 필요",
+    install: "홈 화면에 설치", installReady: "앱 설치", notificationsOn: "알림 켜짐", notificationsEnable: "알림 켜기", notificationsPermission: "브라우저 알림 허용 필요", notificationsConnecting: "알림 연결 중", notificationsRetry: "알림 연결 재시도",
     notificationsUnsupported: "체험판 알림 미지원", notificationTitle: "알림함", clearNotifications: "알림 모두 지우기", noNotifications: "도착한 알림이 없습니다.", close: "닫기", confirm: "확인하기", installAction: "설치하기",
     installTitle: "출결관리 앱 설치", installBody: "설치하면 홈 화면에서 일반 앱처럼 바로 실행할 수 있습니다.", reviewTitle: "방과후 출결 확인 알림", reviewBody: "오늘 방과후 수강 학생의 출결을 확인해 주세요."
   },
   en: {
     language: "Language", accountMode: "Account mode", teacherMode: "Homeroom teacher", coachMode: "Afterschool instructor", adminMode: "Administrator", coach: "Afterschool instructor", logout: "Sign out", lookup: "Attendance", manual: "User guide", title: "Afterschool attendance",
     description: "View daily details or monthly and school-year attendance totals.", day: "Daily", month: "Monthly", schoolYear: "School year",
-    lookupDate: "Date", lookupMonth: "Month", schoolYearLabel: "School year", department: "Class", refresh: "↻ Refresh attendance",
+    lookupDate: "Date", lookupMonth: "Month", schoolYearLabel: "School year", department: "Activity", refresh: "↻ Refresh attendance",
     student: "Student", status: "Attendance", memo: "Notes", present: "Present", absent: "Absent", late: "Late", early: "Left early", unset: "Not entered", records: "Records",
     choosePeriod: "Select a period, then tap <strong>Refresh attendance</strong>.", noStudents: "No students found.",
     operationSummary: ({ days, records }) => `${days} class days · ${records} saved records`, schoolYearName: ({ year }) => `${year}-${year + 1} school year`,
     wait: ({ seconds }) => `Please refresh again in ${seconds} seconds.`, lookupFailed: "Could not load attendance",
-    install: "Add to Home Screen", installReady: "Install app", notificationsOn: "Notifications on", notificationsEnable: "Turn on notifications", notificationsPermission: "Allow notifications",
+    install: "Add to Home Screen", installReady: "Install app", notificationsOn: "Notifications on", notificationsEnable: "Turn on notifications", notificationsPermission: "Allow browser notifications", notificationsConnecting: "Connecting notifications", notificationsRetry: "Retry notification setup",
     notificationsUnsupported: "Notifications unavailable in preview", notificationTitle: "Notifications", clearNotifications: "Clear all", noNotifications: "No notifications yet.", close: "Close", confirm: "OK", installAction: "Install",
     installTitle: "Install attendance app", installBody: "Install the app to open it directly from your Home Screen.", reviewTitle: "Afterschool attendance reminder", reviewBody: "Please check today's attendance before your afterschool class."
   },
@@ -66,7 +66,7 @@ const COACH_I18N = {
     choosePeriod: "Sélectionnez une période, puis appuyez sur <strong>Actualiser les présences</strong>.", noStudents: "Aucun élève trouvé.",
     operationSummary: ({ days, records }) => `${days} jours de cours · ${records} enregistrements`, schoolYearName: ({ year }) => `Année scolaire ${year}-${year + 1}`,
     wait: ({ seconds }) => `Veuillez réessayer dans ${seconds} secondes.`, lookupFailed: "Impossible de charger les présences",
-    install: "Ajouter à l’écran d’accueil", installReady: "Installer l’application", notificationsOn: "Notifications activées", notificationsEnable: "Activer les notifications", notificationsPermission: "Autoriser les notifications",
+    install: "Ajouter à l’écran d’accueil", installReady: "Installer l’application", notificationsOn: "Notifications activées", notificationsEnable: "Activer les notifications", notificationsPermission: "Autoriser les notifications du navigateur", notificationsConnecting: "Connexion des notifications", notificationsRetry: "Réessayer la connexion",
     notificationsUnsupported: "Notifications indisponibles dans l’aperçu", notificationTitle: "Notifications", clearNotifications: "Tout effacer", noNotifications: "Aucune notification.", close: "Fermer", confirm: "OK", installAction: "Installer",
     installTitle: "Installer l’application de présence", installBody: "Installez l’application pour l’ouvrir directement depuis l’écran d’accueil.", reviewTitle: "Rappel des présences périscolaires", reviewBody: "Veuillez vérifier les présences avant votre atelier aujourd’hui."
   },
@@ -78,7 +78,7 @@ const COACH_I18N = {
     choosePeriod: "Selecciona un periodo y pulsa <strong>Actualizar asistencia</strong>.", noStudents: "No se encontraron estudiantes.",
     operationSummary: ({ days, records }) => `${days} días de clase · ${records} registros`, schoolYearName: ({ year }) => `Curso escolar ${year}-${year + 1}`,
     wait: ({ seconds }) => `Vuelve a intentarlo en ${seconds} segundos.`, lookupFailed: "No se pudo cargar la asistencia",
-    install: "Añadir a la pantalla de inicio", installReady: "Instalar aplicación", notificationsOn: "Notificaciones activadas", notificationsEnable: "Activar notificaciones", notificationsPermission: "Permitir notificaciones",
+    install: "Añadir a la pantalla de inicio", installReady: "Instalar aplicación", notificationsOn: "Notificaciones activadas", notificationsEnable: "Activar notificaciones", notificationsPermission: "Permitir notificaciones del navegador", notificationsConnecting: "Conectando notificaciones", notificationsRetry: "Reintentar conexión",
     notificationsUnsupported: "Notificaciones no disponibles en la vista previa", notificationTitle: "Notificaciones", clearNotifications: "Borrar todo", noNotifications: "No hay notificaciones.", close: "Cerrar", confirm: "Aceptar", installAction: "Instalar",
     installTitle: "Instalar la aplicación de asistencia", installBody: "Instala la aplicación para abrirla desde la pantalla de inicio.", reviewTitle: "Recordatorio de asistencia extraescolar", reviewBody: "Comprueba la asistencia antes de la actividad de hoy."
   }
@@ -104,8 +104,10 @@ let editingStudentId = null;
 let notificationRegistration = null;
 let messaging = null;
 let pushTokenActive = false;
+let pushRegistrationStatus = "idle";
 let contactsLoaded = false;
 let accessCatalogLoaded = false;
+let accessCatalogPromise = null;
 let attendanceClassInitialized = false;
 let lastLookupRefreshAt = 0;
 let lookupMode = "day";
@@ -125,7 +127,7 @@ const els = Object.fromEntries([
   "logoutBtn", "todayText", "mainTitle", "manualLink", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "disableNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "alarmConfirmBtn", "notificationDialogTitle", "notificationCloseBtn", "installCloseBtn", "lookupScope", "lookupScopeField", "lookupScopeLabel", "lookupDate", "lookupDateField", "lookupMonth", "lookupMonthField", "lookupSchoolYear", "lookupSchoolYearField", "lookupDepartment", "lookupDepartmentField", "lookupPeriodSummary",
   "lookupTable", "refreshLookupBtn", "lookupDescription", "lookupDateLabel", "lookupMonthLabel", "lookupSchoolYearLabel", "lookupDepartmentLabel", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
-  "enableNotificationsBtn", "maskContactDefault", "allowAllStudentsLookup", "csvFileInput", "deleteAllStudentsBtn", "adminEmailInput", "addAdminBtn", "adminList", "accountEmailInput", "employmentStartDateInput", "employmentEndDateInput", "saveEmploymentPeriodBtn", "employmentPeriodList", "withdrawAccountEmailInput", "withdrawAccountBtn", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "clearCoachAssignmentsBtn", "externalEmailInput", "externalCourseInput", "externalClassSelect", "addExternalBtn", "externalCsvFileInput", "importExternalsBtn", "externalList", "clearExternalAssignmentsBtn", "externalCourseNameInput", "addExternalCourseBtn", "externalCourseList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "unregisteredDepartmentNotice", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherCsvFileInput", "importTeachersBtn", "clearTeacherAssignmentsBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "usageCheckDay", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn", "usageReminderBanner", "usageReminderLink", "firebaseUsageLink", "dismissUsageReminderBtn", "cleanupHealthDot", "cleanupHealthText", "deploymentHealthDot", "deploymentHealthText", "reminderHealthDot", "reminderHealthText",
+  "enableNotificationsBtn", "maskContactDefault", "allowAllStudentsLookup", "csvFileInput", "deleteAllStudentsBtn", "adminEmailInput", "addAdminBtn", "adminList", "accountEmailInput", "employmentStartDateInput", "employmentEndDateInput", "saveEmploymentPeriodBtn", "employmentPeriodList", "withdrawAccountEmailInput", "withdrawAccountBtn", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "clearCoachAssignmentsBtn", "externalEmailInput", "externalCourseInput", "addExternalBtn", "externalCsvFileInput", "importExternalsBtn", "externalList", "clearExternalAssignmentsBtn", "externalCourseNameInput", "addExternalCourseBtn", "externalCourseList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "unregisteredDepartmentNotice", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherCsvFileInput", "importTeachersBtn", "clearTeacherAssignmentsBtn", "teacherList", "autoCleanupEnabled", "retentionMonths", "usageCheckDay", "saveRetentionSettingsBtn", "cleanupStatus", "refreshCleanupStatusBtn", "usageReminderBanner", "usageReminderLink", "firebaseUsageLink", "dismissUsageReminderBtn", "cleanupHealthDot", "cleanupHealthText", "deploymentHealthDot", "deploymentHealthText", "reminderHealthDot", "reminderHealthText",
   "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn", "privacyConsentDialog", "privacyConsentCheckbox", "privacyAcceptBtn", "privacyDeclineBtn",
   "statusStrip", "presentCountItem", "lateCountItem", "earlyCountItem", "absentCountItem", "unsetCountItem", "presentCount", "lateCount", "earlyCount", "absentCount", "unsetCount", "presentCountLabel", "lateCountLabel", "earlyCountLabel", "absentCountLabel", "unsetCountLabel"
 ].map((id) => [id, document.getElementById(id)]));
@@ -505,13 +507,13 @@ async function handleAuthChange(user) {
     }
     if (!access) {
       await signOut(auth);
-      throw new Error("등록된 학교 구성원 또는 방과후강사 계정이 아닙니다.");
+      throw new Error("관리자가 등록한 시스템 이용 계정이 아닙니다.");
     }
     session = {
       email: user.email.toLowerCase(), name: user.displayName || user.email,
       picture: user.photoURL || "", role: access.role, availableRoles: access.availableRoles,
       department: access.role === "coach" ? access.coachDepartment : "", coachDepartment: access.coachDepartment || "",
-      externalClasses: access.externalClasses || [], externalCourse: access.externalCourse || "", externalClass: localStorage.getItem(`${ACCOUNT_MODE_KEY}:externalClass:${user.email.toLowerCase()}`) || access.externalClasses?.[0] || "1-1",
+      externalClasses: access.externalClasses || [], externalCourse: access.externalCourse || "", externalClass: localStorage.getItem(`${ACCOUNT_MODE_KEY}:externalClass:${user.email.toLowerCase()}`) || "1-1",
       grade: access.grade || "", classNo: access.classNo || "",
       employmentStartDate: access.employmentStartDate || "", employmentEndDate: access.employmentEndDate || ""
     };
@@ -719,7 +721,9 @@ function applySession() {
     : session.role === "external"
       ? `${roleLabel[session.role]} · ${selectedExternalClassLabel()}`
     : hasHomeroom()
-      ? `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반 담임`
+      ? session.role === "teacher"
+        ? `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반`
+        : `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반 담임`
       : roleLabel[session.role];
   els.userPicture.src = session.picture || "logo.svg";
   els.accountModeControl.classList.toggle("is-hidden", session.availableRoles.length < 2);
@@ -932,8 +936,13 @@ async function refreshSystemHealth() {
 
     const healthAt = state.systemHealth?.reminderLastRunAt?.toDate ? state.systemHealth.reminderLastRunAt.toDate() : new Date(state.systemHealth?.reminderLastRunAt || 0);
     const healthFresh = Date.now() - healthAt.getTime() < 4 * 60 * 60 * 1000;
-    const reminderOk = state.systemHealth?.reminderStatus === "healthy" && healthFresh;
-    setHealthState("reminder", reminderOk, `${reminderOk ? "정상" : "오류 또는 실행 지연"} · ${readableRunTime(state.systemHealth?.reminderLastRunAt)}`);
+    const vapidConfigured = Boolean(configuredVapidKey());
+    const reminderWorkflowOk = state.systemHealth?.reminderStatus === "healthy" && healthFresh;
+    const reminderOk = vapidConfigured && reminderWorkflowOk;
+    const reminderMessage = !vapidConfigured
+      ? "설정 필요 · 웹 푸시 공개 키 없음"
+      : `${reminderWorkflowOk ? "정상" : "오류 또는 실행 지연"} · ${readableRunTime(state.systemHealth?.reminderLastRunAt)}`;
+    setHealthState("reminder", reminderOk, reminderMessage);
   } catch (error) {
     ["cleanup", "reminder"].forEach((name) => setHealthState(name, false, `확인 실패 · ${readableError(error)}`));
   }
@@ -974,7 +983,26 @@ function switchView(viewId) {
   document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("is-active", tab.dataset.view === viewId));
   document.querySelectorAll(".view").forEach((view) => view.classList.toggle("is-visible", view.id === viewId));
   if (viewId === "lookupView" && isAdmin() && state.settings.contactVisible && !contactsLoaded) loadContacts().then(renderLookup).catch(() => {});
-  if (viewId === "settingsView" && isAdmin() && !accessCatalogLoaded) loadCoachList().then(renderAll).catch((error) => alert(`계정 목록 조회 실패: ${readableError(error)}`));
+  if (viewId === "settingsView" && isAdmin() && !accessCatalogLoaded) {
+    setAccessCatalogControlsDisabled(true);
+    ensureAccessCatalog().then(() => {
+      renderAll();
+      setAccessCatalogControlsDisabled(false);
+    }).catch((error) => alert(`계정 목록 조회 실패: ${readableError(error)}\n잠시 후 관리자 설정을 다시 열어 주세요.`));
+  }
+}
+
+function ensureAccessCatalog() {
+  if (accessCatalogLoaded) return Promise.resolve();
+  if (!accessCatalogPromise) {
+    accessCatalogPromise = loadCoachList().finally(() => { accessCatalogPromise = null; });
+  }
+  return accessCatalogPromise;
+}
+
+function setAccessCatalogControlsDisabled(disabled) {
+  document.querySelectorAll("#settingsView [data-access-catalog] input, #settingsView [data-access-catalog] select, #settingsView [data-access-catalog] textarea, #settingsView [data-access-catalog] button")
+    .forEach((control) => { control.disabled = disabled; });
 }
 
 function canAccessView(viewId) {
@@ -1006,7 +1034,9 @@ function syncCurrentHomeroom(email, grade = "", classNo = "") {
   session.classNo = classNo ? String(classNo) : "";
   attendanceClassInitialized = false;
   els.userRole.textContent = hasHomeroom()
-    ? `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반 담임`
+    ? session.role === "teacher"
+      ? `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반`
+      : `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반 담임`
     : roleLabel[session.role];
   refreshDepartments();
   renderStudents();
@@ -1019,8 +1049,10 @@ function resetSessionCache() {
   state.contacts = {};
   contactsLoaded = false;
   accessCatalogLoaded = false;
+  accessCatalogPromise = null;
   attendanceClassInitialized = false;
   pushTokenActive = false;
+  pushRegistrationStatus = "idle";
   lookupRange = { key: "", records: [], start: "", end: "" };
 }
 
@@ -1191,8 +1223,12 @@ function refreshDepartments() {
   const departments = [...new Set([...catalogDepartments, ...studentOnlyDepartments])]
     .filter((department) => !["방과후 미수강", "미수강", "없음", "-"].includes(department)).sort((a, b) => a.localeCompare(b, "ko"));
   const currentDepartment = els.lookupDepartment.value;
-  fillSelect(els.lookupDepartment, ["전체", ...departments], session.role === "coach" ? session.department : departments.includes(currentDepartment) ? currentDepartment : "전체");
-  if (session.role !== "coach" && els.lookupDepartment.options[0]) els.lookupDepartment.options[0].textContent = "부서 구분 없이";
+  if (session.role === "coach") {
+    fillSelect(els.lookupDepartment, [session.department], session.department);
+  } else {
+    fillSelect(els.lookupDepartment, ["전체", ...departments], departments.includes(currentDepartment) ? currentDepartment : "전체");
+    if (els.lookupDepartment.options[0]) els.lookupDepartment.options[0].textContent = "부서 구분 없이";
+  }
   refreshLookupScopes();
   fillSelect(els.coachDepartmentInput, catalogDepartments, catalogDepartments[0] || "");
   renderUnregisteredDepartmentNotice(studentOnlyDepartments);
@@ -1207,7 +1243,6 @@ function refreshDepartments() {
   attendanceClassInitialized = true;
   const allClasses = allClassKeys();
   fillSelect(els.teacherClassSelect, allClasses, els.teacherClassSelect.value || "1-1");
-  fillSelect(els.externalClassSelect, allClasses, els.externalClassSelect.value || "1-1");
   fillSelect(els.externalCourseInput, state.settings.externalCourses, els.externalCourseInput.value || state.settings.externalCourses[0] || "");
   els.studentClassInput.max = String(state.settings.maxClassesPerGrade);
 }
@@ -1224,7 +1259,7 @@ function renderUnregisteredDepartmentNotice(departments) {
   const uniqueDepartments = [...new Set(departments)];
   els.unregisteredDepartmentNotice.classList.toggle("is-hidden", uniqueDepartments.length === 0);
   els.unregisteredDepartmentNotice.textContent = uniqueDepartments.length
-    ? `학생 명단에는 있지만 방과후 부서 목록에 없는 항목이 있습니다: ${uniqueDepartments.slice(0, 12).join(", ")}${uniqueDepartments.length > 12 ? " 외" : ""}. 강사 등록 선택지에는 표시하지 않습니다. 필요한 항목만 요일별 부서 목록에 추가해 주세요.`
+    ? `학생 명단에는 있지만 방과후 부서 목록에 없는 항목이 있습니다: ${uniqueDepartments.slice(0, 12).join(", ")}${uniqueDepartments.length > 12 ? " 외" : ""}. 방과후강사 등록 선택지에는 표시하지 않습니다. 필요한 항목만 요일별 부서 목록에 추가해 주세요.`
     : "";
 }
 
@@ -1273,7 +1308,7 @@ function updateSaveState(students = getScopedStudents(), enabled = isAttendanceD
 }
 
 function markStudentsPresent(overwrite) {
-  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
+  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 출결 입력일이 아닙니다.");
   const students = getScopedStudents();
   const hasExceptions = students.some((student) => ["late", "absent", "early"].includes(getTodayRecord(student.id).status));
   if (overwrite && hasExceptions && !confirm("기존 지각·결석·조퇴 기록도 모두 출석으로 바꿀까요?")) return;
@@ -1293,7 +1328,7 @@ function renderStudents() {
   if (!canEdit()) return;
   const enabled = isAttendanceDay();
   const dayNames = state.settings.attendanceDays.map((day) => ["", "월", "화", "수", "목", "금"][day]).join("·");
-  els.attendanceDayNotice.textContent = enabled ? `오늘은 출결 입력일입니다. 운영 요일: ${dayNames}` : `오늘은 출결 입력일이 아닙니다. 운영 요일: ${dayNames}`;
+  els.attendanceDayNotice.textContent = enabled ? `오늘은 출결 입력일입니다. 입력 요일: ${dayNames}` : `오늘은 출결 입력일이 아닙니다. 입력 요일: ${dayNames}`;
   els.attendanceDayNotice.classList.toggle("is-disabled", !enabled);
   const scopedStudents = getScopedStudents();
   const students = scopedStudents.filter((student) => {
@@ -1501,7 +1536,7 @@ async function requestUnsetTeacherReminders() {
 }
 
 function openReview() {
-  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
+  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 출결 입력일이 아닙니다.");
   const students = getScopedStudents();
   if (!students.length) return alert(hasHomeroom() ? "현재 학급에 등록된 학생이 없습니다." : "담당 학급을 먼저 배정해 주세요.");
   els.reviewList.innerHTML = students.map((student) => {
@@ -1512,7 +1547,7 @@ function openReview() {
 }
 
 async function confirmSave() {
-  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
+  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 출결 입력일이 아닙니다.");
   els.confirmSaveBtn.disabled = true;
   try {
     const pending = getScopedStudents()
@@ -1541,7 +1576,7 @@ async function confirmSave() {
 }
 
 async function clearToday() {
-  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
+  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 출결 입력일이 아닙니다.");
   if (!confirm("오늘 출결 기록을 초기화할까요?")) return;
   if (session.role === "teacher" && !hasHomeroom()) return alert("담당 학급을 먼저 배정해 주세요.");
   const attendanceRef = collection(db, "attendance");
@@ -1729,7 +1764,7 @@ async function updateAttendanceDays() {
   const selected = [...document.querySelectorAll("[data-attendance-day]:checked")].map((input) => Number(input.dataset.attendanceDay)).sort();
   if (!selected.length) {
     document.querySelectorAll("[data-attendance-day]").forEach((input) => { input.checked = state.settings.attendanceDays.includes(Number(input.dataset.attendanceDay)); });
-    return alert("방과후 운영 요일을 한 개 이상 선택해 주세요.");
+    return alert("출결 입력 요일을 한 개 이상 선택해 주세요.");
   }
   state.settings.attendanceDays = selected;
   await setDoc(doc(db, "settings", "public"), { attendanceDays: selected, updatedAt: serverTimestamp() }, { merge: true });
@@ -1792,10 +1827,12 @@ function renderAdminList() {
       await setDoc(doc(db, "access", email), externalAccessData(email));
     } else {
       await deleteDoc(doc(db, "access", email));
+      delete state.accountPeriods[email];
     }
     delete state.admins[email];
     renderAdminList();
     renderTeacherList();
+    renderEmploymentPeriodList();
   }));
 }
 
@@ -1805,16 +1842,15 @@ async function saveEmploymentPeriod() {
   const start = normalizeDateInput(els.employmentStartDateInput.value);
   const end = normalizeDateInput(els.employmentEndDateInput.value);
   if (!email || !email.includes("@")) return alert("대상 계정 이메일을 확인해 주세요.");
-  if ((start && !end) || (!start && end)) return alert("근무 시작일과 근무 만료일을 모두 입력해 주세요. 기간을 지우려면 두 날짜를 모두 비워 저장하세요.");
+  if (!start || !end) return alert("근무 시작일과 근무 만료일을 모두 입력해 주세요.");
   if (start && end && start > end) return alert("근무 시작일은 근무 만료일보다 늦을 수 없습니다.");
   const accessSnapshot = await getDoc(doc(db, "access", email));
   if (!accessSnapshot.exists()) return alert("등록된 계정이 없습니다. 먼저 계정이나 권한을 등록해 주세요.");
   await setDoc(doc(db, "access", email), {
-    employmentStartDate: start || deleteField(), employmentEndDate: end || deleteField(),
+    employmentStartDate: start, employmentEndDate: end,
     updatedAt: serverTimestamp(), updatedBy: session.email
   }, { merge: true });
-  if (start && end) state.accountPeriods[email] = { start, end };
-  else delete state.accountPeriods[email];
+  state.accountPeriods[email] = { start, end };
   els.accountEmailInput.value = "";
   els.employmentStartDateInput.value = "";
   els.employmentEndDateInput.value = "";
@@ -1824,12 +1860,17 @@ async function saveEmploymentPeriod() {
 
 function renderEmploymentPeriodList() {
   if (!isAdmin() || !els.employmentPeriodList) return;
-  const entries = Object.entries(state.accountPeriods)
-    .filter(([, period]) => period.start || period.end)
-    .sort(([a], [b]) => a.localeCompare(b));
+  const accountEmails = [...new Set([
+    ...Object.keys(state.admins), ...Object.keys(state.teachers), ...Object.keys(state.coaches), ...Object.keys(state.externals)
+  ])].sort((a, b) => a.localeCompare(b));
+  const entries = accountEmails.map((email) => [email, state.accountPeriods[email] || {}]);
   els.employmentPeriodList.innerHTML = entries.length
-    ? entries.map(([email, period]) => `<div class="account-period-item"><strong>${escapeHtml(email)}</strong><span>${escapeHtml(period.start || "시작일 미설정")} ~ ${escapeHtml(period.end || "만료일 미설정")}</span></div>`).join("")
-    : `<p class="note">아직 근무기간을 설정한 계정이 없습니다.</p>`;
+    ? entries.map(([email, period]) => {
+      const configured = Boolean(period.start && period.end);
+      const periodText = configured ? `${period.start} ~ ${period.end}` : "근무기간 미설정";
+      return `<div class="account-period-item ${configured ? "" : "is-missing"}"><strong>${escapeHtml(email)}</strong><span>${escapeHtml(periodText)}</span></div>`;
+    }).join("")
+    : `<p class="note">등록된 계정이 없습니다.</p>`;
 }
 
 async function withdrawAccount() {
@@ -1844,7 +1885,13 @@ async function withdrawAccount() {
   if (prompt("실수를 막기 위해 '회원탈퇴'를 입력해 주세요.") !== "회원탈퇴") return alert("탈퇴 처리를 취소했습니다.");
   els.withdrawAccountBtn.disabled = true;
   try {
-    const tokenSnapshot = await getDocs(query(collection(db, "notificationTokens"), where("email", "==", email)));
+    const [tokenSnapshot, targetRequests, requestedRequests] = await Promise.all([
+      getDocs(query(collection(db, "notificationTokens"), where("email", "==", email))),
+      getDocs(query(collection(db, "notificationRequests"), where("targetEmail", "==", email))),
+      getDocs(query(collection(db, "notificationRequests"), where("requestedBy", "==", email)))
+    ]);
+    const relatedRequests = new Map([...targetRequests.docs, ...requestedRequests.docs].map((item) => [item.ref.path, item.ref]));
+    await deleteDocumentRefs([...relatedRequests.values()]);
     await deleteDocumentRefs(tokenSnapshot.docs.map((item) => item.ref));
     await deleteDoc(doc(db, "privacyAcknowledgements", email));
     await deleteDoc(doc(db, "access", email));
@@ -1913,7 +1960,7 @@ async function importCoachesCsv() {
     renderCoachList();
     alert(`${uniqueAssignments.length}명의 방과후강사를 등록했습니다.`);
   } catch (error) {
-    alert(`강사 CSV 등록 실패: ${readableError(error)}`);
+    alert(`방과후강사 CSV 등록 실패: ${readableError(error)}`);
   }
 }
 
@@ -1939,7 +1986,11 @@ async function loadCoachList() {
   snapshot.forEach((item) => {
     const data = item.data();
     state.accessRoles[item.id] = data.role || "";
-    if (data.employmentStartDate || data.employmentEndDate) state.accountPeriods[item.id] = { start: normalizeDateInput(data.employmentStartDate), end: normalizeDateInput(data.employmentEndDate) };
+    const start = normalizeDateInput(data.employmentStartDate);
+    const end = normalizeDateInput(data.employmentEndDate);
+    if (start || end) {
+      state.accountPeriods[item.id] = { start, end };
+    }
     if (item.data().role === "admin") {
       const assignment = item.data().grade && item.data().classNo
         ? { grade: String(item.data().grade), classNo: String(item.data().classNo) }
@@ -1985,19 +2036,21 @@ function renderCoachList() {
   els.coachList.innerHTML = entries.length ? entries.map(([email, department]) => {
     const dualRole = state.admins[email] || state.teachers[email] || state.externals[email] ? " · 다른 권한 유지" : "";
     return `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(department)}${dualRole}</span></div><button type="button" data-remove-coach="${escapeAttr(email)}" aria-label="${escapeAttr(email)} 삭제">삭제</button></div>`;
-  }).join("") : `<p class="note">등록된 강사가 없습니다.</p>`;
+  }).join("") : `<p class="note">등록된 방과후강사가 없습니다.</p>`;
   els.coachList.querySelectorAll("[data-remove-coach]").forEach((button) => button.addEventListener("click", async () => {
     const email = button.dataset.removeCoach;
-    if (!confirm(`${email}의 방과후강사 배정만 삭제할까요?\n담임·관리자 권한은 유지됩니다.`)) return;
+    if (!confirm(`${email}의 방과후강사 배정만 삭제할까요?\n담임교사·관리자·외부수업강사 권한은 유지됩니다.`)) return;
     if (state.admins[email] || state.teachers[email]) {
       await setDoc(doc(db, "access", email), { coachDepartment: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email }, { merge: true });
     } else if (state.externals[email]) {
       await setDoc(doc(db, "access", email), externalAccessData(email));
     } else {
       await deleteDoc(doc(db, "access", email));
+      delete state.accountPeriods[email];
     }
     delete state.coaches[email];
     renderCoachList();
+    renderEmploymentPeriodList();
   }));
 }
 
@@ -2005,8 +2058,8 @@ async function clearCoachAssignments() {
   if (!isAdmin()) return;
   const emails = Object.keys(state.coaches);
   if (!emails.length) return alert("해제할 방과후강사 배정이 없습니다.");
-  if (!confirm(`방과후강사 ${emails.length}명의 부서 배정을 모두 해제할까요?\n담임교사와 관리자 권한은 유지됩니다.`)) return;
-  if (prompt("실수를 막기 위해 '강사전체해제'를 입력해 주세요.") !== "강사전체해제") return alert("강사 배정 전체 해제를 취소했습니다.");
+  if (!confirm(`방과후강사 ${emails.length}명의 부서 배정을 모두 해제할까요?\n담임교사·관리자·외부수업강사 권한은 유지됩니다.`)) return;
+  if (prompt("실수를 막기 위해 '강사전체해제'를 입력해 주세요.") !== "강사전체해제") return alert("방과후강사 배정 전체 해제를 취소했습니다.");
   els.clearCoachAssignmentsBtn.disabled = true;
   try {
     for (let start = 0; start < emails.length; start += 400) {
@@ -2023,10 +2076,13 @@ async function clearCoachAssignments() {
       await batch.commit();
     }
     state.coaches = {};
+    emails.filter((email) => !state.admins[email] && !state.teachers[email] && !state.externals[email])
+      .forEach((email) => { delete state.accountPeriods[email]; });
     renderCoachList();
+    renderEmploymentPeriodList();
     alert(`방과후강사 배정 ${emails.length}건을 모두 해제했습니다.`);
   } catch (error) {
-    alert(`강사 배정 전체 해제 실패: ${readableError(error)}`);
+    alert(`방과후강사 배정 전체 해제 실패: ${readableError(error)}`);
     await loadCoachList().catch(() => {});
     renderCoachList();
   } finally {
@@ -2041,7 +2097,7 @@ async function addExternalInstructor() {
   if (!email || !email.includes("@")) return alert("외부수업강사 이메일을 확인해 주세요.");
   const hasPrimaryRole = Boolean(state.admins[email] || state.teachers[email] || state.coaches[email]);
   const data = hasPrimaryRole
-    ? withAccountMetadata(email, { externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email })
+    ? withAccountMetadata(email, { externalCourse: course, externalClasses: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email })
     : withAccountMetadata(email, { role: "external", externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email });
   await setDoc(doc(db, "access", email), data, { merge: hasPrimaryRole });
   els.externalEmailInput.value = "";
@@ -2077,7 +2133,7 @@ async function importExternalsCsv() {
       assignments.slice(start, start + 400).forEach(({ email, course }) => {
         const hasPrimaryRole = Boolean(state.admins[email] || state.teachers[email] || state.coaches[email]);
         const data = hasPrimaryRole
-          ? withAccountMetadata(email, { externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email })
+          ? withAccountMetadata(email, { externalCourse: course, externalClasses: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email })
           : withAccountMetadata(email, { role: "external", externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email });
         batch.set(doc(db, "access", email), data, { merge: hasPrimaryRole });
       });
@@ -2101,16 +2157,18 @@ function renderExternalList() {
   }).join("") : `<p class="note">등록된 외부수업강사가 없습니다.</p>`;
   els.externalList.querySelectorAll("[data-remove-external]").forEach((button) => button.addEventListener("click", async () => {
     const email = button.dataset.removeExternal;
-    if (!confirm(`${email}의 외부수업강사 권한만 삭제할까요?\n담임·관리자·방과후강사 권한은 유지됩니다.`)) return;
+    if (!confirm(`${email}의 외부수업강사 권한만 삭제할까요?\n담임교사·관리자·방과후강사 권한은 유지됩니다.`)) return;
     if (state.admins[email] || state.teachers[email]) {
       await setDoc(doc(db, "access", email), { externalClasses: deleteField(), externalCourse: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email }, { merge: true });
     } else if (state.coaches[email]) {
       await setDoc(doc(db, "access", email), withAccountMetadata(email, { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email }));
     } else {
       await deleteDoc(doc(db, "access", email));
+      delete state.accountPeriods[email];
     }
     delete state.externals[email];
     renderExternalList();
+    renderEmploymentPeriodList();
   }));
 }
 
@@ -2118,8 +2176,8 @@ async function clearExternalAssignments() {
   if (!isAdmin()) return;
   const emails = Object.keys(state.externals);
   if (!emails.length) return alert("해제할 외부수업강사 계정이 없습니다.");
-  if (!confirm(`외부수업강사 ${emails.length}명의 외부수업강사 권한을 모두 해제할까요?\n담임·관리자·방과후강사 권한은 유지됩니다.`)) return;
-  if (prompt("실수를 막기 위해 '외부전체해제'를 입력해 주세요.") !== "외부전체해제") return alert("외부수업강사 전체 해제를 취소했습니다.");
+  if (!confirm(`외부수업강사 ${emails.length}명의 권한을 모두 해제할까요?\n담임교사·관리자·방과후강사 권한은 유지됩니다.`)) return;
+  if (prompt("실수를 막기 위해 '외부전체해제'를 입력해 주세요.") !== "외부전체해제") return alert("외부수업강사 권한 전체 해제를 취소했습니다.");
   els.clearExternalAssignmentsBtn.disabled = true;
   try {
     for (let start = 0; start < emails.length; start += 400) {
@@ -2136,10 +2194,13 @@ async function clearExternalAssignments() {
       await batch.commit();
     }
     state.externals = {};
+    emails.filter((email) => !state.admins[email] && !state.teachers[email] && !state.coaches[email])
+      .forEach((email) => { delete state.accountPeriods[email]; });
     renderExternalList();
+    renderEmploymentPeriodList();
     alert(`외부수업강사 권한 ${emails.length}건을 모두 해제했습니다.`);
   } catch (error) {
-    alert(`외부수업강사 전체 해제 실패: ${readableError(error)}`);
+    alert(`외부수업강사 권한 전체 해제 실패: ${readableError(error)}`);
     await loadCoachList().catch(() => {});
     renderExternalList();
   } finally {
@@ -2229,6 +2290,7 @@ async function addTeacherAssignment() {
   els.teacherEmailInput.value = "";
   renderAdminList();
   renderTeacherList();
+  renderEmploymentPeriodList();
 }
 
 async function bulkAssignTeachers() {
@@ -2252,6 +2314,7 @@ async function bulkAssignTeachers() {
   els.teacherBulkInput.value = "";
   renderAdminList();
   renderTeacherList();
+  renderEmploymentPeriodList();
   alert(`${assignments.length}명의 담임 배정을 저장했습니다.`);
 }
 
@@ -2292,6 +2355,7 @@ async function importTeachersCsv() {
     els.teacherCsvFileInput.value = "";
     renderAdminList();
     renderTeacherList();
+    renderEmploymentPeriodList();
     alert(`${assignments.length}명의 담임 배정을 CSV로 저장했습니다.`);
   } catch (error) {
     alert(`담임 CSV 배정 실패: ${readableError(error)}`);
@@ -2302,7 +2366,7 @@ async function clearTeacherAssignments() {
   if (!isAdmin()) return;
   const assignments = Object.keys(state.teachers);
   if (!assignments.length) return alert("해제할 담임 배정이 없습니다.");
-  if (!confirm(`담임교사 ${assignments.length}명의 학급 배정을 모두 해제할까요?\n관리자 권한과 방과후강사 계정은 유지됩니다.`)) return;
+  if (!confirm(`담임교사 ${assignments.length}명의 학급 배정을 모두 해제할까요?\n관리자·방과후강사·외부수업강사 권한은 유지됩니다.`)) return;
   if (prompt("실수를 막기 위해 '담임전체해제'를 입력해 주세요.") !== "담임전체해제") return alert("담임 배정 전체 해제를 취소했습니다.");
   els.clearTeacherAssignmentsBtn.disabled = true;
   try {
@@ -2323,9 +2387,12 @@ async function clearTeacherAssignments() {
     });
     await batch.commit();
     state.teachers = {};
+    assignments.filter((email) => !state.admins[email] && !state.coaches[email] && !state.externals[email])
+      .forEach((email) => { delete state.accountPeriods[email]; });
     syncCurrentHomeroom(session.email);
     renderAdminList();
     renderTeacherList();
+    renderEmploymentPeriodList();
     alert(`담임 배정 ${assignments.length}건을 모두 해제했습니다.`);
   } catch (error) {
     alert(`담임 배정 전체 해제 실패: ${readableError(error)}`);
@@ -2363,11 +2430,13 @@ function renderTeacherList() {
       await setDoc(doc(db, "access", email), externalAccessData(email));
     } else {
       await deleteDoc(doc(db, "access", email));
+      delete state.accountPeriods[email];
     }
     delete state.teachers[email];
     syncCurrentHomeroom(email);
     renderAdminList();
     renderTeacherList();
+    renderEmploymentPeriodList();
   }));
 }
 
@@ -2668,37 +2737,58 @@ async function setupMessaging(app) {
   });
 }
 
-async function registerPushToken() {
-  if (!messaging || !notificationRegistration || !session || !canReceiveNotifications()) return false;
+function configuredVapidKey() {
+  return window.NSWORLD_CONFIG?.webPushVapidKey?.trim() || "";
+}
+
+function messagingTokenOptions() {
   const options = { serviceWorkerRegistration: notificationRegistration };
-  const vapidKey = window.NSWORLD_CONFIG?.webPushVapidKey?.trim();
+  const vapidKey = configuredVapidKey();
   if (vapidKey) options.vapidKey = vapidKey;
-  const token = await getToken(messaging, options);
-  if (!token) return false;
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
-  const tokenId = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  const audiences = notificationAudiences();
-  const language = session.availableRoles.includes("coach") ? coachLanguage : "ko";
-  const role = notificationRole();
-  const syncSignature = JSON.stringify({ tokenId, uid: auth.currentUser.uid, email: session.email, role, audiences, language });
-  const previousSync = readPushTokenSync();
-  if (previousSync?.signature === syncSignature && Date.now() - Number(previousSync.syncedAt || 0) < PUSH_TOKEN_SYNC_INTERVAL) {
-    pushTokenActive = true;
-    return true;
+  return options;
+}
+
+async function registerPushToken() {
+  pushRegistrationStatus = "pending";
+  updateNotificationPermissionUi();
+  if (!messaging || !notificationRegistration || !session || !canReceiveNotifications()) {
+    pushRegistrationStatus = "error";
+    updateNotificationPermissionUi();
+    return false;
   }
-  await setDoc(doc(db, "notificationTokens", tokenId), {
-    token,
-    uid: auth.currentUser.uid,
-    email: session.email,
-    role,
-    audiences,
-    language,
-    active: true,
-    updatedAt: serverTimestamp()
-  });
-  localStorage.setItem(PUSH_TOKEN_SYNC_KEY, JSON.stringify({ signature: syncSignature, syncedAt: Date.now() }));
-  pushTokenActive = true;
-  return true;
+  try {
+    const token = await getToken(messaging, messagingTokenOptions());
+    if (!token) throw new Error("푸시 알림 토큰을 발급받지 못했습니다.");
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+    const tokenId = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    const audiences = notificationAudiences();
+    const language = session.availableRoles.includes("coach") ? coachLanguage : "ko";
+    const role = notificationRole();
+    const syncSignature = JSON.stringify({ tokenId, uid: auth.currentUser.uid, email: session.email, role, audiences, language });
+    const previousSync = readPushTokenSync();
+    if (previousSync?.signature !== syncSignature || Date.now() - Number(previousSync.syncedAt || 0) >= PUSH_TOKEN_SYNC_INTERVAL) {
+      await setDoc(doc(db, "notificationTokens", tokenId), {
+        token,
+        uid: auth.currentUser.uid,
+        email: session.email,
+        role,
+        audiences,
+        language,
+        active: true,
+        updatedAt: serverTimestamp()
+      });
+      localStorage.setItem(PUSH_TOKEN_SYNC_KEY, JSON.stringify({ signature: syncSignature, syncedAt: Date.now() }));
+    }
+    pushTokenActive = true;
+    pushRegistrationStatus = "active";
+    updateNotificationPermissionUi();
+    return true;
+  } catch (error) {
+    pushTokenActive = false;
+    pushRegistrationStatus = "error";
+    updateNotificationPermissionUi();
+    throw error;
+  }
 }
 
 function readPushTokenSync() {
@@ -2717,12 +2807,13 @@ async function revokePushToken(showMessage = false) {
   }
   try {
     if (!tokenId && messaging && notificationRegistration && "Notification" in window && Notification.permission === "granted") {
-      const token = await getToken(messaging, { serviceWorkerRegistration: notificationRegistration });
+      const token = await getToken(messaging, messagingTokenOptions());
       if (token) tokenId = await tokenDocumentId(token);
     }
     if (tokenId && db) await deleteDoc(doc(db, "notificationTokens", tokenId));
     localStorage.removeItem(PUSH_TOKEN_SYNC_KEY);
     pushTokenActive = false;
+    pushRegistrationStatus = "idle";
     updateNotificationPermissionUi();
     if (showMessage) alert("이 기기의 출결 알림 등록을 해제했습니다. 브라우저 사이트 설정에서 알림 권한을 완전히 차단할 수도 있습니다.");
     return true;
@@ -2759,7 +2850,7 @@ async function enableNotifications(showConfirmation = false) {
       if (showConfirmation) alert(`푸시 알림 등록 실패: ${readableError(error)}`);
     }
   } else if (showConfirmation) {
-    alert("알림 권한이 허용되지 않았습니다. Chrome 사이트 설정에서 알림을 허용해 주세요.");
+    alert("알림 권한이 허용되지 않았습니다. 브라우저의 사이트 설정에서 알림을 허용해 주세요.");
   }
   updateNotificationPermissionUi();
   return permission;
@@ -2780,17 +2871,20 @@ function updateNotificationPermissionUi() {
   els.notificationButtonLabel.textContent = session?.role === "coach" ? coachText("notificationTitle") : "받은 알림";
   els.notificationCenterBtn.disabled = false;
   els.notificationCenterBtn.title = "받은 알림을 확인합니다.";
+  const connected = granted && pushRegistrationStatus === "active";
+  const connecting = granted && pushRegistrationStatus === "pending";
+  const retry = granted && !connected && !connecting;
   const enableLabel = session?.role === "coach"
-    ? localPreview ? coachText("notificationsUnsupported") : granted ? coachText("notificationsOn") : denied ? coachText("notificationsPermission") : coachText("notificationsEnable")
-    : localPreview ? "체험판 알림 미지원" : !eligible ? "알림 대상 아님" : granted ? "알림 켜짐" : denied ? "알림 허용 필요" : "알림 켜기";
+    ? localPreview ? coachText("notificationsUnsupported") : denied ? coachText("notificationsPermission") : connecting ? coachText("notificationsConnecting") : connected ? coachText("notificationsOn") : retry ? coachText("notificationsRetry") : coachText("notificationsEnable")
+    : localPreview ? "체험판 알림 미지원" : !eligible ? "알림 대상 아님" : denied ? "브라우저 알림 허용 필요" : connecting ? "알림 연결 중" : connected ? "알림 켜짐" : retry ? "알림 연결 재시도" : "알림 켜기";
   els.notificationEnableHeaderBtn.textContent = enableLabel;
-  els.notificationEnableHeaderBtn.disabled = localPreview || granted || !eligible;
+  els.notificationEnableHeaderBtn.disabled = localPreview || connecting || connected || !eligible;
   els.notificationEnableHeaderBtn.title = localPreview ? "실제 배포 주소에서 알림을 설정할 수 있습니다." : denied ? "브라우저 사이트 설정에서 알림을 허용해 주세요." : "";
-  els.notificationEnableHeaderBtn.classList.toggle("needs-permission", !localPreview && eligible && !granted);
-  els.enableNotificationsBtn.textContent = localPreview ? "체험판에서는 알림 설정 불가" : granted ? "브라우저 알림 켜짐" : denied ? "Chrome 알림 허용 필요" : "브라우저 알림 켜기";
-  els.enableNotificationsBtn.disabled = localPreview || granted;
-  els.disableNotificationsBtn.textContent = granted ? "이 기기 알림 등록 해제" : "알림 등록 없음";
-  els.disableNotificationsBtn.disabled = localPreview || !granted;
+  els.notificationEnableHeaderBtn.classList.toggle("needs-permission", !localPreview && eligible && !connected);
+  els.enableNotificationsBtn.textContent = localPreview ? "체험판에서는 알림 설정 불가" : denied ? "브라우저 알림 허용 필요" : connecting ? "알림 연결 중" : connected ? "이 기기 알림 켜짐" : retry ? "알림 연결 재시도" : "브라우저 알림 켜기";
+  els.enableNotificationsBtn.disabled = localPreview || connecting || connected || !eligible;
+  els.disableNotificationsBtn.textContent = connected ? "이 기기 알림 등록 해제" : "알림 등록 없음";
+  els.disableNotificationsBtn.disabled = localPreview || !connected;
 }
 
 function showReviewAlarm(audience = "review") {

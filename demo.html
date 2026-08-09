@@ -3,20 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#174a7c" />
     <title>남성초등학교 출결관리 시스템 체험판</title>
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=20260806-1" />
+    <link rel="icon" href="icon-192.png?v=20260809-5" type="image/png" />
+    <link rel="stylesheet" href="styles.css?v=20260809-5" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
       <div class="login-box">
-        <img src="logo.svg?v=20260712-1" alt="" />
+        <img src="logo.svg?v=20260809-5" alt="" />
         <p class="eyebrow">남성초등학교</p>
         <h1 id="login-title">출결관리 시스템</h1>
         <p>확인할 사용자 유형을 선택해 주세요.</p>
         <div class="demo-role-buttons">
           <button type="button" data-demo-role="admin">관리자로 체험</button>
-          <button type="button" data-demo-role="teacher">교사로 체험</button>
+          <button type="button" data-demo-role="teacher">담임교사로 체험</button>
           <button type="button" data-demo-role="coach">방과후강사로 체험</button>
           <button type="button" data-demo-role="external">외부수업강사로 체험</button>
         </div>
@@ -29,7 +31,7 @@
       <aside class="sidebar">
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">
-            <img src="logo.svg?v=20260712-1" alt="" />
+            <img src="logo.svg?v=20260809-5" alt="" />
           </div>
           <div>
             <strong>남성초등학교 출결관리</strong>
@@ -51,7 +53,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a class="tab manual-link" href="manual.html?v=20260712-1" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a class="tab manual-link" href="manual.html?v=20260809-5" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -114,8 +116,8 @@
         <section id="lookupView" class="view" aria-labelledby="lookup-title">
           <div class="section-heading">
             <div>
-              <h2 id="lookup-title">방과후강사 조회</h2>
-              <p>강사는 자기 부서 학생의 방과후 출석·결석만 조회합니다.</p>
+              <h2 id="lookup-title">출결 조회</h2>
+              <p>선택한 역할의 조회 범위에 맞춰 학생 출결을 확인합니다.</p>
             </div>
           </div>
           <div class="toolbar">
@@ -144,38 +146,82 @@
             </section>
 
             <section>
-              <h2>학생 명단 가져오기</h2>
-              <p class="subtle">관리자 기기에 저장된 CSV 파일만 사용할 수 있습니다.</p>
+              <h2>사용자 보유기간</h2>
+              <p class="subtle">운영 앱과 같은 방식으로 계정별 근무 시작일과 근무 만료일을 체험합니다.</p>
+              <div class="account-period-form">
+                <input id="accountEmailInput" type="email" aria-label="보유기간 대상 계정 이메일" placeholder="user@nsworld.net" />
+                <label>근무 시작일<input id="employmentStartDateInput" type="date" /></label>
+                <label>근무 만료일<input id="employmentEndDateInput" type="date" /></label>
+                <button id="saveEmploymentPeriodBtn" class="primary" type="button">보유기간 저장</button>
+              </div>
+              <div id="employmentPeriodList" class="account-period-list"></div>
+              <p class="note">체험판 변경은 이 브라우저에만 저장되며 실제 계정에는 반영되지 않습니다.</p>
+            </section>
+
+            <section>
+              <h2>회원탈퇴 처리</h2>
+              <p class="subtle">체험판에서는 등록된 역할과 보유기간만 지워지는 흐름을 확인할 수 있습니다.</p>
+              <div class="settings-inline-action">
+                <input id="withdrawAccountEmailInput" type="email" aria-label="탈퇴 처리할 계정 이메일" placeholder="user@nsworld.net" />
+                <button id="withdrawAccountBtn" class="danger-button" type="button">회원탈퇴 처리</button>
+              </div>
+              <p class="note">학생·출결 기록은 유지됩니다. 운영 앱에서는 개인정보 안내 확인 기록과 알림 등록 정보도 함께 삭제합니다.</p>
+            </section>
+
+            <section>
+              <h2>학생 명단 전체 관리</h2>
+              <p class="subtle">CSV를 올리면 기존 학생 명단과 연락처를 새 파일 기준으로 전체 교체합니다.</p>
+              <a class="example-download" href="examples/student-roster-example.csv" download>학생 명단 예시 CSV 다운로드</a>
               <label>
                 CSV 파일
                 <input id="csvFileInput" type="file" accept=".csv,text/csv" />
               </label>
               <div class="button-row">
-                <button id="importBtn" class="primary" type="button">CSV 파일 가져오기</button>
+                <button id="importBtn" class="primary" type="button">CSV로 명단 전체 교체</button>
+                <button id="deleteAllStudentsBtn" class="danger-button" type="button">학생 명단·연락처 전체 삭제</button>
               </div>
-              <p class="note">공개 링크는 사용하지 않습니다. 권장 열: 이름, 학년, 반, 번호, 부서, 학부모연락처</p>
+              <p class="note">공개 링크는 사용하지 않습니다. 필수 열: 이름, 학년, 반, 번호, 부서 · 선택 열: id, 학부모연락처</p>
             </section>
 
             <section>
               <h2>방과후강사 계정 등록</h2>
               <p class="subtle">이메일 등록만으로는 접속할 수 없습니다. 실제 앱에서는 같은 이메일의 Google 계정 인증이 필수입니다.</p>
+              <a class="example-download" href="examples/coach-assignments-example.csv" download>방과후강사 계정 예시 CSV 다운로드</a>
               <div class="coach-quick-assign">
                 <input id="coachEmailInput" type="email" aria-label="강사 이메일" placeholder="coach@example.com" />
                 <select id="coachDepartmentInput" aria-label="담당 부서"></select>
-                <button id="addCoachBtn" class="primary" type="button">강사 등록</button>
+                <button id="addCoachBtn" class="primary" type="button">계정 등록</button>
               </div>
               <div class="file-action">
                 <input id="coachCsvFileInput" type="file" accept=".csv,text/csv" aria-label="방과후강사 CSV 파일" />
                 <button id="importCoachesBtn" type="button">CSV 일괄 등록</button>
               </div>
               <div id="coachList" class="coach-list"></div>
+              <button id="clearCoachAssignmentsBtn" class="danger-button" type="button">방과후강사 배정 전체 해제</button>
+            </section>
+
+            <section class="external-instructor-section">
+              <h2>외부수업강사 계정 등록</h2>
+              <p class="subtle">외부수업강사는 로그인 후 조회할 학년·반을 직접 선택합니다. 학년 전체·학생 전체 조회는 제공하지 않습니다.</p>
+              <a class="example-download" href="examples/external-instructor-assignments-example.csv" download>외부수업강사 계정 예시 CSV 다운로드</a>
+              <div class="external-quick-assign">
+                <input id="externalEmailInput" type="email" aria-label="외부수업강사 이메일" placeholder="instructor@example.com" />
+                <select id="externalCourseInput" aria-label="외부수업명"></select>
+                <button id="addExternalBtn" class="primary" type="button">계정 등록</button>
+              </div>
+              <div class="file-action">
+                <input id="externalCsvFileInput" type="file" accept=".csv,text/csv" aria-label="외부수업강사 CSV 파일" />
+                <button id="importExternalsBtn" type="button">CSV 일괄 등록</button>
+              </div>
+              <div id="externalList" class="coach-list"></div>
+              <button id="clearExternalAssignmentsBtn" class="danger-button" type="button">외부수업강사 권한 전체 해제</button>
             </section>
 
             <section>
               <h2>운영 범위</h2>
-              <p class="subtle">선택한 요일에만 담임교사가 출결을 입력하고 교직원·강사 알림이 발송됩니다.</p>
+              <p class="subtle">선택한 요일에만 담임교사가 출결을 입력하고 담임교사·방과후강사 알림이 발송됩니다.</p>
               <fieldset class="weekday-selector">
-                <legend>방과후 운영 요일</legend>
+                <legend>출결 입력 요일</legend>
                 <label><input type="checkbox" data-attendance-day="1" />월</label>
                 <label><input type="checkbox" data-attendance-day="2" />화</label>
                 <label><input type="checkbox" data-attendance-day="3" />수</label>
@@ -210,14 +256,32 @@
             </section>
 
             <section>
+              <h2>외부수업 목록</h2>
+              <p class="subtle">외부수업강사 계정 등록의 수업 선택지입니다.</p>
+              <div class="settings-inline-action">
+                <input id="externalCourseNameInput" type="text" aria-label="외부수업명" placeholder="외부수업명" />
+                <button id="addExternalCourseBtn" type="button">추가</button>
+              </div>
+              <div id="externalCourseList" class="department-list"></div>
+            </section>
+
+            <section>
               <h2>담임교사 학급 배정</h2>
+              <a class="example-download" href="examples/teacher-assignments-example.csv" download>담임 배정 예시 CSV 다운로드</a>
               <div class="teacher-quick-assign">
                 <input id="teacherEmailInput" type="email" aria-label="교사 이메일" placeholder="teacher@nsworld.net" />
                 <select id="teacherClassSelect" aria-label="담당 학급"></select>
                 <button id="addTeacherBtn" class="primary" type="button">배정</button>
               </div>
               <textarea id="teacherBulkInput" rows="4" placeholder="teacher1@nsworld.net, 3-1&#10;teacher2@nsworld.net, 4-2"></textarea>
-              <button id="bulkAssignTeachersBtn" type="button">여러 명 일괄 배정</button>
+              <div class="button-row teacher-assignment-actions">
+                <button id="bulkAssignTeachersBtn" type="button">여러 명 일괄 배정</button>
+                <button id="clearTeacherAssignmentsBtn" class="danger-button" type="button">담임 배정 전체 해제</button>
+              </div>
+              <div class="file-action">
+                <input id="teacherCsvFileInput" type="file" accept=".csv,text/csv" aria-label="담임교사 배정 CSV 파일" />
+                <button id="importTeachersBtn" type="button">CSV 일괄 배정</button>
+              </div>
               <div id="teacherList" class="coach-list"></div>
             </section>
 
@@ -226,21 +290,21 @@
               <div class="setting-row">
                 <div>
                   <strong>아침 출결 입력 알림</strong>
-                  <span>선택한 운영 요일 오전 · 관리자와 담임교사</span>
+                  <span>선택한 출결 입력 요일 오전 · 관리자와 담임교사</span>
                 </div>
                 <input id="morningTime" type="time" value="08:30" step="300" />
               </div>
               <div class="setting-row">
                 <div>
-                  <strong>교직원 재확인 알림</strong>
-                  <span>선택한 운영 요일 · 관리자와 담임교사</span>
+                  <strong>출결 재확인 알림</strong>
+                  <span>선택한 출결 입력 요일 · 관리자와 담임교사</span>
                 </div>
                 <input id="reviewTime" type="time" value="14:05" step="300" />
               </div>
               <div class="setting-row">
                 <div>
                   <strong>방과후강사 확인 알림</strong>
-                  <span>선택한 운영 요일 · 방과후강사</span>
+                  <span>선택한 출결 입력 요일 · 방과후강사</span>
                 </div>
                 <input id="coachReviewTime" type="time" value="14:10" step="300" />
               </div>
@@ -399,6 +463,6 @@
       </form>
     </dialog>
 
-    <script src="demo-app.js?v=20260806-1"></script>
+    <script src="demo-app.js?v=20260809-5"></script>
   </body>
 </html>

@@ -9,21 +9,21 @@
     <meta name="apple-mobile-web-app-title" content="남성초 출결" />
     <title>남성초등학교 출결관리 시스템</title>
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="apple-touch-icon.png?v=20260809-2" />
-    <link rel="icon" href="icon-192.png?v=20260809-2" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260809-2" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png?v=20260809-5" />
+    <link rel="icon" href="icon-192.png?v=20260809-5" type="image/png" />
+    <link rel="stylesheet" href="styles.css?v=20260809-5" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
       <div class="login-box">
-        <img src="logo.svg?v=20260809-2" alt="" />
+        <img src="logo.svg?v=20260809-5" alt="" />
         <p class="eyebrow">남성초등학교</p>
         <h1 id="login-title">출결관리 시스템</h1>
         <p class="login-description">관리자가 등록한 이메일과 동일한 Google 계정으로 로그인해 주세요.</p>
         <p id="loginStatus" class="login-status" role="status" aria-live="polite">로그인 환경을 확인하고 있습니다...</p>
         <button id="googleSignInButton" class="google-signin-button" type="button" disabled>Google 계정으로 로그인</button>
         <button id="installAppBtn" class="install-app-button" type="button">홈 화면에 설치</button>
-        <p class="privacy-login-notice"><a href="privacy.html?v=20260809-2" target="_blank" rel="noopener">개인정보 처리 안내</a>를 확인한 뒤 로그인할 수 있습니다.</p>
+        <p class="privacy-login-notice"><a href="privacy.html?v=20260809-5" target="_blank" rel="noopener">개인정보 처리 안내</a>를 확인한 뒤 로그인할 수 있습니다.</p>
         <div id="googleSetupNotice" class="setup-notice is-hidden">
           Google OAuth 클라이언트 ID 설정이 필요합니다.
         </div>
@@ -35,7 +35,7 @@
       <aside class="sidebar">
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">
-            <img src="logo.svg?v=20260809-2" alt="" />
+            <img src="logo.svg?v=20260809-5" alt="" />
           </div>
           <div>
             <strong>남성초등학교 출결관리</strong>
@@ -70,7 +70,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260809-2" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260809-5" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -180,7 +180,7 @@
 
         <section id="settingsView" class="view" aria-labelledby="settings-title">
           <div class="settings-layout">
-            <section>
+            <section data-access-catalog>
               <h2 id="settings-title">관리자 계정</h2>
               <div class="settings-inline-action">
                 <input id="adminEmailInput" type="email" aria-label="추가 관리자 이메일" placeholder="admin@nsworld.net" />
@@ -189,7 +189,7 @@
               <div id="adminList" class="coach-list"></div>
             </section>
 
-            <section>
+            <section data-access-catalog>
               <h2>사용자 보유기간</h2>
               <p class="subtle">이용자별 개인정보는 남성초등학교 근무 시작일부터 근무 만료일까지 보유하는 기준으로 관리합니다. 실제 날짜는 계정별로 입력해 주세요.</p>
               <div class="account-period-form">
@@ -199,10 +199,10 @@
                 <button id="saveEmploymentPeriodBtn" class="primary" type="button">보유기간 저장</button>
               </div>
               <div id="employmentPeriodList" class="account-period-list"></div>
-              <p class="note">날짜를 비워 저장하면 해당 날짜 설정을 삭제합니다. 근무 만료 후에는 관리자 설정에서 회원탈퇴를 실행해 시스템 이용을 해제해 주세요.</p>
+              <p class="note">근무 시작일과 근무 만료일을 모두 입력해야 저장됩니다. 근무 만료일에는 관리자 설정에서 회원탈퇴를 실행해 시스템 이용 정보도 삭제해 주세요.</p>
             </section>
 
-            <section>
+            <section data-access-catalog>
               <h2>회원탈퇴 처리</h2>
               <p class="subtle">관리자만 실행할 수 있습니다. 시스템 접근 권한, 개인정보 안내 확인 기록, 등록된 알림 토큰을 삭제합니다.</p>
               <div class="settings-inline-action">
@@ -227,32 +227,31 @@
               <p class="note">CSV에 없는 기존 학생은 삭제됩니다. 출결 기록은 유지됩니다. 필수 열: 이름, 학년, 반, 번호, 부서 · 선택 열: id, 학부모연락처</p>
             </section>
 
-            <section>
+            <section data-access-catalog>
               <h2>방과후강사 계정 등록</h2>
               <p class="subtle">이메일 등록만으로는 접속할 수 없습니다. 강사가 같은 이메일의 Google 계정으로 인증해야 해당 부서 학생만 조회됩니다.</p>
-              <a class="example-download" href="examples/coach-assignments-example.csv" download>강사 배정 예시 CSV 다운로드</a>
+              <a class="example-download" href="examples/coach-assignments-example.csv" download>방과후강사 계정 예시 CSV 다운로드</a>
               <div class="coach-quick-assign">
                 <input id="coachEmailInput" type="email" aria-label="강사 이메일" placeholder="coach@example.com" />
                 <select id="coachDepartmentInput" aria-label="담당 부서"></select>
-                <button id="addCoachBtn" class="primary" type="button">강사 등록</button>
+                <button id="addCoachBtn" class="primary" type="button">계정 등록</button>
               </div>
               <div class="file-action">
                 <input id="coachCsvFileInput" type="file" accept=".csv,text/csv" aria-label="방과후강사 CSV 파일" />
                 <button id="importCoachesBtn" type="button">CSV 일괄 등록</button>
               </div>
               <div id="coachList" class="coach-list"></div>
-              <button id="clearCoachAssignmentsBtn" class="danger-button" type="button">강사 배정 전체 해제</button>
+              <button id="clearCoachAssignmentsBtn" class="danger-button" type="button">방과후강사 배정 전체 해제</button>
             </section>
 
-            <section class="external-instructor-section">
+            <section class="external-instructor-section" data-access-catalog>
               <h2>외부수업강사 계정 등록</h2>
               <p class="subtle">외부수업강사는 로그인 후 조회할 학년·반을 직접 선택합니다. 학년 전체·학생 전체 조회는 제공하지 않습니다.</p>
               <a class="example-download" href="examples/external-instructor-assignments-example.csv" download>외부수업강사 계정 예시 CSV 다운로드</a>
               <div class="external-quick-assign">
                 <input id="externalEmailInput" type="email" aria-label="외부수업강사 이메일" placeholder="instructor@example.com" />
                 <select id="externalCourseInput" aria-label="외부수업명"></select>
-                <select id="externalClassSelect" class="is-hidden" aria-label="조회 반"></select>
-                <button id="addExternalBtn" class="primary" type="button">강사 등록</button>
+                <button id="addExternalBtn" class="primary" type="button">계정 등록</button>
               </div>
               <div class="file-action">
                 <input id="externalCsvFileInput" type="file" accept=".csv,text/csv" aria-label="외부수업강사 CSV 파일" />
@@ -298,9 +297,9 @@
 
             <section>
               <h2>운영 범위</h2>
-              <p class="subtle">선택한 요일에만 담임교사가 출결을 입력하고 교직원·강사 알림이 발송됩니다.</p>
+              <p class="subtle">선택한 요일에만 담임교사가 출결을 입력하고 담임교사·방과후강사 알림이 발송됩니다.</p>
               <fieldset class="weekday-selector">
-                <legend>방과후 운영 요일</legend>
+                <legend>출결 입력 요일</legend>
                 <label><input type="checkbox" data-attendance-day="1" />월</label>
                 <label><input type="checkbox" data-attendance-day="2" />화</label>
                 <label><input type="checkbox" data-attendance-day="3" />수</label>
@@ -313,7 +312,7 @@
               </label>
             </section>
 
-            <section>
+            <section data-access-catalog>
               <h2>담임교사 학급 배정</h2>
               <a class="example-download" href="examples/teacher-assignments-example.csv" download>담임 배정 예시 CSV 다운로드</a>
               <div class="teacher-quick-assign">
@@ -338,21 +337,21 @@
               <div class="setting-row">
                 <div>
                   <strong>아침 출결 입력 알림</strong>
-                  <span>선택한 운영 요일 오전 · 관리자와 담임교사</span>
+                  <span>선택한 출결 입력 요일 오전 · 관리자와 담임교사</span>
                 </div>
                 <input id="morningTime" type="time" value="08:30" step="300" />
               </div>
               <div class="setting-row">
                 <div>
-                  <strong>교직원 재확인 알림</strong>
-                  <span>선택한 운영 요일 · 관리자와 담임교사</span>
+                  <strong>출결 재확인 알림</strong>
+                  <span>선택한 출결 입력 요일 · 관리자와 담임교사</span>
                 </div>
                 <input id="reviewTime" type="time" value="14:05" step="300" />
               </div>
               <div class="setting-row">
                 <div>
                   <strong>방과후강사 확인 알림</strong>
-                  <span>선택한 운영 요일 · 방과후강사</span>
+                  <span>선택한 출결 입력 요일 · 방과후강사</span>
                 </div>
                 <input id="coachReviewTime" type="time" value="14:10" step="300" />
               </div>
@@ -425,6 +424,7 @@
                 <ol>
                   <li><strong>Firebase 사용량 확인</strong>에서 저장 공간과 일일 읽기·쓰기·삭제가 무료 기준 미만인지 확인합니다.</li>
                   <li><strong>배포·알림 전체 상태</strong>에서 최근 작업들이 초록색 성공인지 확인합니다.</li>
+                  <li>출결 알림에 <strong>웹 푸시 공개 키 없음</strong>이 표시되면 Firebase 웹 푸시 인증서를 설정한 뒤 다시 배포합니다.</li>
                   <li>이 화면의 마지막 실행일과 삭제 건수를 확인합니다.</li>
                   <li>GitHub 작업이 비활성화되어 있으면 해당 작업에서 <strong>Enable workflow</strong>를 누릅니다.</li>
                 </ol>
@@ -528,8 +528,8 @@
         <header>
           <h2>개인정보 처리 안내 확인</h2>
         </header>
-        <p class="privacy-consent-summary">이 시스템은 Google 계정 이메일, 권한 정보, 학생 명단과 출결 정보를 학교 출결관리 목적으로 처리합니다. 브라우저 알림을 허용하면 알림 토큰이 추가로 등록됩니다.</p>
-        <p><a href="privacy.html?v=20260809-2" target="_blank" rel="noopener">개인정보 처리 안내 보기</a></p>
+        <p class="privacy-consent-summary">이 시스템은 Google 계정 이메일·인증 식별자, 이용 권한, 학생 명단·출결과 입력자 이메일을 출결관리 목적으로 처리합니다. 프로필 표시와 브라우저 알림은 선택 정보입니다.</p>
+        <p><a href="privacy.html?v=20260809-5" target="_blank" rel="noopener">개인정보 처리 안내 보기</a></p>
         <label class="privacy-consent-check"><input id="privacyConsentCheckbox" type="checkbox" /> 개인정보 처리 안내와 보유기간 기준을 확인했습니다.</label>
         <footer>
           <button id="privacyDeclineBtn" type="button">로그인 취소</button>
@@ -539,6 +539,6 @@
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260809-2"></script>
+    <script type="module" src="app.js?v=20260809-5"></script>
   </body>
 </html>

@@ -1,22 +1,23 @@
-const DEMO_KEY = "nsworld-attendance-demo-v1";
+const DEMO_KEY = "nsworld-attendance-demo-v2";
 const ADMIN_EMAIL = "leens@nsworld.net";
 const ORIGINAL_TITLE = document.title;
 const statusLabel = { present: "출석", late: "지각", absent: "결석", early: "조퇴", unset: "미입력" };
-const roleLabel = { admin: "관리자", teacher: "교사", coach: "방과후강사", external: "외부수업강사" };
+const roleLabel = { admin: "관리자", teacher: "담임교사", coach: "방과후강사", external: "외부수업강사" };
 const DEFAULT_AFTERSCHOOL_COURSES = {
   monday: ["교육마술", "로봇 & 코딩", "무용", "미디어 스타", "바이올린", "배구", "스페인어", "창의미술", "창의요리", "첼로", "클라리넷", "프랑스(L.F.E)", "프랑스어", "플루트", "AI Makers", "Book Club", "English STEAM", "Musical", "STEAM"],
   friday: ["그래비트랙스", "대화영어", "로봇 & 코딩", "바이올린", "배구", "스케이트보드", "영화(영상)제작", "첼로", "치어리딩", "클라리넷", "클레이", "플루트", "C.E.(Conver~)", "D&D", "D&D(원어민)", "English STEAM", "Speech", "STEAM", "TED"]
 };
+const DEFAULT_EXTERNAL_COURSES = ["외부수업"];
 
 const sampleStudents = [
-  { id: "demo-001", name: "예시학생01", grade: "3", classNo: "1", number: "4", department: "로봇 & 코딩", parentPhone: "000-0000-0000" },
-  { id: "demo-002", name: "예시학생02", grade: "3", classNo: "2", number: "8", department: "로봇 & 코딩", parentPhone: "000-0000-0000" },
-  { id: "demo-003", name: "예시학생03", grade: "4", classNo: "1", number: "13", department: "바이올린", parentPhone: "000-0000-0000" },
-  { id: "demo-004", name: "예시학생04", grade: "4", classNo: "3", number: "2", department: "배구", parentPhone: "000-0000-0000" },
-  { id: "demo-005", name: "예시학생05", grade: "5", classNo: "2", number: "11", department: "창의미술", parentPhone: "000-0000-0000" },
-  { id: "demo-006", name: "예시학생06", grade: "5", classNo: "3", number: "7", department: "English STEAM", parentPhone: "000-0000-0000" },
-  { id: "demo-007", name: "예시학생07", grade: "6", classNo: "1", number: "9", department: "AI Makers", parentPhone: "000-0000-0000" },
-  { id: "demo-008", name: "예시학생08", grade: "6", classNo: "2", number: "6", department: "클라리넷", parentPhone: "000-0000-0000" }
+  { id: "demo-001", name: "예시학생01", grade: "3", classNo: "1", number: "4", department: "월요:로봇 & 코딩", parentPhone: "000-0000-0000" },
+  { id: "demo-002", name: "예시학생02", grade: "3", classNo: "2", number: "8", department: "금요:로봇 & 코딩", parentPhone: "000-0000-0000" },
+  { id: "demo-003", name: "예시학생03", grade: "4", classNo: "1", number: "13", department: "월요:바이올린", parentPhone: "000-0000-0000" },
+  { id: "demo-004", name: "예시학생04", grade: "4", classNo: "3", number: "2", department: "금요:배구", parentPhone: "000-0000-0000" },
+  { id: "demo-005", name: "예시학생05", grade: "5", classNo: "2", number: "11", department: "월요:창의미술", parentPhone: "000-0000-0000" },
+  { id: "demo-006", name: "예시학생06", grade: "5", classNo: "3", number: "7", department: "금요:English STEAM", parentPhone: "000-0000-0000" },
+  { id: "demo-007", name: "예시학생07", grade: "6", classNo: "1", number: "9", department: "월요:AI Makers", parentPhone: "000-0000-0000" },
+  { id: "demo-008", name: "예시학생08", grade: "6", classNo: "2", number: "6", department: "금요:클라리넷", parentPhone: "000-0000-0000" }
 ];
 
 const state = loadState();
@@ -31,8 +32,8 @@ const els = Object.fromEntries([
   "loginScreen", "loginError", "userPicture", "userName", "userEmail", "userRole", "logoutBtn", "todayText", "notificationEnableHeaderBtn", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn",
   "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn", "clearTodayBtn", "saveStatusText",
   "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "lookupDate", "lookupDepartment", "refreshLookupBtn",
-  "lookupTable", "csvFileInput", "importBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
-  "enableNotificationsBtn", "maskContactDefault", "adminEmailInput", "addAdminBtn", "adminList", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "unregisteredDepartmentNotice", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherList",
+  "lookupTable", "csvFileInput", "importBtn", "deleteAllStudentsBtn", "morningTime", "reviewTime", "coachReviewTime", "testPopupBtn",
+  "enableNotificationsBtn", "maskContactDefault", "adminEmailInput", "addAdminBtn", "adminList", "accountEmailInput", "employmentStartDateInput", "employmentEndDateInput", "saveEmploymentPeriodBtn", "employmentPeriodList", "withdrawAccountEmailInput", "withdrawAccountBtn", "coachEmailInput", "coachDepartmentInput", "addCoachBtn", "coachCsvFileInput", "importCoachesBtn", "coachList", "clearCoachAssignmentsBtn", "externalEmailInput", "externalCourseInput", "addExternalBtn", "externalCsvFileInput", "importExternalsBtn", "externalList", "clearExternalAssignmentsBtn", "externalCourseNameInput", "addExternalCourseBtn", "externalCourseList", "mondayDepartmentInput", "addMondayDepartmentBtn", "mondayDepartmentList", "fridayDepartmentInput", "addFridayDepartmentBtn", "fridayDepartmentList", "unregisteredDepartmentNotice", "maxClassesPerGrade", "teacherEmailInput", "teacherClassSelect", "addTeacherBtn", "teacherBulkInput", "bulkAssignTeachersBtn", "teacherCsvFileInput", "importTeachersBtn", "clearTeacherAssignmentsBtn", "teacherList",
   "studentDialog", "studentDialogTitle", "studentNameInput", "studentGradeInput", "studentClassInput", "studentNumberInput", "studentAfterschoolNone", "studentAfterschoolEnrolled", "studentAfterschoolDays", "studentMondayToggle", "studentMondayDepartment", "studentFridayToggle", "studentFridayDepartment", "saveStudentBtn",
   "statusStrip", "presentCountItem", "lateCountItem", "earlyCountItem", "absentCountItem", "unsetCountItem", "presentCount", "lateCount", "earlyCount", "absentCount", "unsetCount"
 ].map((id) => [id, document.getElementById(id)]));
@@ -85,19 +86,20 @@ function loadState() {
     students: sampleStudents,
     records: {},
     admins: { [ADMIN_EMAIL]: true },
-    coaches: { "coach-demo@example.com": "로봇 & 코딩" },
-    externals: { "external-demo@example.com": { course: "외부수업", classes: ["4-1"] } },
+    coaches: { "coach-demo@example.com": "월요:로봇 & 코딩" },
+    externals: { "external-demo@example.com": { course: "외부수업" } },
     teachers: { "teacher-demo@example.com": { grade: "3", classNo: "1" } },
-    settings: { contactVisible: false, morningTime: "08:30", reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3, attendanceDays: [1, 5], maxClassesPerGrade: 3, lastMorning: "", lastReview: "", lastCoachReview: "", afterschoolCourses: structuredClone(DEFAULT_AFTERSCHOOL_COURSES) },
+    accountPeriods: { "teacher-demo@example.com": { start: "2026-03-01", end: "2027-02-28" } },
+    settings: { contactVisible: false, morningTime: "08:30", reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3, attendanceDays: [1, 5], maxClassesPerGrade: 3, lastMorning: "", lastReview: "", lastCoachReview: "", afterschoolCourses: structuredClone(DEFAULT_AFTERSCHOOL_COURSES), externalCourses: [...DEFAULT_EXTERNAL_COURSES] },
     notifications: []
   };
   try {
     const saved = JSON.parse(localStorage.getItem(DEMO_KEY) || "{}");
-    const settings = { ...fallback.settings, ...(saved.settings || {}), afterschoolCourses: { ...fallback.settings.afterschoolCourses, ...(saved.settings?.afterschoolCourses || {}) } };
+    const settings = { ...fallback.settings, ...(saved.settings || {}), afterschoolCourses: { ...fallback.settings.afterschoolCourses, ...(saved.settings?.afterschoolCourses || {}) }, externalCourses: Array.isArray(saved.settings?.externalCourses) && saved.settings.externalCourses.length ? saved.settings.externalCourses : [...DEFAULT_EXTERNAL_COURSES] };
     if (Number(settings.notificationSettingsVersion || 0) < 3) Object.assign(settings, { reviewTime: "14:05", coachReviewTime: "14:10", notificationSettingsVersion: 3 });
     settings.attendanceDays = [...new Set((Array.isArray(settings.attendanceDays) ? settings.attendanceDays : [1, 5]).map(Number).filter((day) => day >= 1 && day <= 5))];
     settings.maxClassesPerGrade = Math.min(10, Math.max(1, Math.trunc(Number(settings.maxClassesPerGrade) || 3)));
-    return { ...fallback, ...saved, admins: { ...fallback.admins, ...(saved.admins || {}) }, externals: { ...fallback.externals, ...(saved.externals || {}) }, settings };
+    return { ...fallback, ...saved, admins: { ...fallback.admins, ...(saved.admins || {}) }, externals: { ...fallback.externals, ...(saved.externals || {}) }, accountPeriods: { ...fallback.accountPeriods, ...(saved.accountPeriods || {}) }, settings };
   } catch {
     return fallback;
   }
@@ -132,6 +134,7 @@ function bindEvents() {
   els.refreshLookupBtn.addEventListener("click", () => { renderLookup(); renderCounts(); });
   els.maskContactDefault.addEventListener("change", () => setContactVisibility(!els.maskContactDefault.checked));
   els.importBtn.addEventListener("click", importCsv);
+  els.deleteAllStudentsBtn.addEventListener("click", deleteAllStudents);
   els.morningTime.addEventListener("change", () => {
     if (!isAdmin()) return;
     if (!isFiveMinuteTime(els.morningTime.value)) {
@@ -165,12 +168,21 @@ function bindEvents() {
   els.notificationEnableHeaderBtn.addEventListener("click", () => enableNotifications(true));
   els.testPopupBtn.addEventListener("click", () => showReviewAlarm("review"));
   els.addAdminBtn.addEventListener("click", addAdmin);
+  els.saveEmploymentPeriodBtn.addEventListener("click", saveEmploymentPeriod);
+  els.withdrawAccountBtn.addEventListener("click", withdrawAccount);
   els.addCoachBtn.addEventListener("click", addCoach);
   els.importCoachesBtn.addEventListener("click", importCoachesCsv);
+  els.clearCoachAssignmentsBtn.addEventListener("click", clearCoachAssignments);
+  els.addExternalBtn.addEventListener("click", addExternalInstructor);
+  els.importExternalsBtn.addEventListener("click", importExternalsCsv);
+  els.clearExternalAssignmentsBtn.addEventListener("click", clearExternalAssignments);
+  els.addExternalCourseBtn.addEventListener("click", addExternalCourse);
   els.addMondayDepartmentBtn.addEventListener("click", () => addAfterschoolCourse("monday"));
   els.addFridayDepartmentBtn.addEventListener("click", () => addAfterschoolCourse("friday"));
   els.addTeacherBtn.addEventListener("click", addTeacherAssignment);
   els.bulkAssignTeachersBtn.addEventListener("click", bulkAssignTeachers);
+  els.importTeachersBtn.addEventListener("click", importTeachersCsv);
+  els.clearTeacherAssignmentsBtn.addEventListener("click", clearTeacherAssignments);
   document.querySelectorAll("[data-attendance-day]").forEach((input) => input.addEventListener("change", updateAttendanceDays));
   els.maxClassesPerGrade.addEventListener("change", updateMaxClassesPerGrade);
   els.notificationCenterBtn.addEventListener("click", openNotificationCenter);
@@ -181,8 +193,8 @@ function startDemo(role) {
   const demoTeacherClass = state.teachers?.["teacher-demo@example.com"] || { grade: "3", classNo: "1" };
   const users = {
     admin: { email: ADMIN_EMAIL, name: "이은숙 관리자", role: "admin", department: "", grade: "3", classNo: "1" },
-    teacher: { email: "teacher-demo@example.com", name: "예시 교사", role: "teacher", department: "", grade: demoTeacherClass.grade, classNo: demoTeacherClass.classNo },
-    coach: { email: "coach-demo@example.com", name: "예시 방과후강사", role: "coach", department: "로봇 & 코딩" },
+    teacher: { email: "teacher-demo@example.com", name: "예시 담임교사", role: "teacher", department: "", grade: demoTeacherClass.grade, classNo: demoTeacherClass.classNo },
+    coach: { email: "coach-demo@example.com", name: "예시 방과후강사", role: "coach", department: "월요:로봇 & 코딩" },
     external: { email: "external-demo@example.com", name: "예시 외부수업강사", role: "external", course: "외부수업", externalClass: "4-1" }
   };
   session = users[role];
@@ -197,10 +209,12 @@ function startDemo(role) {
     : session.role === "external"
       ? `${roleLabel[session.role]} · ${selectedExternalClassLabel()}`
       : session.grade
-        ? `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반 담임`
+        ? session.role === "teacher"
+          ? `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반`
+          : `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반 담임`
         : roleLabel[session.role];
   els.attendanceTab.classList.toggle("is-hidden", ["coach", "external"].includes(role));
-  els.lookupTab.classList.toggle("is-hidden", role === "teacher");
+  els.lookupTab.classList.remove("is-hidden");
   els.settingsTab.classList.toggle("is-hidden", role !== "admin");
   els.maskContactDefault.checked = !state.settings.contactVisible;
   els.reviewTime.value = state.settings.reviewTime;
@@ -232,7 +246,7 @@ function isAdmin() { return session?.role === "admin"; }
 function hasHomeroom() { return Boolean(session && ["admin", "teacher"].includes(session.role) && session.grade && session.classNo); }
 function notificationAudiences() {
   if (session?.role === "admin" || (session?.role === "teacher" && hasHomeroom())) return ["input", "review"];
-  if (["coach", "external"].includes(session?.role)) return ["coach-review"];
+  if (session?.role === "coach") return ["coach-review"];
   return [];
 }
 function canReceiveNotifications() { return notificationAudiences().length > 0; }
@@ -244,7 +258,9 @@ function syncCurrentHomeroom(email, grade = "", classNo = "") {
   session.classNo = classNo ? String(classNo) : "";
   attendanceClassInitialized = false;
   els.userRole.textContent = hasHomeroom()
-    ? `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반 담임`
+    ? session.role === "teacher"
+      ? `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반`
+      : `${roleLabel[session.role]} · ${session.grade}학년 ${session.classNo}반 담임`
     : roleLabel[session.role];
   refreshDepartments();
   renderStudents();
@@ -253,7 +269,7 @@ function syncCurrentHomeroom(email, grade = "", classNo = "") {
 
 function canAccessView(viewId) {
   if (session.role === "admin") return true;
-  if (session.role === "teacher") return viewId === "attendanceView";
+  if (session.role === "teacher") return ["attendanceView", "lookupView"].includes(viewId);
   return ["coach", "external"].includes(session.role) && viewId === "lookupView";
 }
 
@@ -274,10 +290,16 @@ function refreshDepartments() {
     const classOptions = allClassKeys().map((classKey) => ({ value: classKey, label: classKeyLabel(classKey) }));
     els.lookupDepartment.innerHTML = classOptions.map((item) => `<option value="${escapeAttr(item.value)}"${item.value === session.externalClass ? " selected" : ""}>${escapeHtml(item.label)}</option>`).join("");
     if (!session.externalClass && classOptions[0]) session.externalClass = classOptions[0].value;
+  } else if (session?.role === "teacher") {
+    const classKey = `${session.grade}-${session.classNo}`;
+    fillSelect(els.lookupDepartment, [classKey], classKey);
+  } else if (session?.role === "coach") {
+    fillSelect(els.lookupDepartment, [session.department], session.department);
   } else {
-    fillSelect(els.lookupDepartment, ["전체", ...departments], session?.role === "coach" ? session.department : "전체");
+    fillSelect(els.lookupDepartment, ["전체", ...departments], "전체");
   }
   fillSelect(els.coachDepartmentInput, catalogDepartments, catalogDepartments[0] || "");
+  fillSelect(els.externalCourseInput, state.settings.externalCourses, els.externalCourseInput.value || state.settings.externalCourses[0] || "외부수업");
   renderUnregisteredDepartmentNotice(studentOnlyDepartments);
   const homeroomClass = hasHomeroom() ? `${session.grade}학년 ${session.classNo}반` : "";
   const assignedClass = !isAdmin() ? homeroomClass : "";
@@ -318,7 +340,7 @@ function renderUnregisteredDepartmentNotice(departments) {
   const uniqueDepartments = [...new Set(departments)];
   els.unregisteredDepartmentNotice.classList.toggle("is-hidden", uniqueDepartments.length === 0);
   els.unregisteredDepartmentNotice.textContent = uniqueDepartments.length
-    ? `학생 명단에는 있지만 방과후 부서 목록에 없는 항목이 있습니다: ${uniqueDepartments.slice(0, 12).join(", ")}${uniqueDepartments.length > 12 ? " 외" : ""}. 강사 등록 선택지에는 표시하지 않습니다. 필요한 항목만 요일별 부서 목록에 추가해 주세요.`
+    ? `학생 명단에는 있지만 방과후 부서 목록에 없는 항목이 있습니다: ${uniqueDepartments.slice(0, 12).join(", ")}${uniqueDepartments.length > 12 ? " 외" : ""}. 방과후강사 등록 선택지에는 표시하지 않습니다. 필요한 항목만 요일별 부서 목록에 추가해 주세요.`
     : "";
 }
 
@@ -331,7 +353,7 @@ function fillSelect(select, values, selected) {
 }
 
 function renderAll() {
-  refreshDepartments(); renderStudents(); renderLookup(); renderCounts(); renderAdminList(); renderCoachList(); renderTeacherList(); renderDepartmentLists();
+  refreshDepartments(); renderStudents(); renderLookup(); renderCounts(); renderAdminList(); renderEmploymentPeriodList(); renderCoachList(); renderExternalList(); renderTeacherList(); renderDepartmentLists(); renderExternalCourseList();
 }
 
 function todayKey() {
@@ -378,7 +400,7 @@ function checkDateRollover() {
 }
 
 function markStudentsPresent(overwrite) {
-  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
+  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 출결 입력일이 아닙니다.");
   const students = getScopedStudents();
   const hasExceptions = students.some((student) => ["late", "absent", "early"].includes(getTodayRecord(student.id).status));
   if (overwrite && hasExceptions && !confirm("기존 지각·결석·조퇴 기록도 모두 출석으로 바꿀까요?")) return;
@@ -399,7 +421,7 @@ function renderStudents() {
   if (!canEdit()) return;
   const enabled = isAttendanceDay();
   const dayNames = state.settings.attendanceDays.map((day) => ["", "월", "화", "수", "목", "금"][day]).join("·");
-  els.attendanceDayNotice.textContent = enabled ? `오늘은 출결 입력일입니다. 운영 요일: ${dayNames}` : `오늘은 출결 입력일이 아닙니다. 운영 요일: ${dayNames}`;
+  els.attendanceDayNotice.textContent = enabled ? `오늘은 출결 입력일입니다. 입력 요일: ${dayNames}` : `오늘은 출결 입력일이 아닙니다. 입력 요일: ${dayNames}`;
   els.attendanceDayNotice.classList.toggle("is-disabled", !enabled);
   const scopedStudents = getScopedStudents();
   const students = scopedStudents.filter((student) => {
@@ -562,7 +584,7 @@ function renderCounts() {
 }
 
 function openReview() {
-  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
+  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 출결 입력일이 아닙니다.");
   els.reviewList.innerHTML = getScopedStudents().map((student) => {
     const record = getTodayRecord(student.id);
     return `<div class="review-item"><div class="review-identity"><strong>${escapeHtml(student.name)}</strong><span class="student-meta">${escapeHtml(student.department)} · ${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div class="status-${record.status}">${statusLabel[record.status] || statusLabel.unset}${record.memo ? ` · ${escapeHtml(record.memo)}` : ""}</div></div>`;
@@ -571,43 +593,46 @@ function openReview() {
 }
 
 function confirmSave() {
-  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
+  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 출결 입력일이 아닙니다.");
   getScopedStudents().forEach((student) => { getTodayRecord(student.id).saved = true; });
   saveState(); els.reviewDialog.close(); renderAll();
 }
 
 function clearToday() {
-  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 방과후 운영 요일이 아닙니다.");
+  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 출결 입력일이 아닙니다.");
   if (!confirm("오늘 출결 기록을 초기화할까요?")) return;
   state.records[todayKey()] = {}; saveState(); renderAll();
 }
 
 function renderLookup() {
-  if (!session || session.role === "teacher") return;
+  if (!session) return;
   const coach = session.role === "coach";
   const external = session.role === "external";
+  const teacher = session.role === "teacher";
   const title = document.getElementById("lookup-title");
   const description = title?.nextElementSibling;
   if (title) title.textContent = external ? "외부수업강사 조회" : coach ? "방과후강사 조회" : "출결 조회";
-  if (description) description.textContent = external ? "외부수업강사는 조회할 학년·반을 선택해 출석·결석만 확인합니다." : coach ? "강사는 자기 부서 학생의 방과후 출석·결석만 조회합니다." : "일별 학생 출결을 확인합니다.";
+  if (description) description.textContent = external ? "외부수업강사는 조회할 학년·반을 선택해 출석·결석만 확인합니다." : coach ? "강사는 자기 부서 학생의 방과후 출석·결석만 조회합니다." : teacher ? "담임교사는 자기 반의 일별 학생 출결을 확인합니다." : "일별 학생 출결을 확인합니다.";
   const departmentLabel = els.lookupDepartment.closest("label")?.firstChild;
-  if (departmentLabel) departmentLabel.textContent = external ? "조회 반" : "부서";
-  els.lookupDepartment.disabled = coach;
+  if (departmentLabel) departmentLabel.textContent = external || teacher ? "조회 반" : "부서";
+  els.lookupDepartment.disabled = coach || teacher;
   if (coach) els.lookupDepartment.value = session.department;
   if (external && els.lookupDepartment.value) session.externalClass = els.lookupDepartment.value;
   const department = coach ? session.department : els.lookupDepartment.value;
   const records = state.records[els.lookupDate.value || todayKey()] || {};
   const students = external
     ? state.students.filter((student) => `${student.grade}-${student.classNo}` === (session.externalClass || allClassKeys()[0]))
+    : teacher
+      ? state.students.filter((student) => String(student.grade) === String(session.grade) && String(student.classNo) === String(session.classNo))
     : state.students.filter((student) => department === "전체" || demoStudentDepartments(student).includes(department));
   const adminView = isAdmin();
   els.lookupTable.classList.toggle("no-contact", !adminView);
-  els.lookupTable.innerHTML = `<div class="table-row table-head"><div>학생</div><div>부서</div><div>출결</div><div>특이사항</div>${adminView ? "<div>학부모 연락처</div>" : ""}</div>${students.map((student) => {
+  els.lookupTable.innerHTML = `<div class="table-row table-head"><div>학생</div><div>${external || teacher ? "학급" : "부서"}</div><div>출결</div><div>특이사항</div>${adminView ? "<div>학부모 연락처</div>" : ""}</div>${students.map((student) => {
     const record = records[student.id] || { status: "unset", memo: "" };
     const displayStatus = (coach || external) && ["late", "early"].includes(record.status) ? "absent" : record.status;
     const phone = state.settings.contactVisible ? student.parentPhone || "-" : "비공개";
-    const visibleDepartment = external ? `${student.grade}학년 ${student.classNo}반` : department === "전체" ? student.department : department;
-    return `<div class="table-row"><div data-label="학생"><strong>${escapeHtml(student.name)}</strong> <span class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div data-label="${external ? "학급" : "부서"}">${escapeHtml(visibleDepartment)}</div><div data-label="출결" class="status-${displayStatus}">${statusLabel[displayStatus] || statusLabel.unset}</div><div data-label="특이사항">${record.memo ? escapeHtml(record.memo) : "-"}</div>${adminView ? `<div data-label="학부모 연락처">${escapeHtml(phone)}</div>` : ""}</div>`;
+    const visibleDepartment = external || teacher ? `${student.grade}학년 ${student.classNo}반` : department === "전체" ? student.department : department;
+    return `<div class="table-row"><div data-label="학생"><strong>${escapeHtml(student.name)}</strong> <span class="student-meta">${escapeHtml(student.grade)}-${escapeHtml(student.classNo)}-${escapeHtml(student.number)}</span></div><div data-label="${external || teacher ? "학급" : "부서"}">${escapeHtml(visibleDepartment)}</div><div data-label="출결" class="status-${displayStatus}">${statusLabel[displayStatus] || statusLabel.unset}</div><div data-label="특이사항">${record.memo ? escapeHtml(record.memo) : "-"}</div>${adminView ? `<div data-label="학부모 연락처">${escapeHtml(phone)}</div>` : ""}</div>`;
   }).join("")}`;
 }
 
@@ -624,7 +649,6 @@ function addAdmin() {
   if (!email.endsWith("@nsworld.net")) return alert("관리자는 학교 이메일(@nsworld.net)만 등록할 수 있습니다.");
   if (state.admins[email]) return alert("이미 관리자 계정으로 등록되어 있습니다.");
   state.admins[email] = true;
-  delete state.teachers[email];
   els.adminEmailInput.value = "";
   saveState();
   renderAll();
@@ -641,8 +665,69 @@ function renderAdminList() {
     const email = button.dataset.removeAdmin;
     if (email === session.email) return alert("현재 로그인한 관리자 계정은 직접 삭제할 수 없습니다.");
     if (!confirm(`${email}의 관리자 권한을 삭제할까요?`)) return;
-    delete state.admins[email]; saveState(); renderAdminList();
+    delete state.admins[email];
+    removePeriodIfUnregistered(email);
+    saveState(); renderAdminList(); renderEmploymentPeriodList();
   }));
+}
+
+function knownDemoAccount(email) {
+  return email === ADMIN_EMAIL
+    || Boolean(state.admins[email] || state.teachers[email] || state.coaches[email] || state.externals[email]);
+}
+
+function removePeriodIfUnregistered(email) {
+  if (!knownDemoAccount(email)) delete state.accountPeriods[email];
+}
+
+function saveEmploymentPeriod() {
+  if (!isAdmin()) return;
+  const email = els.accountEmailInput.value.trim().toLowerCase();
+  const start = els.employmentStartDateInput.value;
+  const end = els.employmentEndDateInput.value;
+  if (!knownDemoAccount(email)) return alert("등록된 계정이 없습니다. 먼저 계정이나 권한을 등록해 주세요.");
+  if (!start || !end) return alert("근무 시작일과 근무 만료일을 모두 입력해 주세요.");
+  if (start && end && start > end) return alert("근무 시작일은 근무 만료일보다 늦을 수 없습니다.");
+  state.accountPeriods[email] = { start, end };
+  els.accountEmailInput.value = "";
+  els.employmentStartDateInput.value = "";
+  els.employmentEndDateInput.value = "";
+  saveState();
+  renderEmploymentPeriodList();
+  alert(`${email}의 근무기간을 체험판에 저장했습니다.`);
+}
+
+function renderEmploymentPeriodList() {
+  if (!isAdmin()) return;
+  const accountEmails = [...new Set([
+    ...Object.keys(state.admins || {}), ...Object.keys(state.teachers || {}), ...Object.keys(state.coaches || {}), ...Object.keys(state.externals || {})
+  ])].sort((a, b) => a.localeCompare(b));
+  const entries = accountEmails.map((email) => [email, state.accountPeriods?.[email] || {}]);
+  els.employmentPeriodList.innerHTML = entries.length
+    ? entries.map(([email, period]) => {
+      const configured = Boolean(period.start && period.end);
+      const periodText = configured ? `${period.start} ~ ${period.end}` : "근무기간 미설정";
+      return `<div class="account-period-item ${configured ? "" : "is-missing"}"><strong>${escapeHtml(email)}</strong><span>${escapeHtml(periodText)}</span></div>`;
+    }).join("")
+    : `<p class="note">등록된 계정이 없습니다.</p>`;
+}
+
+function withdrawAccount() {
+  if (!isAdmin()) return;
+  const email = els.withdrawAccountEmailInput.value.trim().toLowerCase();
+  if (!knownDemoAccount(email)) return alert("등록된 계정을 찾을 수 없습니다.");
+  if (email === ADMIN_EMAIL || email === session.email) return alert("기본 관리자 또는 현재 체험 중인 관리자 계정은 탈퇴 처리할 수 없습니다.");
+  if (!confirm(`${email}의 체험판 시스템 이용을 해제할까요?\n학생·출결 기록은 유지됩니다.`)) return;
+  if (prompt("실수를 막기 위해 '회원탈퇴'를 입력해 주세요.") !== "회원탈퇴") return alert("탈퇴 처리를 취소했습니다.");
+  delete state.admins[email];
+  delete state.teachers[email];
+  delete state.coaches[email];
+  delete state.externals[email];
+  delete state.accountPeriods[email];
+  els.withdrawAccountEmailInput.value = "";
+  saveState();
+  renderAll();
+  alert(`${email}의 체험판 시스템 이용을 해제했습니다.`);
 }
 
 function addCoach() {
@@ -651,6 +736,7 @@ function addCoach() {
   const department = els.coachDepartmentInput.value;
   if (!email || !email.includes("@") || !department) return alert("강사 이메일과 담당 부서를 확인해 주세요.");
   state.coaches[email] = department; els.coachEmailInput.value = ""; saveState(); renderCoachList();
+  renderEmploymentPeriodList();
 }
 
 async function importCoachesCsv() {
@@ -673,9 +759,9 @@ async function importCoachesCsv() {
     const uniqueAssignments = [...new Map(assignments.map((item) => [item.email, item])).values()];
     uniqueAssignments.forEach(({ email, department }) => { state.coaches[email] = department; });
     els.coachCsvFileInput.value = "";
-    saveState(); renderCoachList();
+    saveState(); renderCoachList(); renderEmploymentPeriodList();
     alert(`${uniqueAssignments.length}명의 방과후강사를 등록했습니다.`);
-  } catch (error) { alert(`강사 CSV 등록 실패: ${error.message}`); }
+  } catch (error) { alert(`방과후강사 CSV 등록 실패: ${error.message}`); }
 }
 
 function normalizeCoachDepartment(course, day) {
@@ -692,9 +778,112 @@ function normalizeCoachDepartment(course, day) {
 function renderCoachList() {
   if (!isAdmin()) return;
   const entries = Object.entries(state.coaches).sort(([a], [b]) => a.localeCompare(b));
-  els.coachList.innerHTML = entries.length ? entries.map(([email, department]) => `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(department)}</span></div><button type="button" data-remove-coach="${escapeAttr(email)}">삭제</button></div>`).join("") : `<p class="note">등록된 강사가 없습니다.</p>`;
+  els.coachList.innerHTML = entries.length ? entries.map(([email, department]) => `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(department)}</span></div><button type="button" data-remove-coach="${escapeAttr(email)}">삭제</button></div>`).join("") : `<p class="note">등록된 방과후강사가 없습니다.</p>`;
   els.coachList.querySelectorAll("[data-remove-coach]").forEach((button) => button.addEventListener("click", () => {
-    delete state.coaches[button.dataset.removeCoach]; saveState(); renderCoachList();
+    const email = button.dataset.removeCoach;
+    if (!confirm(`${email}의 방과후강사 배정만 삭제할까요?\n담임교사·관리자·외부수업강사 권한은 유지됩니다.`)) return;
+    delete state.coaches[email];
+    removePeriodIfUnregistered(email);
+    saveState(); renderCoachList(); renderEmploymentPeriodList();
+  }));
+}
+
+function clearCoachAssignments() {
+  const count = Object.keys(state.coaches).length;
+  if (!count) return alert("해제할 방과후강사 배정이 없습니다.");
+  if (!confirm(`방과후강사 ${count}명의 부서 배정을 모두 해제할까요?\n담임교사·관리자·외부수업강사 권한은 유지됩니다.`)) return;
+  const emails = Object.keys(state.coaches);
+  state.coaches = {};
+  emails.forEach(removePeriodIfUnregistered);
+  saveState();
+  renderCoachList(); renderEmploymentPeriodList();
+}
+
+function addExternalInstructor() {
+  if (!isAdmin()) return;
+  const email = els.externalEmailInput.value.trim().toLowerCase();
+  const course = els.externalCourseInput.value || "외부수업";
+  if (!email || !email.includes("@")) return alert("외부수업강사 이메일을 확인해 주세요.");
+  state.externals[email] = { course };
+  els.externalEmailInput.value = "";
+  saveState();
+  renderExternalList(); renderEmploymentPeriodList();
+}
+
+async function importExternalsCsv() {
+  if (!isAdmin()) return;
+  const file = els.externalCsvFileInput.files?.[0];
+  if (!file) return alert("외부수업강사 CSV 파일을 선택해 주세요.");
+  try {
+    const rows = parseCsv((await readCsvText(file)).replace(/^\uFEFF/, ""));
+    const headers = rows.shift().map((header) => header.trim().toLowerCase());
+    const assignments = rows.filter((row) => row.some((value) => String(value).trim())).map((row, index) => {
+      const item = Object.fromEntries(headers.map((header, headerIndex) => [header, String(row[headerIndex] || "").trim()]));
+      return { row: index + 2, email: (item["이메일"] || item["메일"] || item.email || "").toLowerCase(), course: item["수업"] || item["외부수업"] || item["부서"] || item.course || "외부수업" };
+    });
+    const invalid = assignments.filter(({ email }) => !email.includes("@"));
+    if (invalid.length) throw new Error(`${invalid.map((item) => item.row).join(", ")}행의 이메일을 확인해 주세요.`);
+    if (!assignments.length) throw new Error("등록할 외부수업강사 정보가 없습니다.");
+    [...new Map(assignments.map((item) => [item.email, item])).values()].forEach(({ email, course }) => { state.externals[email] = { course }; });
+    els.externalCsvFileInput.value = "";
+    saveState();
+    renderExternalList(); renderEmploymentPeriodList();
+    alert(`${new Set(assignments.map((item) => item.email)).size}명의 외부수업강사를 등록했습니다.`);
+  } catch (error) {
+    alert(`외부수업강사 CSV 등록 실패: ${error.message}`);
+  }
+}
+
+function renderExternalList() {
+  if (!isAdmin()) return;
+  const entries = Object.entries(state.externals || {}).sort(([a], [b]) => a.localeCompare(b));
+  els.externalList.innerHTML = entries.length ? entries.map(([email, value]) => {
+    const dualRole = state.admins[email] || state.teachers[email] || state.coaches[email] ? " · 다른 권한 유지" : "";
+    return `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(value.course || "외부수업")} · 로그인 후 학급 선택${dualRole}</span></div><button type="button" data-remove-external="${escapeAttr(email)}">삭제</button></div>`;
+  }).join("") : `<p class="note">등록된 외부수업강사가 없습니다.</p>`;
+  els.externalList.querySelectorAll("[data-remove-external]").forEach((button) => button.addEventListener("click", () => {
+    if (!confirm(`${button.dataset.removeExternal}의 외부수업강사 권한만 삭제할까요?`)) return;
+    const email = button.dataset.removeExternal;
+    delete state.externals[email];
+    removePeriodIfUnregistered(email);
+    saveState();
+    renderExternalList(); renderEmploymentPeriodList();
+  }));
+}
+
+function clearExternalAssignments() {
+  const count = Object.keys(state.externals || {}).length;
+  if (!count) return alert("해제할 외부수업강사 계정이 없습니다.");
+  if (!confirm(`외부수업강사 ${count}명의 권한을 모두 해제할까요?\n담임교사·관리자·방과후강사 권한은 유지됩니다.`)) return;
+  const emails = Object.keys(state.externals);
+  state.externals = {};
+  emails.forEach(removePeriodIfUnregistered);
+  saveState();
+  renderExternalList(); renderEmploymentPeriodList();
+}
+
+function addExternalCourse() {
+  const course = els.externalCourseNameInput.value.trim();
+  if (!course) return alert("추가할 외부수업명을 입력해 주세요.");
+  if (state.settings.externalCourses.includes(course)) return alert("이미 등록된 외부수업입니다.");
+  state.settings.externalCourses.push(course);
+  state.settings.externalCourses.sort((a, b) => a.localeCompare(b, "ko"));
+  els.externalCourseNameInput.value = "";
+  saveState();
+  refreshDepartments();
+  renderExternalCourseList();
+}
+
+function renderExternalCourseList() {
+  if (!isAdmin()) return;
+  els.externalCourseList.innerHTML = state.settings.externalCourses.map((course) => `<div class="department-list-item"><span title="${escapeAttr(course)}">${escapeHtml(course)}</span><button type="button" data-remove-external-course="${escapeAttr(course)}" aria-label="${escapeAttr(course)} 삭제">×</button></div>`).join("");
+  els.externalCourseList.querySelectorAll("[data-remove-external-course]").forEach((button) => button.addEventListener("click", () => {
+    if (!confirm(`'${button.dataset.removeExternalCourse}' 외부수업을 목록에서 삭제할까요?`)) return;
+    state.settings.externalCourses = state.settings.externalCourses.filter((course) => course !== button.dataset.removeExternalCourse);
+    if (!state.settings.externalCourses.length) state.settings.externalCourses = [...DEFAULT_EXTERNAL_COURSES];
+    saveState();
+    refreshDepartments();
+    renderExternalCourseList();
   }));
 }
 
@@ -738,7 +927,7 @@ function addTeacherAssignment() {
   syncCurrentHomeroom(email, grade, classNo);
   els.teacherEmailInput.value = "";
   saveState();
-  renderTeacherList();
+  renderTeacherList(); renderEmploymentPeriodList();
 }
 
 function bulkAssignTeachers() {
@@ -754,8 +943,44 @@ function bulkAssignTeachers() {
   if (currentAssignment) syncCurrentHomeroom(currentAssignment.email, currentAssignment.grade, currentAssignment.classNo);
   els.teacherBulkInput.value = "";
   saveState();
-  renderTeacherList();
+  renderTeacherList(); renderEmploymentPeriodList();
   alert(`${assignments.length}명의 담임 배정을 저장했습니다.`);
+}
+
+async function importTeachersCsv() {
+  if (!isAdmin()) return;
+  const file = els.teacherCsvFileInput.files?.[0];
+  if (!file) return alert("담임교사 배정 CSV 파일을 선택해 주세요.");
+  try {
+    const rows = parseCsv((await readCsvText(file)).replace(/^\uFEFF/, ""));
+    const headers = rows.shift().map((header) => header.trim().toLowerCase());
+    const parsed = rows.filter((row) => row.some((value) => String(value).trim())).map((row, index) => {
+      const item = Object.fromEntries(headers.map((header, headerIndex) => [header, String(row[headerIndex] || "").trim()]));
+      return { row: index + 2, email: (item["이메일"] || item["메일"] || item.email || "").toLowerCase(), grade: String(item["학년"] || item.grade || ""), classNo: String(item["반"] || item["학급"] || item.class || item.classno || "") };
+    });
+    const invalid = parsed.filter(({ email, grade, classNo }) => !email.endsWith("@nsworld.net") || !/^[1-6]$/.test(grade) || !/^\d+$/.test(classNo) || Number(classNo) > state.settings.maxClassesPerGrade);
+    if (invalid.length) throw new Error(`${invalid.map((item) => item.row).join(", ")}행의 학교 이메일·학년·반을 확인해 주세요.`);
+    if (!parsed.length) throw new Error("배정할 담임교사 정보가 없습니다.");
+    const assignments = [...new Map(parsed.map((item) => [item.email, item])).values()];
+    assignments.forEach(({ email, grade, classNo }) => { state.teachers[email] = { grade, classNo }; });
+    els.teacherCsvFileInput.value = "";
+    saveState();
+    renderTeacherList(); renderEmploymentPeriodList();
+    alert(`${assignments.length}명의 담임 배정을 CSV로 저장했습니다.`);
+  } catch (error) {
+    alert(`담임 CSV 배정 실패: ${error.message}`);
+  }
+}
+
+function clearTeacherAssignments() {
+  const count = Object.keys(state.teachers || {}).length;
+  if (!count) return alert("해제할 담임 배정이 없습니다.");
+  if (!confirm(`담임교사 ${count}명의 학급 배정을 모두 해제할까요?\n관리자·방과후강사·외부수업강사 권한은 유지됩니다.`)) return;
+  const emails = Object.keys(state.teachers);
+  state.teachers = {};
+  emails.forEach(removePeriodIfUnregistered);
+  saveState();
+  renderTeacherList(); renderEmploymentPeriodList();
 }
 
 function parseTeacherAssignments(text) {
@@ -774,9 +999,10 @@ function renderTeacherList() {
     if (!confirm(`${button.dataset.removeTeacher}의 담임 배정을 삭제할까요?`)) return;
     const email = button.dataset.removeTeacher;
     delete state.teachers[email];
+    removePeriodIfUnregistered(email);
     syncCurrentHomeroom(email);
     saveState();
-    renderTeacherList();
+    renderTeacherList(); renderEmploymentPeriodList();
   }));
 }
 
@@ -794,6 +1020,15 @@ async function importCsv() {
     if (!students.length) throw new Error("가져올 학생 정보가 없습니다.");
     state.students = students; saveState(); renderAll(); alert(`${students.length}명의 학생 명단을 가져왔습니다.`);
   } catch (error) { alert(`가져오기 실패: ${error.message}`); }
+}
+
+function deleteAllStudents() {
+  if (!isAdmin()) return;
+  if (!state.students.length) return alert("삭제할 학생 명단이 없습니다.");
+  if (!confirm(`학생 ${state.students.length}명의 명단과 연락처를 모두 삭제할까요?\n출결 기록은 유지됩니다.`)) return;
+  state.students = [];
+  saveState();
+  renderAll();
 }
 
 function isAfterschoolStudent(student) {
@@ -839,20 +1074,8 @@ async function registerNotificationWorker() {
 }
 
 async function enableNotifications(showConfirmation = false) {
-  if (!canReceiveNotifications()) return "denied";
-  if (location.protocol === "file:") {
-    if (showConfirmation) alert("체험판 파일에서는 알림을 켤 수 없습니다. 실제 배포 주소에서 설정해 주세요.");
-    return "unavailable";
-  }
-  if (!("Notification" in window)) return alert("이 브라우저는 알림을 지원하지 않습니다.");
-  const permission = await Notification.requestPermission();
-  updateNotificationPermissionUi();
-  if (permission === "granted") {
-    if (showConfirmation) await notify("출결 알림이 켜졌습니다", "예정된 출결 알림을 이 기기에서 표시합니다.");
-  } else if (showConfirmation) {
-    alert("알림 권한이 허용되지 않았습니다. Chrome 사이트 설정에서 알림을 허용해 주세요.");
-  }
-  return permission;
+  if (showConfirmation) alert("체험판은 실제 푸시 알림을 등록하지 않습니다. 운영 앱에서 로그인한 뒤 알림을 켜 주세요.");
+  return "unavailable";
 }
 
 function isFiveMinuteTime(value) {
@@ -864,7 +1087,7 @@ function updateAttendanceDays() {
   const selected = [...document.querySelectorAll("[data-attendance-day]:checked")].map((input) => Number(input.dataset.attendanceDay)).sort();
   if (!selected.length) {
     document.querySelectorAll("[data-attendance-day]").forEach((input) => { input.checked = state.settings.attendanceDays.includes(Number(input.dataset.attendanceDay)); });
-    return alert("방과후 운영 요일을 한 개 이상 선택해 주세요.");
+    return alert("출결 입력 요일을 한 개 이상 선택해 주세요.");
   }
   state.settings.attendanceDays = selected;
   saveState();
@@ -906,19 +1129,16 @@ async function notify(title, body) {
 }
 
 function updateNotificationPermissionUi() {
-  const localPreview = location.protocol === "file:";
-  const granted = "Notification" in window && Notification.permission === "granted";
-  const denied = "Notification" in window && Notification.permission === "denied";
   const eligible = canReceiveNotifications();
   els.notificationButtonLabel.textContent = "받은 알림";
   els.notificationCenterBtn.disabled = false;
   els.notificationCenterBtn.title = "받은 알림을 확인합니다.";
-  els.notificationEnableHeaderBtn.textContent = localPreview ? "체험판 알림 미지원" : !eligible ? "알림 대상 아님" : granted ? "알림 켜짐" : denied ? "알림 허용 필요" : "알림 켜기";
-  els.notificationEnableHeaderBtn.disabled = localPreview || granted || !eligible;
-  els.notificationEnableHeaderBtn.title = localPreview ? "실제 배포 주소에서 알림을 설정할 수 있습니다." : denied ? "브라우저 사이트 설정에서 알림을 허용해 주세요." : "";
-  els.notificationEnableHeaderBtn.classList.toggle("needs-permission", !localPreview && eligible && !granted);
-  els.enableNotificationsBtn.textContent = localPreview ? "체험판에서는 알림 설정 불가" : granted ? "브라우저 알림 켜짐" : denied ? "Chrome 알림 허용 필요" : "브라우저 알림 켜기";
-  els.enableNotificationsBtn.disabled = localPreview || granted;
+  els.notificationEnableHeaderBtn.textContent = eligible ? "체험판 알림 미지원" : "알림 대상 아님";
+  els.notificationEnableHeaderBtn.disabled = !eligible;
+  els.notificationEnableHeaderBtn.title = eligible ? "운영 앱에서 로그인한 뒤 실제 푸시 알림을 설정할 수 있습니다." : "외부수업강사는 출결 알림 대상이 아닙니다.";
+  els.notificationEnableHeaderBtn.classList.remove("needs-permission");
+  els.enableNotificationsBtn.textContent = eligible ? "체험판에서는 알림 설정 불가" : "알림 대상 아님";
+  els.enableNotificationsBtn.disabled = !eligible;
 }
 
 function showReviewAlarm(audience = "review") {

@@ -1,20 +1,23 @@
 const APP_URL = "./";
-const CACHE_NAME = "namsung-attendance-20260809-2";
+const CACHE_NAME = "namsung-attendance-20260809-5";
+const INDEX_FALLBACK = "./index.html";
+const MANUAL_FALLBACK = "./manual.html?v=20260809-5";
+const PRIVACY_FALLBACK = "./privacy.html?v=20260809-5";
 const APP_SHELL = [
   "./",
-  "./index.html",
-  "./styles.css?v=20260809-2",
-  "./app.js?v=20260809-2",
+  INDEX_FALLBACK,
+  "./styles.css?v=20260809-5",
+  "./app.js?v=20260809-5",
   "./config.js",
   "./manifest.webmanifest",
-  "./manual.html?v=20260809-2",
-  "./privacy.html?v=20260809-2",
-  "./manual.js?v=20260809-2",
-  "./logo.svg?v=20260809-2",
-  "./icon-192.png?v=20260809-2",
-  "./icon-512.png?v=20260809-2",
-  "./icon-maskable-512.png?v=20260809-2",
-  "./apple-touch-icon.png?v=20260809-2"
+  MANUAL_FALLBACK,
+  PRIVACY_FALLBACK,
+  "./manual.js?v=20260809-5",
+  "./logo.svg?v=20260809-5",
+  "./icon-192.png?v=20260809-5",
+  "./icon-512.png?v=20260809-5",
+  "./icon-maskable-512.png?v=20260809-5",
+  "./apple-touch-icon.png?v=20260809-5"
 ];
 
 self.addEventListener("install", (event) => {
@@ -34,10 +37,18 @@ self.addEventListener("fetch", (event) => {
   if (requestUrl.pathname.startsWith("/__/auth/")) return;
   if (event.request.mode === "navigate") {
     event.respondWith(fetch(event.request).then((response) => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then((cache) => cache.put("./index.html", copy));
+      if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
       return response;
-    }).catch(() => caches.match("./index.html")));
+    }).catch(async () => {
+      const exact = await caches.match(event.request);
+      if (exact) return exact;
+      const fallback = requestUrl.pathname.endsWith("/manual.html")
+        ? MANUAL_FALLBACK
+        : requestUrl.pathname.endsWith("/privacy.html")
+          ? PRIVACY_FALLBACK
+          : INDEX_FALLBACK;
+      return caches.match(fallback);
+    }));
     return;
   }
   event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {

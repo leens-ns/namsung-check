@@ -89,7 +89,7 @@ service cloud.firestore {
         : get(accessPath()).data.coachDepartment;
     }
 
-    function ownsExternalClass(data) {
+    function canReadAsExternalInstructor() {
       return isExternalInstructor();
     }
 
@@ -127,7 +127,7 @@ service cloud.firestore {
     }
 
     match /students/{studentId} {
-      allow read: if isAdmin() || ownsClass(resource.data) || ownsExternalClass(resource.data) || (isCoach() && coachDepartment() in resource.data.departments);
+      allow read: if isAdmin() || ownsClass(resource.data) || canReadAsExternalInstructor() || (isCoach() && coachDepartment() in resource.data.departments);
       allow create: if validStudent(request.resource.data) && (isAdmin() || ownsClass(request.resource.data));
       allow update: if validStudent(request.resource.data) && (isAdmin() || (ownsClass(resource.data) && ownsClass(request.resource.data)));
       allow delete: if isAdmin() || ownsClass(resource.data);
@@ -154,7 +154,7 @@ service cloud.firestore {
     match /attendance/{recordId} {
       allow read: if isAdmin()
         || (ownsAttendance(resource.data))
-        || ownsExternalClass(resource.data)
+        || canReadAsExternalInstructor()
         || (isCoach() && coachDepartment() in resource.data.departments);
       allow create, update: if validAttendance(request.resource.data)
         && (isAdmin() || ownsAttendance(request.resource.data));
@@ -183,8 +183,6 @@ service cloud.firestore {
             ))
           || (request.resource.data.role == 'coach' && isCoach()
             && request.resource.data.audiences == ['coach-review'])
-          || (request.resource.data.role == 'external' && isExternalInstructor()
-            && request.resource.data.audiences == ['coach-review'])
         );
       allow read, delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
     }
@@ -196,8 +194,8 @@ service cloud.firestore {
         && request.resource.data.targetEmail.matches('.*@nsworld[.]net$')
         && request.resource.data.status == 'pending'
         && request.resource.data.requestedBy == email();
-      allow read: if isAdmin();
-      allow update, delete: if false;
+      allow read, delete: if isAdmin();
+      allow update: if false;
     }
   }
 }
