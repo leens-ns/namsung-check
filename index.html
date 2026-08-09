@@ -9,15 +9,15 @@
     <meta name="apple-mobile-web-app-title" content="남성초 출결" />
     <title>남성초등학교 출결관리 시스템</title>
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="apple-touch-icon.png?v=20260809-6" />
-    <link rel="icon" href="icon-192.png?v=20260809-6" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20260809-6" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png?v=20260809-7" />
+    <link rel="icon" href="icon-192.png?v=20260809-7" type="image/png" />
+    <link rel="stylesheet" href="styles.css?v=20260809-7" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
       <div class="login-screen-content">
         <div class="login-box">
-          <img src="logo.svg?v=20260809-6" alt="" />
+          <img src="logo.svg?v=20260809-7" alt="" />
           <p class="eyebrow">남성초등학교</p>
           <h1 id="login-title">출결관리 시스템</h1>
           <p class="login-description">관리자가 등록한 이메일과 동일한 Google 계정으로 로그인해 주세요.</p>
@@ -31,7 +31,7 @@
         </div>
       </div>
       <footer class="site-footer login-site-footer">
-        <a href="privacy.html?v=20260809-6" target="_blank" rel="noopener">개인정보 처리 안내</a>
+        <a href="privacy.html?v=20260809-7" target="_blank" rel="noopener">개인정보 처리방침</a>
         <p>© 2026 남성초등학교. All rights reserved.</p>
       </footer>
     </section>
@@ -40,7 +40,7 @@
       <aside class="sidebar">
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">
-            <img src="logo.svg?v=20260809-6" alt="" />
+            <img src="logo.svg?v=20260809-7" alt="" />
           </div>
           <div>
             <strong>남성초등학교 출결관리</strong>
@@ -75,7 +75,7 @@
           <button id="attendanceTab" class="tab is-active" data-view="attendanceView" type="button">출결 입력</button>
           <button id="lookupTab" class="tab" data-view="lookupView" type="button">출결 조회</button>
           <button id="settingsTab" class="tab" data-view="settingsView" type="button">관리자 설정</button>
-          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260809-6" target="_blank" rel="noopener">사용 매뉴얼</a>
+          <a id="manualLink" class="tab manual-link" href="manual.html?v=20260809-7" target="_blank" rel="noopener">사용 매뉴얼</a>
         </nav>
       </aside>
 
@@ -209,7 +209,7 @@
 
             <section data-access-catalog>
               <h2>회원탈퇴 처리</h2>
-              <p class="subtle">관리자만 실행할 수 있습니다. 시스템 접근 권한, 개인정보 안내 확인 기록, 등록된 알림 토큰을 삭제합니다.</p>
+              <p class="subtle">관리자만 실행할 수 있습니다. 시스템 접근 권한, 개인정보 처리방침 동의 기록, 등록된 알림 토큰을 삭제합니다.</p>
               <div class="settings-inline-action">
                 <input id="withdrawAccountEmailInput" type="email" aria-label="탈퇴 처리할 계정 이메일" placeholder="user@nsworld.net" />
                 <button id="withdrawAccountBtn" class="danger-button" type="button">회원탈퇴 처리</button>
@@ -438,7 +438,7 @@
           </div>
         </section>
         <footer class="site-footer app-site-footer">
-          <a id="appPrivacyLink" href="privacy.html?v=20260809-6" target="_blank" rel="noopener">개인정보 처리 안내</a>
+          <a id="appPrivacyLink" href="privacy.html?v=20260809-7" target="_blank" rel="noopener">개인정보 처리방침</a>
           <p id="appCopyright">© 2026 남성초등학교. All rights reserved.</p>
         </footer>
       </main>
@@ -535,19 +535,25 @@
     <dialog id="privacyConsentDialog">
       <form method="dialog">
         <header>
-          <h2>개인정보 처리 안내 확인</h2>
+          <h2>개인정보 처리방침 동의</h2>
         </header>
-        <p class="privacy-consent-summary">이 시스템은 Google 계정 이메일·인증 식별자, 이용 권한, 학생 명단·출결과 입력자 이메일을 출결관리 목적으로 처리합니다. 프로필 표시와 브라우저 알림은 선택 정보입니다.</p>
-        <p><a href="privacy.html?v=20260809-6" target="_blank" rel="noopener">개인정보 처리 안내 보기</a></p>
-        <label class="privacy-consent-check"><input id="privacyConsentCheckbox" type="checkbox" /> 개인정보 처리 안내와 보유기간 기준을 확인했습니다.</label>
+        <div class="privacy-consent-summary">
+          <p><strong>목적</strong> Google 계정 확인, 역할별 출결 입력·조회 및 필요한 알림 제공</p>
+          <p><strong>필수 항목</strong> 계정 이메일·Firebase UID·역할 및 배정 정보·동의 여부와 시각·출결 입력자 이메일</p>
+          <p><strong>보유기간</strong> 남성초등학교 근무 시작일부터 해당 이용자의 근무 만료일까지</p>
+          <p><strong>선택 항목</strong> 브라우저 알림은 허용하지 않아도 출결 입력·조회가 가능합니다.</p>
+        </div>
+        <p class="privacy-consent-policy-link"><a href="privacy.html?v=20260809-7" target="_blank" rel="noopener">개인정보 처리방침 보기</a></p>
+        <label class="privacy-consent-check"><input id="privacyConsentCheckbox" type="checkbox" /> <span><strong>[필수]</strong> 개인정보 처리방침을 읽었으며, 위 개인정보 처리에 동의합니다.</span></label>
+        <p class="privacy-consent-retention">동의 기록은 계정별로 안전하게 보관되며, 방침 내용이 바뀌기 전까지 다시 체크하지 않습니다.</p>
         <footer>
           <button id="privacyDeclineBtn" type="button">로그인 취소</button>
-          <button id="privacyAcceptBtn" class="primary" type="button" disabled>확인하고 계속</button>
+          <button id="privacyAcceptBtn" class="primary" type="button" disabled>동의하고 계속</button>
         </footer>
       </form>
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20260809-6"></script>
+    <script type="module" src="app.js?v=20260809-7"></script>
   </body>
 </html>

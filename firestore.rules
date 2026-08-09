@@ -25,6 +25,13 @@ service cloud.firestore {
       return /databases/$(database)/documents/access/$(email());
     }
 
+    function isRegisteredAccount() {
+      return signedIn() && (
+        email() == 'leens@nsworld.net'
+        || exists(accessPath())
+      );
+    }
+
     function isCoach() {
       return signedIn() && exists(accessPath()) && (
         get(accessPath()).data.role == 'coach'
@@ -139,15 +146,15 @@ service cloud.firestore {
     }
 
     match /privacyAcknowledgements/{accountEmail} {
-      allow read: if isAdmin() || (signedIn() && accountEmail == email());
-      allow create, update: if signedIn()
+      allow read: if isAdmin() || (isRegisteredAccount() && accountEmail == email());
+      allow create, update: if isRegisteredAccount()
         && accountEmail == email()
         && request.resource.data.keys().hasOnly(['email', 'uid', 'policyVersion', 'accepted', 'acceptedAt'])
         && request.resource.data.email == email()
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.policyVersion is string
+        && request.resource.data.policyVersion == '2026-08-09-r3'
         && request.resource.data.accepted == true
-        && request.resource.data.acceptedAt is timestamp;
+        && request.resource.data.acceptedAt == request.time;
       allow delete: if isAdmin() || (signedIn() && accountEmail == email());
     }
 

@@ -1774,12 +1774,28 @@ dialog h2 {
   line-height: 1.65;
 }
 
+.privacy-consent-summary p {
+  margin: 0;
+}
+
+.privacy-consent-summary p + p {
+  margin-top: 8px;
+}
+
+.privacy-consent-policy-link {
+  margin: 12px 0 0;
+}
+
+.privacy-consent-policy-link a {
+  color: var(--brand);
+  font-weight: 700;
+}
+
 .privacy-consent-check {
   display: flex;
-  grid-template-columns: auto minmax(0, 1fr);
   align-items: flex-start;
   gap: 9px;
-  margin: 18px 0;
+  margin: 16px 0 8px;
   color: var(--ink);
   font-size: 14px;
   line-height: 1.5;
@@ -1789,6 +1805,17 @@ dialog h2 {
   width: 18px;
   min-height: 18px;
   margin: 2px 0 0;
+}
+
+.privacy-consent-check strong {
+  color: var(--brand);
+}
+
+.privacy-consent-retention {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .review-list {
