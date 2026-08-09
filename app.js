@@ -948,7 +948,7 @@ async function refreshSystemHealth() {
     const healthAt = state.systemHealth?.reminderLastRunAt?.toDate ? state.systemHealth.reminderLastRunAt.toDate() : new Date(state.systemHealth?.reminderLastRunAt || 0);
     const healthFresh = Date.now() - healthAt.getTime() < 4 * 60 * 60 * 1000;
     const reminderWorkflowOk = state.systemHealth?.reminderStatus === "healthy" && healthFresh;
-    const reminderMessage = `${reminderWorkflowOk ? "정상" : "오류 또는 실행 지연"} · ${readableRunTime(state.systemHealth?.reminderLastRunAt)}${configuredVapidKey() ? "" : " · 기본 웹 푸시 인증 사용"}`;
+    const reminderMessage = `${reminderWorkflowOk ? "정상" : "오류 또는 실행 지연"} · ${readableRunTime(state.systemHealth?.reminderLastRunAt)}`;
     setHealthState("reminder", reminderWorkflowOk, reminderMessage);
   } catch (error) {
     ["cleanup", "reminder"].forEach((name) => setHealthState(name, false, `확인 실패 · ${readableError(error)}`));
