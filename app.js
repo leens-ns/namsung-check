@@ -1,4 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import { employmentAccessAllowed, employmentPeriodStatus, koreaDateKey } from "./access-period.mjs?v=20261003-4";
+import { clearSensitiveSessionData } from "./session-cleanup.mjs?v=20261003-4";
+import { uniqueStudentClasses } from "./student-classes.mjs?v=20261003-4";
+import { buildAttendancePayload } from "./attendance-payload.mjs?v=20261003-4";
 import {
   getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged,
   signInWithPopup, signInWithRedirect, signOut
@@ -28,6 +32,7 @@ const AUTH_REDIRECT_TIMEOUT = 12000;
 const AUTH_POPUP_OPEN_TIMEOUT = 8000;
 const AUTH_POPUP_MAX_TIMEOUT = 60000;
 const AUTH_DATA_TIMEOUT = 25000;
+const PRIVACY_CONSENT_READ_TIMEOUT = 25000;
 const BACKGROUND_SERVICE_TIMEOUT = 5000;
 const FIRST_SCHOOL_YEAR = 2026;
 const ORIGINAL_TITLE = document.title;
@@ -99,6 +104,10 @@ const state = {
   maintenance: null, systemHealth: null
 };
 const loadedRecordKeys = new Set();
+const scopedRecordCache = new Map();
+const recordRequestIds = new Map();
+let recordRequestSerial = 0;
+let lookupRequestId = 0;
 const alarms = loadAlarms();
 let activeFilter = "all";
 let session = null;
@@ -122,6 +131,20 @@ let deferredInstallPrompt = null;
 let coachLanguage = "ko";
 let authBootstrapReady = false;
 let authTransitionId = 0;
+function captureSessionOperation() {
+  if (!session || !auth.currentUser) return null;
+  return { session, uid: auth.currentUser.uid, email: session.email, generation: authTransitionId };
+}
+function isCurrentSessionOperation(operation) {
+  return !!operation && operation.session === session && operation.uid === auth.currentUser?.uid
+    && operation.email === session?.email && operation.generation === authTransitionId;
+}
+async function waitForSessionOperation(promise, operation) {
+  const result = await promise;
+  if (!isCurrentSessionOperation(operation)) throw new Error("SESSION_OPERATION_STALE");
+  return result;
+}
+
 let loginBusy = false;
 let pendingConsentUser = null;
 let pendingConsentResolve = null;
@@ -288,17 +311,25 @@ function bindEvents() {
   els.confirmSaveBtn.addEventListener("click", confirmSave);
   els.clearTodayBtn.addEventListener("click", clearToday);
   els.lookupScope.addEventListener("change", async () => {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
     if (session?.role === "external") {
       session.externalClass = els.lookupScope.value === "none" ? "" : els.lookupScope.value;
       localStorage.setItem(`${ACCOUNT_MODE_KEY}:externalClass:${session.email}`, session.externalClass);
-      await loadExternalStudentsForSelectedClass();
+      clearLookupRange();
+      await waitForSessionOperation(loadExternalStudentsForSelectedClass(), sessionOperation);
     }
     clearLookupRange();
-    if (lookupMode === "day") await loadRecords(els.lookupDate.value || todayKey(), true);
+    if (lookupMode === "day") await waitForSessionOperation(loadRecords(els.lookupDate.value || todayKey(), true), sessionOperation);
     renderLookup();
     renderCounts();
   });
-  els.lookupDate.addEventListener("change", async () => { if (lookupMode === "day") { await loadRecords(els.lookupDate.value, true); renderLookup(); renderCounts(); } });
+  els.lookupDate.addEventListener("change", async () => {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+ clearLookupRange();
+ if (lookupMode === "day") { await waitForSessionOperation(loadRecords(els.lookupDate.value, true), sessionOperation); renderLookup(); renderCounts(); } });
   els.lookupMonth.addEventListener("change", clearLookupRange);
   els.lookupSchoolYear.addEventListener("change", clearLookupRange);
   els.lookupDepartment.addEventListener("change", () => { clearLookupRange(); renderLookup(); });
@@ -488,12 +519,13 @@ async function installApp() {
 
 async function handleAuthChange(user) {
   const transitionId = ++authTransitionId;
+  if (pendingConsentUser && pendingConsentUser.uid !== user?.uid) declinePrivacyConsent();
+  resetSessionCache();
+  session = null;
+  document.body.classList.remove("is-authenticated");
+  els.loginScreen.classList.remove("is-hidden");
   if (!user) {
-    resetSessionCache();
-    session = null;
     loginBusy = false;
-    document.body.classList.remove("is-authenticated");
-    els.loginScreen.classList.remove("is-hidden");
     setLoginState(authBootstrapReady ? "ready" : "checking", authBootstrapReady ? "관리자가 등록한 이메일과 동일한 Google 계정으로 로그인해 주세요." : "로그인 환경을 확인하고 있습니다...");
     return;
   }
@@ -502,12 +534,16 @@ async function handleAuthChange(user) {
   els.loginError.textContent = "";
   setLoginState("loading", "로그인 정보를 확인하고 출결 자료를 준비하고 있습니다...");
   try {
-    resetSessionCache();
     const access = await withTimeout(resolveAccess(user), AUTH_DATA_TIMEOUT, "auth/profile-timeout");
     if (transitionId !== authTransitionId) return;
     if (access?.unavailable) {
       await signOut(auth);
-      throw new Error(access.employmentStatus === "not-started" ? "아직 근무 시작일이 되지 않은 계정입니다." : "근무 만료일이 지난 계정입니다. 관리자에게 확인해 주세요.");
+      const message = access.employmentStatus === "not-started"
+        ? "아직 근무 시작일이 되지 않은 계정입니다."
+        : access.employmentStatus === "expired"
+          ? "근무 만료일이 지난 계정입니다. 관리자에게 확인해 주세요."
+          : "근무기간 날짜 설정이 올바르지 않습니다. 관리자에게 확인해 주세요.";
+      throw new Error(message);
     }
     if (!access) {
       await signOut(auth);
@@ -521,7 +557,9 @@ async function handleAuthChange(user) {
       grade: access.grade || "", classNo: access.classNo || "",
       employmentStartDate: access.employmentStartDate || "", employmentEndDate: access.employmentEndDate || ""
     };
-    if (!await withTimeout(ensurePrivacyConsent(user), AUTH_DATA_TIMEOUT, "privacy/consent-timeout")) {
+    const accepted = await ensurePrivacyConsent(user);
+    if (transitionId !== authTransitionId) return;
+    if (!accepted) {
       await signOut(auth);
       throw new Error("개인정보 처리방침에 동의해야 시스템을 사용할 수 있습니다.");
     }
@@ -542,20 +580,26 @@ async function handleAuthChange(user) {
 }
 
 async function resolveAccess(user) {
+  const transitionId = authTransitionId;
+  if (user.emailVerified !== true) return null;
   const email = user.email?.toLowerCase() || "";
   const access = await getDoc(doc(db, "access", email));
+  if (transitionId !== authTransitionId || auth.currentUser?.uid !== user.uid) return null;
   const data = access.exists() ? access.data() : {};
   const grade = data.grade ? String(data.grade) : "";
   const classNo = data.classNo ? String(data.classNo) : "";
   const coachDepartment = String(data.role === "coach" ? data.department || "" : data.coachDepartment || "");
   const externalClasses = normalizeClassKeys(data.externalClasses || []);
   const externalCourse = String(data.externalCourse || "");
-  const employmentStartDate = normalizeDateInput(data.employmentStartDate);
-  const employmentEndDate = normalizeDateInput(data.employmentEndDate);
-  const employmentStatus = employmentPeriodStatus(employmentStartDate, employmentEndDate);
-  if (employmentStatus !== "active") return { unavailable: true, employmentStatus };
+  const rawEmploymentStartDate = data.employmentStartDate ?? "";
+  const rawEmploymentEndDate = data.employmentEndDate ?? "";
+  const employmentStartDate = normalizeDateInput(rawEmploymentStartDate);
+  const employmentEndDate = normalizeDateInput(rawEmploymentEndDate);
+  const employmentStatus = employmentPeriodStatus(rawEmploymentStartDate, rawEmploymentEndDate, koreaDateKey());
+  const isRootAdmin = email === ADMIN_EMAIL;
+  if (!employmentAccessAllowed(user, email, employmentStatus, ADMIN_EMAIL)) return { unavailable: true, employmentStatus };
   const availableRoles = [];
-  if (email === ADMIN_EMAIL || data.role === "admin") availableRoles.push("admin");
+  if (isRootAdmin || data.role === "admin") availableRoles.push("admin");
   else if (data.role === "teacher") availableRoles.push("teacher");
   if (coachDepartment) availableRoles.push("coach");
   if (data.role === "external" || externalClasses.length || data.externalCourse) availableRoles.push("external");
@@ -565,16 +609,15 @@ async function resolveAccess(user) {
   return { role, availableRoles, grade, classNo, coachDepartment, externalClasses, externalCourse, employmentStartDate, employmentEndDate };
 }
 
-function employmentPeriodStatus(start, end) {
-  const today = todayKey();
-  if (start && today < start) return "not-started";
-  if (end && today > end) return "expired";
-  return "active";
-}
-
 async function ensurePrivacyConsent(user) {
+  const transitionId = authTransitionId;
   const email = user.email?.toLowerCase() || "";
-  const consentSnapshot = await getDoc(doc(db, PRIVACY_CONSENT_COLLECTION, email));
+  const consentSnapshot = await withTimeout(
+    getDoc(doc(db, PRIVACY_CONSENT_COLLECTION, email)),
+    PRIVACY_CONSENT_READ_TIMEOUT,
+    "privacy/read-timeout"
+  );
+  if (transitionId !== authTransitionId || auth.currentUser?.uid !== user.uid) return false;
   const consent = consentSnapshot.exists() ? consentSnapshot.data() : null;
   const validConsent = consent
     && consent.email === email
@@ -596,20 +639,25 @@ function openPrivacyConsent(user) {
 }
 
 async function acceptPrivacyConsent() {
+  const operation = captureSessionOperation();
+  if (!operation) return;
   if (!pendingConsentUser || !els.privacyConsentCheckbox.checked) return;
   const user = pendingConsentUser;
   const resolve = pendingConsentResolve;
+  const isCurrentConsent = () => isCurrentSessionOperation(operation) && user === pendingConsentUser && resolve === pendingConsentResolve;
   els.privacyAcceptBtn.disabled = true;
   try {
     await setDoc(doc(db, PRIVACY_CONSENT_COLLECTION, user.email.toLowerCase()), {
       email: user.email.toLowerCase(), uid: user.uid, policyVersion: PRIVACY_POLICY_VERSION, accepted: true,
       acceptedAt: serverTimestamp()
     });
+    if (!isCurrentConsent()) return;
     pendingConsentUser = null;
     pendingConsentResolve = null;
     els.privacyConsentDialog.close();
     resolve?.(true);
   } catch (error) {
+    if (!isCurrentConsent()) return;
     els.privacyAcceptBtn.disabled = false;
     alert(`개인정보 처리방침 동의 기록 저장 실패: ${readableError(error)}`);
   }
@@ -624,6 +672,12 @@ function declinePrivacyConsent() {
 }
 
 async function loadCloudData() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
+  const transitionId = authTransitionId;
+  const accountEmail = session?.email;
+  const accountRole = session?.role;
   const studentsRef = collection(db, "students");
   const studentsQuery = session.role === "coach"
     ? query(studentsRef, where("departments", "array-contains", session.department))
@@ -632,14 +686,15 @@ async function loadCloudData() {
     : session.role === "teacher" && hasHomeroom()
       ? query(studentsRef, where("grade", "==", session.grade), where("classNo", "==", session.classNo))
       : studentsRef;
-  const [settingsSnapshot, studentsSnapshot] = await Promise.all([
+  const [settingsSnapshot, studentsSnapshot] = await waitForSessionOperation(Promise.all([
     getDoc(doc(db, "settings", "public")),
     session.role === "teacher" && !hasHomeroom()
       ? Promise.resolve(null)
       : session.role === "external"
         ? getExternalStudentSnapshots()
         : getDocs(studentsQuery)
-  ]);
+  ]), sessionOperation);
+  if (transitionId !== authTransitionId || !session || session.email !== accountEmail || session.role !== accountRole) return;
   if (settingsSnapshot.exists()) {
     const savedSettings = settingsSnapshot.data();
     const mergedSettings = { ...state.settings, ...savedSettings };
@@ -649,10 +704,14 @@ async function loadCloudData() {
     state.maintenance = maintenanceFromSettings(savedSettings);
     state.systemHealth = healthFromSettings(savedSettings);
     if (isAdmin() && (Number(savedSettings.notificationSettingsVersion || 0) < 4 || !Array.isArray(savedSettings.attendanceDays) || !savedSettings.maxClassesPerGrade)) {
-      await setDoc(doc(db, "settings", "public"), { reviewTime: state.settings.reviewTime, coachReviewTime: state.settings.coachReviewTime, notificationSettingsVersion: 4, attendanceDays: state.settings.attendanceDays, maxClassesPerGrade: state.settings.maxClassesPerGrade, usageCheckDay: state.settings.usageCheckDay, allowAllStudentsLookup: state.settings.allowAllStudentsLookup, updatedAt: serverTimestamp() }, { merge: true });
+      await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { reviewTime: state.settings.reviewTime, coachReviewTime: state.settings.coachReviewTime, notificationSettingsVersion: 4, attendanceDays: state.settings.attendanceDays, maxClassesPerGrade: state.settings.maxClassesPerGrade, usageCheckDay: state.settings.usageCheckDay, allowAllStudentsLookup: state.settings.allowAllStudentsLookup, updatedAt: serverTimestamp() }, { merge: true }), sessionOperation);
+      if (transitionId !== authTransitionId || !session || session.email !== accountEmail || session.role !== accountRole) return;
     }
   }
-  else if (isAdmin()) await setDoc(doc(db, "settings", "public"), state.settings);
+  else if (isAdmin()) {
+    await waitForSessionOperation(setDoc(doc(db, "settings", "public"), state.settings), sessionOperation);
+    if (transitionId !== authTransitionId || !session || session.email !== accountEmail || session.role !== accountRole) return;
+  }
 
   if (session.role === "teacher" && !hasHomeroom()) {
     state.students = [];
@@ -664,7 +723,7 @@ async function loadCloudData() {
     state.students = studentsSnapshot.docs.map((item) => ({ id: item.id, ...item.data(), departments: normalizeDepartments(item.data().departments || item.data().department) })).sort(compareStudents);
   }
 
-  await loadRecords(todayKey());
+  await waitForSessionOperation(loadRecords(todayKey()), sessionOperation);
 }
 
 async function getExternalStudentSnapshots() {
@@ -676,25 +735,40 @@ async function getExternalStudentSnapshots() {
 
 async function loadExternalStudentsForSelectedClass() {
   if (session?.role !== "external") return;
+  const transitionId = authTransitionId;
+  const accountEmail = session.email;
   const snapshots = await getExternalStudentSnapshots();
+  if (transitionId !== authTransitionId || !session || session.email !== accountEmail || session.role !== "external") return;
   const byId = new Map();
   snapshots.forEach((snapshot) => snapshot.docs.forEach((item) => byId.set(item.id, { id: item.id, ...item.data(), departments: normalizeDepartments(item.data().departments || item.data().department) })));
   state.students = [...byId.values()].sort(compareStudents);
 }
 
+function attendanceRecordScope() {
+  return `${session?.email || ""}_${session?.role || ""}_${session?.department || ""}_${session?.role === "external" ? selectedExternalClass() : ""}_${session?.grade || ""}-${session?.classNo || ""}`;
+}
+
 async function loadRecords(date, forceRefresh = false) {
   if (!db || !session) return;
-  if (session.role === "teacher" && !hasHomeroom()) {
-    state.records[date] = {};
-    return;
-  }
+  const transitionId = authTransitionId;
+  const accountEmail = session.email;
+  const accountRole = session.role;
+  const scope = attendanceRecordScope();
+  const requestId = ++recordRequestSerial;
+  recordRequestIds.set(date, requestId);
+  const isCurrent = () => transitionId === authTransitionId && session?.email === accountEmail
+    && session?.role === accountRole && attendanceRecordScope() === scope && recordRequestIds.get(date) === requestId;
+  if (session.role === "teacher" && !hasHomeroom()) { state.records[date] = {}; return; }
   const externalClass = session.role === "external" ? selectedExternalClass() : "";
-  if (session.role === "external" && !externalClass) {
-    state.records[date] = {};
+  if (session.role === "external" && !externalClass) { state.records[date] = {}; return; }
+  const recordKey = `${scope}_${date}`;
+  if (!forceRefresh && loadedRecordKeys.has(recordKey) && scopedRecordCache.has(recordKey)) {
+    state.records[date] = scopedRecordCache.get(recordKey);
     return;
   }
-  const recordKey = `${session.role}_${session.department || ""}_${externalClass || ""}_${session.grade || ""}-${session.classNo || ""}_${date}`;
-  if (!forceRefresh && loadedRecordKeys.has(recordKey)) return;
+  if (forceRefresh) { loadedRecordKeys.delete(recordKey); scopedRecordCache.delete(recordKey); }
+  // Do not render the previous scope while this scope is loading.
+  state.records[date] = {};
   const attendanceRef = collection(db, "attendance");
   const attendanceQuery = session.role === "coach"
     ? query(attendanceRef, where("departments", "array-contains", session.department), where("date", "==", date))
@@ -703,12 +777,14 @@ async function loadRecords(date, forceRefresh = false) {
     : session.role === "teacher"
       ? query(attendanceRef, where("grade", "==", session.grade), where("classNo", "==", session.classNo), where("date", "==", date))
       : query(attendanceRef, where("date", "==", date));
-  const snapshot = await getDocs(attendanceQuery);
-  state.records[date] = {};
-  snapshot.forEach((item) => {
-    const record = item.data();
-    state.records[date][record.studentId] = { ...record, saved: true };
-  });
+  let snapshot;
+  try { snapshot = await getDocs(attendanceQuery); }
+  catch (error) { if (isCurrent()) throw error; return; }
+  if (!isCurrent()) return;
+  const records = {};
+  snapshot.forEach((item) => { const record = item.data(); records[record.studentId] = { ...record, saved: true }; });
+  state.records[date] = records;
+  scopedRecordCache.set(recordKey, records);
   loadedRecordKeys.add(recordKey);
 }
 
@@ -716,8 +792,11 @@ async function loadContacts() {
   if (contactsLoaded) return;
   state.contacts = {};
   if (!isAdmin()) return;
+  const transitionId = authTransitionId;
+  const accountEmail = session.email;
   const contactsRef = collection(db, "contacts");
   const snapshot = await getDocs(contactsRef);
+  if (transitionId !== authTransitionId || !session || session.email !== accountEmail || !isAdmin()) return;
   snapshot.forEach((item) => { state.contacts[item.id] = item.data().parentPhone || ""; });
   contactsLoaded = true;
 }
@@ -778,6 +857,7 @@ function applySession() {
 async function switchAccountMode() {
   const nextRole = els.accountModeSelect.value;
   if (!session?.availableRoles.includes(nextRole) || nextRole === session.role) return;
+  const transitionId = ++authTransitionId;
   const previousRole = session.role;
   els.accountModeSelect.disabled = true;
   try {
@@ -786,12 +866,26 @@ async function switchAccountMode() {
     if (nextRole === "external") session.externalClass = localStorage.getItem(`${ACCOUNT_MODE_KEY}:externalClass:${session.email}`) || selectedExternalClass() || "1-1";
     resetSessionCache();
     await loadCloudData();
+    if (transitionId !== authTransitionId || !session) return;
     localStorage.setItem(`${ACCOUNT_MODE_KEY}:${session.email}`, nextRole);
     applySession();
   } catch (error) {
+    if (transitionId !== authTransitionId || !session) return;
     session.role = previousRole;
     session.department = previousRole === "coach" ? session.coachDepartment : "";
     els.accountModeSelect.value = previousRole;
+    resetSessionCache();
+    try {
+      await loadCloudData();
+      if (transitionId === authTransitionId && session) applySession();
+    } catch (restoreError) {
+      if (transitionId === authTransitionId) {
+        session = null;
+        resetSessionCache();
+        document.body.classList.remove("is-authenticated");
+        els.loginScreen.classList.remove("is-hidden");
+      }
+    }
     alert(`사용 모드 전환 실패: ${readableError(error)}`);
   } finally {
     els.accountModeSelect.disabled = false;
@@ -869,6 +963,9 @@ function dismissUsageReminder() {
 }
 
 async function markUsageChecked() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const month = currentMonthKey();
   state.settings.usageLastConfirmedMonth = month;
@@ -877,22 +974,30 @@ async function markUsageChecked() {
   saveAlarms();
   updateUsageReminderBanner();
   try {
-    await setDoc(doc(db, "settings", "public"), { usageLastConfirmedMonth: month, usageLastConfirmedAt: serverTimestamp(), usageLastConfirmedBy: session.email }, { merge: true });
+    await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { usageLastConfirmedMonth: month, usageLastConfirmedAt: serverTimestamp(), usageLastConfirmedBy: session.email }, { merge: true }), sessionOperation);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     console.error("Firebase usage confirmation could not be synchronized:", error);
   }
 }
 
 async function updateUsageCheckDay() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const day = Number(String(els.usageCheckDay.value).replace(/\D/g, ""));
   if (day < 1 || day > 28) return;
   state.settings.usageCheckDay = day;
-  await setDoc(doc(db, "settings", "public"), { usageCheckDay: day, notificationSettingsVersion: 4, updatedAt: serverTimestamp() }, { merge: true });
+  await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { usageCheckDay: day, notificationSettingsVersion: 4, updatedAt: serverTimestamp() }, { merge: true }), sessionOperation);
   updateUsageReminderBanner();
 }
 
 async function updateAllStudentsLookupSetting() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const enabled = els.allowAllStudentsLookup.checked;
   if (enabled && !confirm("관리자 조회 대상에 ‘학생 전체’를 표시할까요?\n월별·학년도별 전체 조회는 Firebase 읽기 사용량이 크게 늘 수 있습니다.")) {
@@ -900,7 +1005,7 @@ async function updateAllStudentsLookupSetting() {
     return;
   }
   state.settings.allowAllStudentsLookup = enabled;
-  await setDoc(doc(db, "settings", "public"), { allowAllStudentsLookup: enabled, updatedAt: serverTimestamp() }, { merge: true });
+  await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { allowAllStudentsLookup: enabled, updatedAt: serverTimestamp() }, { merge: true }), sessionOperation);
   refreshLookupScopes();
   clearLookupRange();
   renderLookup();
@@ -922,16 +1027,19 @@ function readableRunTime(value) {
 }
 
 async function refreshSystemHealth() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   els.refreshCleanupStatusBtn.disabled = true;
   ["cleanup", "deployment", "reminder"].forEach((name) => setHealthState(name, null, "확인 중"));
-  const [settingsResult, actionsResult] = await Promise.allSettled([
+  const [settingsResult, actionsResult] = await waitForSessionOperation(Promise.allSettled([
     getDoc(doc(db, "settings", "public")),
     fetch(GITHUB_ACTIONS_RUNS_API, { headers: { Accept: "application/vnd.github+json" } }).then(async (response) => {
       if (!response.ok) throw new Error(`GitHub 상태 조회 오류 ${response.status}`);
       return response.json();
     })
-  ]);
+  ]), sessionOperation);
   try {
     if (settingsResult.status !== "fulfilled") throw settingsResult.reason;
     const settingsSnapshot = settingsResult.value;
@@ -951,6 +1059,8 @@ async function refreshSystemHealth() {
     const reminderMessage = `${reminderWorkflowOk ? "정상" : "오류 또는 실행 지연"} · ${readableRunTime(state.systemHealth?.reminderLastRunAt)}`;
     setHealthState("reminder", reminderWorkflowOk, reminderMessage);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     ["cleanup", "reminder"].forEach((name) => setHealthState(name, false, `확인 실패 · ${readableError(error)}`));
   }
   if (actionsResult.status === "fulfilled") {
@@ -965,6 +1075,9 @@ async function refreshSystemHealth() {
 }
 
 async function saveRetentionSettings() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const enabled = els.autoCleanupEnabled.checked;
   const retentionMonths = Number(els.retentionMonths.value);
@@ -972,15 +1085,19 @@ async function saveRetentionSettings() {
   if (enabled && !confirm(`${retentionMonths}개월이 지난 출결을 매월 자동 삭제할까요?\n삭제된 기록은 복구할 수 없습니다.`)) return;
   els.saveRetentionSettingsBtn.disabled = true;
   try {
-    await setDoc(doc(db, "settings", "public"), { autoCleanupEnabled: enabled, retentionMonths, updatedAt: serverTimestamp() }, { merge: true });
+    await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { autoCleanupEnabled: enabled, retentionMonths, updatedAt: serverTimestamp() }, { merge: true }), sessionOperation);
     state.settings.autoCleanupEnabled = enabled;
     state.settings.retentionMonths = retentionMonths;
     alert(enabled ? `자동 삭제를 켰습니다. ${retentionMonths}개월이 지난 출결부터 매월 정리됩니다.` : "오래된 출결 자동 삭제를 껐습니다.");
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     els.autoCleanupEnabled.checked = state.settings.autoCleanupEnabled;
     els.retentionMonths.value = String(state.settings.retentionMonths);
     alert(`보관 설정 저장 실패: ${readableError(error)}`);
   } finally {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     els.saveRetentionSettingsBtn.disabled = false;
   }
 }
@@ -1051,9 +1168,14 @@ function syncCurrentHomeroom(email, grade = "", classNo = "") {
 }
 
 function resetSessionCache() {
+  dateRolloverPromise = null;
+  for (const id of ["confirmSaveBtn","deleteAllStudentsBtn","csvUploadBtn"]) if (els[id]) els[id].disabled = false;
   loadedRecordKeys.clear();
-  state.records = {};
-  state.contacts = {};
+  scopedRecordCache.clear();
+  recordRequestIds.clear();
+  lookupRequestId++;
+  clearSensitiveSessionData(state, document);
+  state.admins = { [ADMIN_EMAIL]: {} };
   contactsLoaded = false;
   accessCatalogLoaded = false;
   accessCatalogPromise = null;
@@ -1061,6 +1183,8 @@ function resetSessionCache() {
   pushTokenActive = false;
   pushRegistrationStatus = "idle";
   lookupRange = { key: "", records: [], start: "", end: "" };
+  editingStudentId = null;
+  activeFilter = "all";
 }
 
 function currentSchoolYear(date = new Date()) {
@@ -1173,6 +1297,8 @@ function setLookupMode(mode) {
 }
 
 function clearLookupRange() {
+  lookupRequestId++;
+  if (els.refreshLookupBtn) els.refreshLookupBtn.disabled = false;
   lookupRange = { key: "", records: [], start: "", end: "" };
   els.lookupPeriodSummary.classList.add("is-hidden");
 }
@@ -1437,11 +1563,18 @@ function selectedAfterschoolDepartments() {
 }
 
 async function saveStudent() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin() && !hasHomeroom()) return;
+  const transitionId = authTransitionId;
+  const userId = auth.currentUser?.uid;
+  const accountEmail = session?.email;
+  const targetEditingStudentId = editingStudentId;
   const departments = selectedAfterschoolDepartments();
   if (!departments) return alert("방과후 수강 여부를 선택하고, 수강 시 요일과 부서를 모두 확인해 주세요.");
   const student = {
-    id: editingStudentId || `student-${crypto.randomUUID?.() || Date.now()}`,
+    id: targetEditingStudentId || `student-${crypto.randomUUID?.() || Date.now()}`,
     name: els.studentNameInput.value.trim(),
     grade: String(isAdmin() ? els.studentGradeInput.value : session.grade),
     classNo: String(isAdmin() ? els.studentClassInput.value : session.classNo),
@@ -1450,36 +1583,45 @@ async function saveStudent() {
   };
   if (!student.name || !student.grade || !student.classNo || !student.number) return alert("이름, 학년, 반, 번호를 확인해 주세요.");
   if (Number(student.classNo) > state.settings.maxClassesPerGrade) return alert(`현재 학년별 최대 반 수는 ${state.settings.maxClassesPerGrade}반입니다.`);
-  if (editingStudentId && !confirm(`${student.name} 학생 정보를 수정할까요?`)) return;
+  if (targetEditingStudentId && !confirm(`${student.name} 학생 정보를 수정할까요?`)) return;
   try {
-    await setDoc(doc(db, "students", student.id), { name: student.name, grade: student.grade, classNo: student.classNo, number: student.number, departments: student.departments });
+    await waitForSessionOperation(setDoc(doc(db, "students", student.id), { name: student.name, grade: student.grade, classNo: student.classNo, number: student.number, departments: student.departments }), sessionOperation);
+    if (transitionId !== authTransitionId || !session || session.email !== accountEmail || auth.currentUser?.uid !== userId) return;
     const index = state.students.findIndex((item) => item.id === student.id);
     if (index >= 0) state.students[index] = student;
     else state.students.push(student);
-    editingStudentId = null;
+    if (editingStudentId === targetEditingStudentId) editingStudentId = null;
     els.studentDialog.close();
     refreshDepartments();
     renderAll();
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
+    if (transitionId !== authTransitionId || !session || session.email !== accountEmail || auth.currentUser?.uid !== userId) return;
     alert(`학생 저장 실패: ${readableError(error)}`);
   }
 }
 
 async function deleteStudent(student) {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!canManageStudent(student) || !confirm(`${student.name} 학생을 명단에서 삭제할까요?\n삭제 후에는 되돌릴 수 없습니다.`)) return;
   try {
     if (isAdmin()) {
       const batch = writeBatch(db);
       batch.delete(doc(db, "students", student.id));
       batch.delete(doc(db, "contacts", student.id));
-      await batch.commit();
+      await waitForSessionOperation(batch.commit(), sessionOperation);
     } else {
-      await deleteDoc(doc(db, "students", student.id));
+      await waitForSessionOperation(deleteDoc(doc(db, "students", student.id)), sessionOperation);
     }
     state.students = state.students.filter((item) => item.id !== student.id);
     refreshDepartments();
     renderAll();
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     alert(`학생 삭제 실패: ${readableError(error)}`);
   }
 }
@@ -1516,8 +1658,11 @@ function renderCounts() {
 }
 
 async function requestUnsetTeacherReminders() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin() || els.unsetCountItem.disabled) return;
-  if (!accessCatalogLoaded) await loadCoachList();
+  if (!accessCatalogLoaded) await waitForSessionOperation(loadCoachList(), sessionOperation);
   const unsetStudents = getScopedStudents().filter((student) => (state.records[todayKey()]?.[student.id]?.status || "unset") === "unset");
   const classes = uniqueStudentClasses(unsetStudents);
   const targets = classes.flatMap(({ grade, classNo }) => Object.entries(state.teachers)
@@ -1537,11 +1682,15 @@ async function requestUnsetTeacherReminders() {
         status: "pending", requestedBy: session.email, requestedAt: serverTimestamp()
       });
     });
-    await batch.commit();
+    await waitForSessionOperation(batch.commit(), sessionOperation);
     alert(`${targets.length}명의 담임교사에게 알림을 요청했습니다. 다음 자동 알림 작업에서 전송됩니다.`);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     alert(`미입력 알림 요청 실패: ${readableError(error)}`);
   } finally {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     renderCounts();
   }
 }
@@ -1558,35 +1707,45 @@ function openReview() {
 }
 
 async function confirmSave() {
-  if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 출결 입력일이 아닙니다.");
+  const operation = captureSessionOperation();
+  const date = todayKey();
+  if (!operation || !canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 출결 입력일이 아닙니다.");
   els.confirmSaveBtn.disabled = true;
   try {
-    const pending = getScopedStudents()
-      .map((student) => ({ student, record: getTodayRecord(student.id) }))
-      .filter(({ record }) => !record.saved);
-    if (!pending.length) {
-      els.reviewDialog.close();
-      return;
+    const pending = getScopedStudents().map(student => ({ student, record: getTodayRecord(student.id) })).filter(({record}) => !record.saved);
+    if (!pending.length) { els.reviewDialog.close(); return; }
+    // Small chunks stay below Firestore's aggregate rule document-access
+    // budget. Committed chunks keep their snapshot even if a later one fails.
+    for (const entry of pending) {
+      const {student, record} = entry;
+      if (record.date !== date) throw new Error("출결 날짜가 변경되었습니다. 다시 확인해 주세요.");
+      entry.payload = buildAttendancePayload(student, record, operation.email, serverTimestamp());
     }
-    const batch = writeBatch(db);
-    pending.forEach(({ student, record }) => {
-      batch.set(doc(db, "attendance", `${todayKey()}_${student.id}`), {
-        studentId: student.id, date: todayKey(), grade: String(student.grade), classNo: String(student.classNo), departments: studentDepartments(student),
-        status: record.status, memo: record.memo || "", updatedBy: session.email, updatedAt: serverTimestamp()
-      });
-    });
-    await batch.commit();
-    pending.forEach(({ record }) => { record.saved = true; });
+    for (let start = 0; start < pending.length; start += 4) {
+      if (!isCurrentSessionOperation(operation)) return;
+      const chunk = pending.slice(start, start + 4), batch = writeBatch(db);
+      for (const {student, payload} of chunk) batch.set(doc(db, "attendance", `${date}_${student.id}`), payload);
+      await batch.commit();
+      if (!isCurrentSessionOperation(operation)) return;
+      for (const {record, payload} of chunk) {
+      const stillMatches = record.status === payload.status && (record.memo || "") === payload.memo;
+      Object.assign(record, {studentId: payload.studentId, date: payload.date, grade: payload.grade,
+        classNo: payload.classNo, departments: [...payload.departments], saved: stillMatches});
+      }
+    }
     els.reviewDialog.close();
     renderAll();
   } catch (error) {
-    alert(`저장 실패: ${readableError(error)}`);
+    if (isCurrentSessionOperation(operation)) alert(`저장 실패: ${readableError(error)}`);
   } finally {
-    els.confirmSaveBtn.disabled = false;
+    if (isCurrentSessionOperation(operation)) els.confirmSaveBtn.disabled = false;
   }
 }
 
 async function clearToday() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!canEnterAttendanceToday()) return alert("오늘은 관리자가 지정한 출결 입력일이 아닙니다.");
   if (!confirm("오늘 출결 기록을 초기화할까요?")) return;
   if (session.role === "teacher" && !hasHomeroom()) return alert("담당 학급을 먼저 배정해 주세요.");
@@ -1596,10 +1755,10 @@ async function clearToday() {
   if (classes.length !== 1) return alert("초기화할 학급을 하나만 선택해 주세요.");
   const [{ grade, classNo }] = classes;
   const attendanceQuery = query(attendanceRef, where("grade", "==", grade), where("classNo", "==", classNo), where("date", "==", todayKey()));
-  const snapshot = await getDocs(attendanceQuery);
+  const snapshot = await waitForSessionOperation(getDocs(attendanceQuery), sessionOperation);
   const batch = writeBatch(db);
   snapshot.forEach((item) => batch.delete(item.ref));
-  await batch.commit();
+  await waitForSessionOperation(batch.commit(), sessionOperation);
   state.records[todayKey()] ||= {};
   scopedStudents.forEach((student) => delete state.records[todayKey()][student.id]);
   renderAll();
@@ -1647,6 +1806,9 @@ function lookupDateRange() {
 }
 
 async function loadRangeRecords(start, end, department, scope) {
+  const transitionId = authTransitionId;
+  const userId = auth.currentUser?.uid;
+  const role = session?.role;
   const attendanceRef = collection(db, "attendance");
   const externalClass = session.role === "external" ? selectedExternalClass() : "";
   const attendanceQuery = session.role === "external" && externalClass
@@ -1657,6 +1819,7 @@ async function loadRangeRecords(start, end, department, scope) {
       ? query(attendanceRef, where("departments", "array-contains", department), where("date", ">=", start), where("date", "<=", end))
       : query(attendanceRef, where("date", ">=", start), where("date", "<=", end));
   const snapshot = await getDocs(attendanceQuery);
+  if (transitionId !== authTransitionId || auth.currentUser?.uid !== userId || session?.role !== role) return [];
   return snapshot.docs.map((item) => item.data());
 }
 
@@ -1702,75 +1865,104 @@ function renderLookupSummary() {
 
 async function refreshLookup() {
   if (!session) return;
+  const transitionId = authTransitionId;
+  const userId = auth.currentUser?.uid;
+  const role = session.role;
+  const mode = lookupMode;
+  const scope = currentLookupScope();
+  const department = session.role === "coach" ? session.department : ["teacher", "external"].includes(session.role) ? "전체" : els.lookupDepartment.value;
+  const day = els.lookupDate.value || todayKey();
+  const range = mode === "day" ? null : lookupDateRange();
+  const scopeIdentity = attendanceRecordScope();
+  const isCurrentRequest = () => requestId === lookupRequestId && transitionId === authTransitionId
+    && auth.currentUser?.uid === userId && session?.role === role && lookupMode === mode
+    && currentLookupScope() === scope && attendanceRecordScope() === scopeIdentity;
   const waitMs = LOOKUP_REFRESH_COOLDOWN - (Date.now() - lastLookupRefreshAt);
   if (waitMs > 0) return alert(session.role === "coach" ? coachText("wait", { seconds: Math.ceil(waitMs / 1000) }) : `${Math.ceil(waitMs / 1000)}초 후 다시 새로고침할 수 있습니다.`);
+  const requestId = ++lookupRequestId;
   els.refreshLookupBtn.disabled = true;
   try {
     if (session.role === "teacher" && !hasHomeroom()) return alert("담당 학급이 배정된 교사만 출결을 조회할 수 있습니다.");
-    if (lookupMode === "day") {
-      await loadRecords(els.lookupDate.value || todayKey(), true);
+    if (mode === "day") {
+      await loadRecords(day, true);
+      if (!isCurrentRequest()) return;
     } else {
-      const department = session.role === "coach" ? session.department : ["teacher", "external"].includes(session.role) ? "전체" : els.lookupDepartment.value;
-      const scope = currentLookupScope();
       if (session.role === "external" && !selectedExternalClass()) return alert("조회할 반을 선택해 주세요.");
       if (isAdmin() && scope === "all") return alert("학생 전체 조회는 Firebase 읽기 사용량 보호를 위해 일별 조회만 지원합니다. 월별·학년도별은 내 학급이나 방과후 부서를 선택해 주세요.");
       if (isAdmin() && scope === "afterschool" && department === "전체") return alert("월별·학년도별 ‘방과후 수강학생 전체’ 조회는 읽기 사용량이 많습니다. 방과후 부서를 하나 선택해 주세요.");
-      const range = lookupDateRange();
       const records = await loadRangeRecords(range.start, range.end, department, scope);
+      if (!isCurrentRequest()) return;
       const allowedStudentIds = new Set(scopedLookupStudents(department).map((student) => student.id));
-      lookupRange = { key: `${lookupMode}_${scope}_${department}_${range.start}_${range.end}`, records: records.filter((record) => allowedStudentIds.has(record.studentId)), ...range };
+      lookupRange = { key: `${mode}_${scope}_${department}_${range.start}_${range.end}`, records: records.filter((record) => allowedStudentIds.has(record.studentId)), ...range };
     }
     lastLookupRefreshAt = Date.now();
-    if (lookupMode === "day" && isAdmin() && state.settings.contactVisible) await loadContacts();
+    if (mode === "day" && isAdmin() && state.settings.contactVisible) await loadContacts();
+    if (!isCurrentRequest()) return;
     renderLookup();
-    if (lookupMode === "day") renderCounts();
+    if (mode === "day") renderCounts();
   } catch (error) {
+    if (!isCurrentRequest()) return;
     alert(`${session.role === "coach" ? coachText("lookupFailed") : "조회 실패"}: ${readableError(error)}`);
   } finally {
-    els.refreshLookupBtn.disabled = false;
+    if (isCurrentRequest()) els.refreshLookupBtn.disabled = false;
   }
 }
 
 async function setContactVisibility(visible) {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   state.settings.contactVisible = visible;
   els.maskContactDefault.checked = !visible;
-  await setDoc(doc(db, "settings", "public"), { ...state.settings, updatedAt: serverTimestamp() }, { merge: true });
-  if (visible) await loadContacts();
+  await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { ...state.settings, updatedAt: serverTimestamp() }, { merge: true }), sessionOperation);
+  if (visible) await waitForSessionOperation(loadContacts(), sessionOperation);
   renderLookup();
 }
 
 async function updateMorningTime() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   if (!isFiveMinuteTime(els.morningTime.value)) {
     els.morningTime.value = state.settings.morningTime;
     return alert("알림 시간은 5분 단위로 지정해 주세요.");
   }
   state.settings.morningTime = els.morningTime.value;
-  await setDoc(doc(db, "settings", "public"), { morningTime: state.settings.morningTime, updatedAt: serverTimestamp() }, { merge: true });
+  await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { morningTime: state.settings.morningTime, updatedAt: serverTimestamp() }, { merge: true }), sessionOperation);
 }
 
 async function updateReviewTime() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   if (!isFiveMinuteTime(els.reviewTime.value)) {
     els.reviewTime.value = state.settings.reviewTime;
     return alert("알림 시간은 5분 단위로 지정해 주세요.");
   }
   state.settings.reviewTime = els.reviewTime.value;
-  await setDoc(doc(db, "settings", "public"), { reviewTime: state.settings.reviewTime, notificationSettingsVersion: 4, updatedAt: serverTimestamp() }, { merge: true });
+  await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { reviewTime: state.settings.reviewTime, notificationSettingsVersion: 4, updatedAt: serverTimestamp() }, { merge: true }), sessionOperation);
 }
 
 async function updateCoachReviewTime() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   if (!isFiveMinuteTime(els.coachReviewTime.value)) {
     els.coachReviewTime.value = state.settings.coachReviewTime;
     return alert("알림 시간은 5분 단위로 지정해 주세요.");
   }
   state.settings.coachReviewTime = els.coachReviewTime.value;
-  await setDoc(doc(db, "settings", "public"), { coachReviewTime: state.settings.coachReviewTime, notificationSettingsVersion: 4, updatedAt: serverTimestamp() }, { merge: true });
+  await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { coachReviewTime: state.settings.coachReviewTime, notificationSettingsVersion: 4, updatedAt: serverTimestamp() }, { merge: true }), sessionOperation);
 }
 
 async function updateAttendanceDays() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const selected = [...document.querySelectorAll("[data-attendance-day]:checked")].map((input) => Number(input.dataset.attendanceDay)).sort();
   if (!selected.length) {
@@ -1778,11 +1970,14 @@ async function updateAttendanceDays() {
     return alert("출결 입력 요일을 한 개 이상 선택해 주세요.");
   }
   state.settings.attendanceDays = selected;
-  await setDoc(doc(db, "settings", "public"), { attendanceDays: selected, updatedAt: serverTimestamp() }, { merge: true });
+  await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { attendanceDays: selected, updatedAt: serverTimestamp() }, { merge: true }), sessionOperation);
   renderStudents();
 }
 
 async function updateMaxClassesPerGrade() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const value = Math.trunc(Number(els.maxClassesPerGrade.value));
   if (value < 1 || value > 10) {
@@ -1790,7 +1985,7 @@ async function updateMaxClassesPerGrade() {
     return alert("학년별 반 수는 1~10 사이로 입력해 주세요.");
   }
   state.settings.maxClassesPerGrade = value;
-  await setDoc(doc(db, "settings", "public"), { maxClassesPerGrade: value, updatedAt: serverTimestamp() }, { merge: true });
+  await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { maxClassesPerGrade: value, updatedAt: serverTimestamp() }, { merge: true }), sessionOperation);
   refreshDepartments();
 }
 
@@ -1799,6 +1994,9 @@ function isFiveMinuteTime(value) {
 }
 
 async function addAdmin() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const email = els.adminEmailInput.value.trim().toLowerCase();
   if (!email.endsWith("@nsworld.net")) return alert("관리자는 학교 이메일(@nsworld.net)만 등록할 수 있습니다.");
@@ -1807,9 +2005,9 @@ async function addAdmin() {
   const adminData = withAccountMetadata(email, { role: "admin", updatedAt: serverTimestamp(), updatedBy: session.email });
   if (homeroom.grade && homeroom.classNo) Object.assign(adminData, { grade: homeroom.grade, classNo: homeroom.classNo });
   withSupplementalRoles(email, adminData);
-  await setDoc(doc(db, "access", email), adminData);
+  await waitForSessionOperation(setDoc(doc(db, "access", email), adminData), sessionOperation);
   els.adminEmailInput.value = "";
-  await loadCoachList();
+  await waitForSessionOperation(loadCoachList(), sessionOperation);
   renderAll();
 }
 
@@ -1823,6 +2021,9 @@ function renderAdminList() {
     return `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${fixed ? "기본 관리자" : "추가 관리자"}${homeroom}</span></div>${fixed ? "" : `<button type="button" data-remove-admin="${escapeAttr(email)}">삭제</button>`}</div>`;
   }).join("");
   els.adminList.querySelectorAll("[data-remove-admin]").forEach((button) => button.addEventListener("click", async () => {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
     const email = button.dataset.removeAdmin;
     if (email === session.email) return alert("현재 로그인한 관리자 계정은 직접 삭제할 수 없습니다.");
     if (!confirm(`${email}의 관리자 권한을 삭제할까요?`)) return;
@@ -1830,14 +2031,14 @@ function renderAdminList() {
     if (assignment.grade && assignment.classNo) {
       const nextData = { role: "teacher", grade: assignment.grade, classNo: assignment.classNo, updatedAt: serverTimestamp(), updatedBy: session.email };
       withSupplementalRoles(email, nextData);
-      await setDoc(doc(db, "access", email), nextData);
+      await waitForSessionOperation(setDoc(doc(db, "access", email), nextData), sessionOperation);
       state.teachers[email] = { grade: assignment.grade, classNo: assignment.classNo };
     } else if (state.coaches[email]) {
-      await setDoc(doc(db, "access", email), withSupplementalRoles(email, { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email }));
+      await waitForSessionOperation(setDoc(doc(db, "access", email), withSupplementalRoles(email, { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email })), sessionOperation);
     } else if (state.externals[email]) {
-      await setDoc(doc(db, "access", email), externalAccessData(email));
+      await waitForSessionOperation(setDoc(doc(db, "access", email), externalAccessData(email)), sessionOperation);
     } else {
-      await deleteDoc(doc(db, "access", email));
+      await waitForSessionOperation(deleteDoc(doc(db, "access", email)), sessionOperation);
       delete state.accountPeriods[email];
     }
     delete state.admins[email];
@@ -1848,6 +2049,9 @@ function renderAdminList() {
 }
 
 async function saveEmploymentPeriod() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const email = els.accountEmailInput.value.trim().toLowerCase();
   const start = normalizeDateInput(els.employmentStartDateInput.value);
@@ -1855,12 +2059,12 @@ async function saveEmploymentPeriod() {
   if (!email || !email.includes("@")) return alert("대상 계정 이메일을 확인해 주세요.");
   if (!start || !end) return alert("근무 시작일과 근무 만료일을 모두 입력해 주세요.");
   if (start && end && start > end) return alert("근무 시작일은 근무 만료일보다 늦을 수 없습니다.");
-  const accessSnapshot = await getDoc(doc(db, "access", email));
+  const accessSnapshot = await waitForSessionOperation(getDoc(doc(db, "access", email)), sessionOperation);
   if (!accessSnapshot.exists()) return alert("등록된 계정이 없습니다. 먼저 계정이나 권한을 등록해 주세요.");
-  await setDoc(doc(db, "access", email), {
+  await waitForSessionOperation(setDoc(doc(db, "access", email), {
     employmentStartDate: start, employmentEndDate: end,
     updatedAt: serverTimestamp(), updatedBy: session.email
-  }, { merge: true });
+  }, { merge: true }), sessionOperation);
   state.accountPeriods[email] = { start, end };
   els.accountEmailInput.value = "";
   els.employmentStartDateInput.value = "";
@@ -1885,29 +2089,32 @@ function renderEmploymentPeriodList() {
 }
 
 async function withdrawAccount() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const email = els.withdrawAccountEmailInput.value.trim().toLowerCase();
   if (!email || !email.includes("@")) return alert("탈퇴 처리할 계정 이메일을 확인해 주세요.");
   if (email === ADMIN_EMAIL) return alert("기본 관리자 계정은 탈퇴 처리할 수 없습니다.");
   if (email === session.email) return alert("현재 로그인한 관리자 계정은 스스로 탈퇴 처리할 수 없습니다.");
-  const accessSnapshot = await getDoc(doc(db, "access", email));
+  const accessSnapshot = await waitForSessionOperation(getDoc(doc(db, "access", email)), sessionOperation);
   if (!accessSnapshot.exists()) return alert("등록된 계정을 찾을 수 없습니다.");
   if (!confirm(`${email}의 시스템 이용을 해제하고 등록된 알림 토큰을 삭제할까요?\n학생·출결 기록은 보존되며 Google 계정 자체는 삭제되지 않습니다.`)) return;
   if (prompt("실수를 막기 위해 '회원탈퇴'를 입력해 주세요.") !== "회원탈퇴") return alert("탈퇴 처리를 취소했습니다.");
   els.withdrawAccountBtn.disabled = true;
   try {
-    const [tokenSnapshot, targetRequests, requestedRequests] = await Promise.all([
+    const [tokenSnapshot, targetRequests, requestedRequests] = await waitForSessionOperation(Promise.all([
       getDocs(query(collection(db, "notificationTokens"), where("email", "==", email))),
       getDocs(query(collection(db, "notificationRequests"), where("targetEmail", "==", email))),
       getDocs(query(collection(db, "notificationRequests"), where("requestedBy", "==", email)))
-    ]);
+    ]), sessionOperation);
     const relatedRequests = new Map([...targetRequests.docs, ...requestedRequests.docs].map((item) => [item.ref.path, item.ref]));
-    await deleteDocumentRefs([...relatedRequests.values()]);
-    await deleteDocumentRefs(tokenSnapshot.docs.map((item) => item.ref));
-    await deleteDoc(doc(db, "privacyAcknowledgements", email));
-    await deleteDoc(doc(db, "access", email));
+    await waitForSessionOperation(deleteDocumentRefs([...relatedRequests.values()]), sessionOperation);
+    await waitForSessionOperation(deleteDocumentRefs(tokenSnapshot.docs.map((item) => item.ref)), sessionOperation);
+    await waitForSessionOperation(deleteDoc(doc(db, "privacyAcknowledgements", email)), sessionOperation);
+    await waitForSessionOperation(deleteDoc(doc(db, "access", email)), sessionOperation);
     delete state.accountPeriods[email];
-    await loadCoachList();
+    await waitForSessionOperation(loadCoachList(), sessionOperation);
     renderAdminList();
     renderTeacherList();
     renderCoachList();
@@ -1916,13 +2123,20 @@ async function withdrawAccount() {
     els.withdrawAccountEmailInput.value = "";
     alert(`${email}의 시스템 이용을 해제했습니다. Firebase Google 계정 자체는 삭제되지 않았습니다.`);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     alert(`회원탈퇴 처리 실패: ${readableError(error)}`);
   } finally {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     els.withdrawAccountBtn.disabled = false;
   }
 }
 
 async function addCoach() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const email = els.coachEmailInput.value.trim().toLowerCase();
   const department = els.coachDepartmentInput.value;
@@ -1931,18 +2145,21 @@ async function addCoach() {
   const coachData = hasPrimaryRole
     ? withAccountMetadata(email, { coachDepartment: department, updatedAt: serverTimestamp(), updatedBy: session.email })
     : withAccountMetadata(email, { role: "coach", department, updatedAt: serverTimestamp(), updatedBy: session.email });
-  await setDoc(doc(db, "access", email), coachData, { merge: hasPrimaryRole });
+  await waitForSessionOperation(setDoc(doc(db, "access", email), coachData, { merge: hasPrimaryRole }), sessionOperation);
   els.coachEmailInput.value = "";
-  await loadCoachList();
+  await waitForSessionOperation(loadCoachList(), sessionOperation);
   renderCoachList();
 }
 
 async function importCoachesCsv() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const file = els.coachCsvFileInput.files?.[0];
   if (!file) return alert("방과후강사 CSV 파일을 선택해 주세요.");
   try {
-    const rows = parseCsv((await readCsvText(file)).replace(/^\uFEFF/, ""));
+    const rows = parseCsv((await waitForSessionOperation(readCsvText(file), sessionOperation)).replace(/^\uFEFF/, ""));
     const headers = rows.shift().map((header) => header.trim().toLowerCase());
     const assignments = rows.filter((row) => row.some(Boolean)).map((row, index) => {
       const item = Object.fromEntries(headers.map((header, headerIndex) => [header, String(row[headerIndex] || "").trim()]));
@@ -1964,13 +2181,15 @@ async function importCoachesCsv() {
           : withAccountMetadata(email, { role: "coach", department, updatedAt: serverTimestamp(), updatedBy: session.email });
         batch.set(doc(db, "access", email), data, { merge: hasPrimaryRole });
       });
-      await batch.commit();
+      await waitForSessionOperation(batch.commit(), sessionOperation);
     }
     els.coachCsvFileInput.value = "";
-    await loadCoachList();
+    await waitForSessionOperation(loadCoachList(), sessionOperation);
     renderCoachList();
     alert(`${uniqueAssignments.length}명의 방과후강사를 등록했습니다.`);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     alert(`방과후강사 CSV 등록 실패: ${readableError(error)}`);
   }
 }
@@ -1987,6 +2206,8 @@ function normalizeCoachDepartment(course, day) {
 }
 
 async function loadCoachList() {
+  const transitionId = authTransitionId;
+  const accountEmail = session?.email;
   state.admins = { [ADMIN_EMAIL]: {} };
   state.coaches = {};
   state.teachers = {};
@@ -1994,6 +2215,7 @@ async function loadCoachList() {
   state.accessRoles = {};
   state.accountPeriods = {};
   const snapshot = await getDocs(collection(db, "access"));
+  if (transitionId !== authTransitionId || !session || session.email !== accountEmail || !isAdmin()) return;
   snapshot.forEach((item) => {
     const data = item.data();
     state.accessRoles[item.id] = data.role || "";
@@ -2049,14 +2271,17 @@ function renderCoachList() {
     return `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(department)}${dualRole}</span></div><button type="button" data-remove-coach="${escapeAttr(email)}" aria-label="${escapeAttr(email)} 삭제">삭제</button></div>`;
   }).join("") : `<p class="note">등록된 방과후강사가 없습니다.</p>`;
   els.coachList.querySelectorAll("[data-remove-coach]").forEach((button) => button.addEventListener("click", async () => {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
     const email = button.dataset.removeCoach;
     if (!confirm(`${email}의 방과후강사 배정만 삭제할까요?\n담임교사·관리자·외부수업강사 권한은 유지됩니다.`)) return;
     if (state.admins[email] || state.teachers[email]) {
-      await setDoc(doc(db, "access", email), { coachDepartment: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email }, { merge: true });
+      await waitForSessionOperation(setDoc(doc(db, "access", email), { coachDepartment: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email }, { merge: true }), sessionOperation);
     } else if (state.externals[email]) {
-      await setDoc(doc(db, "access", email), externalAccessData(email));
+      await waitForSessionOperation(setDoc(doc(db, "access", email), externalAccessData(email)), sessionOperation);
     } else {
-      await deleteDoc(doc(db, "access", email));
+      await waitForSessionOperation(deleteDoc(doc(db, "access", email)), sessionOperation);
       delete state.accountPeriods[email];
     }
     delete state.coaches[email];
@@ -2066,6 +2291,9 @@ function renderCoachList() {
 }
 
 async function clearCoachAssignments() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const emails = Object.keys(state.coaches);
   if (!emails.length) return alert("해제할 방과후강사 배정이 없습니다.");
@@ -2084,7 +2312,7 @@ async function clearCoachAssignments() {
           batch.delete(doc(db, "access", email));
         }
       });
-      await batch.commit();
+      await waitForSessionOperation(batch.commit(), sessionOperation);
     }
     state.coaches = {};
     emails.filter((email) => !state.admins[email] && !state.teachers[email] && !state.externals[email])
@@ -2093,15 +2321,22 @@ async function clearCoachAssignments() {
     renderEmploymentPeriodList();
     alert(`방과후강사 배정 ${emails.length}건을 모두 해제했습니다.`);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     alert(`방과후강사 배정 전체 해제 실패: ${readableError(error)}`);
-    await loadCoachList().catch(() => {});
+    await waitForSessionOperation(loadCoachList().catch(() => {}), sessionOperation);
     renderCoachList();
   } finally {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     els.clearCoachAssignmentsBtn.disabled = false;
   }
 }
 
 async function addExternalInstructor() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const email = els.externalEmailInput.value.trim().toLowerCase();
   const course = els.externalCourseInput.value || "외부수업";
@@ -2110,18 +2345,21 @@ async function addExternalInstructor() {
   const data = hasPrimaryRole
     ? withAccountMetadata(email, { externalCourse: course, externalClasses: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email })
     : withAccountMetadata(email, { role: "external", externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email });
-  await setDoc(doc(db, "access", email), data, { merge: hasPrimaryRole });
+  await waitForSessionOperation(setDoc(doc(db, "access", email), data, { merge: hasPrimaryRole }), sessionOperation);
   els.externalEmailInput.value = "";
-  await loadCoachList();
+  await waitForSessionOperation(loadCoachList(), sessionOperation);
   renderExternalList();
 }
 
 async function importExternalsCsv() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const file = els.externalCsvFileInput.files?.[0];
   if (!file) return alert("외부수업강사 CSV 파일을 선택해 주세요.");
   try {
-    const rows = parseCsv((await readCsvText(file)).replace(/^\uFEFF/, ""));
+    const rows = parseCsv((await waitForSessionOperation(readCsvText(file), sessionOperation)).replace(/^\uFEFF/, ""));
     const headers = rows.shift().map((header) => header.trim().toLowerCase());
     const parsed = rows.filter((row) => row.some((value) => String(value).trim())).map((row, index) => {
       const item = Object.fromEntries(headers.map((header, headerIndex) => [header, String(row[headerIndex] || "").trim()]));
@@ -2148,13 +2386,15 @@ async function importExternalsCsv() {
           : withAccountMetadata(email, { role: "external", externalCourse: course, updatedAt: serverTimestamp(), updatedBy: session.email });
         batch.set(doc(db, "access", email), data, { merge: hasPrimaryRole });
       });
-      await batch.commit();
+      await waitForSessionOperation(batch.commit(), sessionOperation);
     }
     els.externalCsvFileInput.value = "";
-    await loadCoachList();
+    await waitForSessionOperation(loadCoachList(), sessionOperation);
     renderExternalList();
     alert(`${assignments.length}명의 외부수업강사를 등록했습니다.`);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     alert(`외부수업강사 CSV 등록 실패: ${readableError(error)}`);
   }
 }
@@ -2167,14 +2407,17 @@ function renderExternalList() {
     return `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(value.course || "외부수업")} · 로그인 후 학급 선택${dualRole}</span></div><button type="button" data-remove-external="${escapeAttr(email)}" aria-label="${escapeAttr(email)} 삭제">삭제</button></div>`;
   }).join("") : `<p class="note">등록된 외부수업강사가 없습니다.</p>`;
   els.externalList.querySelectorAll("[data-remove-external]").forEach((button) => button.addEventListener("click", async () => {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
     const email = button.dataset.removeExternal;
     if (!confirm(`${email}의 외부수업강사 권한만 삭제할까요?\n담임교사·관리자·방과후강사 권한은 유지됩니다.`)) return;
     if (state.admins[email] || state.teachers[email]) {
-      await setDoc(doc(db, "access", email), { externalClasses: deleteField(), externalCourse: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email }, { merge: true });
+      await waitForSessionOperation(setDoc(doc(db, "access", email), { externalClasses: deleteField(), externalCourse: deleteField(), updatedAt: serverTimestamp(), updatedBy: session.email }, { merge: true }), sessionOperation);
     } else if (state.coaches[email]) {
-      await setDoc(doc(db, "access", email), withAccountMetadata(email, { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email }));
+      await waitForSessionOperation(setDoc(doc(db, "access", email), withAccountMetadata(email, { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email })), sessionOperation);
     } else {
-      await deleteDoc(doc(db, "access", email));
+      await waitForSessionOperation(deleteDoc(doc(db, "access", email)), sessionOperation);
       delete state.accountPeriods[email];
     }
     delete state.externals[email];
@@ -2184,6 +2427,9 @@ function renderExternalList() {
 }
 
 async function clearExternalAssignments() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const emails = Object.keys(state.externals);
   if (!emails.length) return alert("해제할 외부수업강사 계정이 없습니다.");
@@ -2202,7 +2448,7 @@ async function clearExternalAssignments() {
           batch.delete(doc(db, "access", email));
         }
       });
-      await batch.commit();
+      await waitForSessionOperation(batch.commit(), sessionOperation);
     }
     state.externals = {};
     emails.filter((email) => !state.admins[email] && !state.teachers[email] && !state.coaches[email])
@@ -2211,15 +2457,22 @@ async function clearExternalAssignments() {
     renderEmploymentPeriodList();
     alert(`외부수업강사 권한 ${emails.length}건을 모두 해제했습니다.`);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     alert(`외부수업강사 권한 전체 해제 실패: ${readableError(error)}`);
-    await loadCoachList().catch(() => {});
+    await waitForSessionOperation(loadCoachList().catch(() => {}), sessionOperation);
     renderExternalList();
   } finally {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     els.clearExternalAssignmentsBtn.disabled = false;
   }
 }
 
 async function addExternalCourse() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const course = els.externalCourseNameInput.value.trim();
   if (!course) return alert("추가할 외부수업명을 입력해 주세요.");
@@ -2227,18 +2480,24 @@ async function addExternalCourse() {
   state.settings.externalCourses.push(course);
   state.settings.externalCourses.sort((a, b) => a.localeCompare(b, "ko"));
   els.externalCourseNameInput.value = "";
-  await saveExternalCourses();
+  await waitForSessionOperation(saveExternalCourses(), sessionOperation);
 }
 
 async function removeExternalCourse(course) {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!confirm(`'${course}' 외부수업을 목록에서 삭제할까요?`)) return;
   state.settings.externalCourses = state.settings.externalCourses.filter((item) => item !== course);
   if (!state.settings.externalCourses.length) state.settings.externalCourses = [...DEFAULT_EXTERNAL_COURSES];
-  await saveExternalCourses();
+  await waitForSessionOperation(saveExternalCourses(), sessionOperation);
 }
 
 async function saveExternalCourses() {
-  await setDoc(doc(db, "settings", "public"), { externalCourses: state.settings.externalCourses, updatedAt: serverTimestamp() }, { merge: true });
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
+  await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { externalCourses: state.settings.externalCourses, updatedAt: serverTimestamp() }, { merge: true }), sessionOperation);
   refreshDepartments();
   renderExternalCourseList();
 }
@@ -2250,6 +2509,9 @@ function renderExternalCourseList() {
 }
 
 async function addAfterschoolCourse(day) {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const input = day === "monday" ? els.mondayDepartmentInput : els.fridayDepartmentInput;
   const course = input.value.trim();
@@ -2258,18 +2520,24 @@ async function addAfterschoolCourse(day) {
   state.settings.afterschoolCourses[day].push(course);
   state.settings.afterschoolCourses[day].sort((a, b) => a.localeCompare(b, "ko"));
   input.value = "";
-  await saveAfterschoolCourses();
+  await waitForSessionOperation(saveAfterschoolCourses(), sessionOperation);
 }
 
 async function removeAfterschoolCourse(day, course) {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   const dayLabel = day === "monday" ? "월요일" : "금요일";
   if (!confirm(`${dayLabel} '${course}' 부서를 목록에서 삭제할까요?`)) return;
   state.settings.afterschoolCourses[day] = state.settings.afterschoolCourses[day].filter((item) => item !== course);
-  await saveAfterschoolCourses();
+  await waitForSessionOperation(saveAfterschoolCourses(), sessionOperation);
 }
 
 async function saveAfterschoolCourses() {
-  await setDoc(doc(db, "settings", "public"), { afterschoolCourses: state.settings.afterschoolCourses, updatedAt: serverTimestamp() }, { merge: true });
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
+  await waitForSessionOperation(setDoc(doc(db, "settings", "public"), { afterschoolCourses: state.settings.afterschoolCourses, updatedAt: serverTimestamp() }, { merge: true }), sessionOperation);
   refreshDepartments();
   renderDepartmentLists();
 }
@@ -2286,6 +2554,9 @@ function renderDepartmentList(day, container) {
 }
 
 async function addTeacherAssignment() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const email = els.teacherEmailInput.value.trim().toLowerCase();
   const [grade, classNo] = els.teacherClassSelect.value.split("-");
@@ -2294,7 +2565,7 @@ async function addTeacherAssignment() {
   const role = state.admins[email] ? "admin" : "teacher";
   const data = withAccountMetadata(email, { role, grade, classNo, updatedAt: serverTimestamp(), updatedBy: session.email });
   withSupplementalRoles(email, data);
-  await setDoc(doc(db, "access", email), data);
+  await waitForSessionOperation(setDoc(doc(db, "access", email), data), sessionOperation);
   state.teachers[email] = { grade, classNo };
   if (role === "admin") state.admins[email] = { grade, classNo };
   syncCurrentHomeroom(email, grade, classNo);
@@ -2305,6 +2576,9 @@ async function addTeacherAssignment() {
 }
 
 async function bulkAssignTeachers() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const assignments = parseTeacherAssignments(els.teacherBulkInput.value);
   if (!assignments.length) return alert("배정할 교사 목록을 확인해 주세요.");
@@ -2319,7 +2593,7 @@ async function bulkAssignTeachers() {
     state.teachers[email] = { grade, classNo };
     if (role === "admin") state.admins[email] = { grade, classNo };
   });
-  await batch.commit();
+  await waitForSessionOperation(batch.commit(), sessionOperation);
   const currentAssignment = assignments.find(({ email }) => email === session.email);
   if (currentAssignment) syncCurrentHomeroom(currentAssignment.email, currentAssignment.grade, currentAssignment.classNo);
   els.teacherBulkInput.value = "";
@@ -2330,11 +2604,14 @@ async function bulkAssignTeachers() {
 }
 
 async function importTeachersCsv() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const file = els.teacherCsvFileInput.files?.[0];
   if (!file) return alert("담임교사 배정 CSV 파일을 선택해 주세요.");
   try {
-    const rows = parseCsv((await readCsvText(file)).replace(/^\uFEFF/, ""));
+    const rows = parseCsv((await waitForSessionOperation(readCsvText(file), sessionOperation)).replace(/^\uFEFF/, ""));
     const headers = rows.shift().map((header) => header.trim().toLowerCase());
     const parsed = rows.filter((row) => row.some((value) => String(value).trim())).map((row, index) => {
       const item = Object.fromEntries(headers.map((header, headerIndex) => [header, String(row[headerIndex] || "").trim()]));
@@ -2359,7 +2636,7 @@ async function importTeachersCsv() {
         state.teachers[email] = { grade, classNo };
         if (role === "admin") state.admins[email] = { grade, classNo };
       });
-      await batch.commit();
+      await waitForSessionOperation(batch.commit(), sessionOperation);
     }
     const currentAssignment = assignments.find(({ email }) => email === session.email);
     if (currentAssignment) syncCurrentHomeroom(currentAssignment.email, currentAssignment.grade, currentAssignment.classNo);
@@ -2369,11 +2646,16 @@ async function importTeachersCsv() {
     renderEmploymentPeriodList();
     alert(`${assignments.length}명의 담임 배정을 CSV로 저장했습니다.`);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     alert(`담임 CSV 배정 실패: ${readableError(error)}`);
   }
 }
 
 async function clearTeacherAssignments() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const assignments = Object.keys(state.teachers);
   if (!assignments.length) return alert("해제할 담임 배정이 없습니다.");
@@ -2396,7 +2678,7 @@ async function clearTeacherAssignments() {
         batch.delete(doc(db, "access", email));
       }
     });
-    await batch.commit();
+    await waitForSessionOperation(batch.commit(), sessionOperation);
     state.teachers = {};
     assignments.filter((email) => !state.admins[email] && !state.coaches[email] && !state.externals[email])
       .forEach((email) => { delete state.accountPeriods[email]; });
@@ -2406,11 +2688,15 @@ async function clearTeacherAssignments() {
     renderEmploymentPeriodList();
     alert(`담임 배정 ${assignments.length}건을 모두 해제했습니다.`);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     alert(`담임 배정 전체 해제 실패: ${readableError(error)}`);
-    await loadCoachList().catch(() => {});
+    await waitForSessionOperation(loadCoachList().catch(() => {}), sessionOperation);
     renderAdminList();
     renderTeacherList();
   } finally {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     els.clearTeacherAssignmentsBtn.disabled = false;
   }
 }
@@ -2428,19 +2714,22 @@ function renderTeacherList() {
   const entries = Object.entries(state.teachers).sort(([a], [b]) => a.localeCompare(b));
   els.teacherList.innerHTML = entries.length ? entries.map(([email, value]) => `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(value.grade)}학년 ${escapeHtml(value.classNo)}반${state.coaches[email] ? " · 방과후강사 겸임" : ""}${state.externals[email] ? " · 외부수업강사 겸임" : ""}</span></div><button type="button" data-remove-teacher="${escapeAttr(email)}">삭제</button></div>`).join("") : `<p class="note">배정된 담임교사가 없습니다.</p>`;
   els.teacherList.querySelectorAll("[data-remove-teacher]").forEach((button) => button.addEventListener("click", async () => {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
     if (!confirm(`${button.dataset.removeTeacher}의 담임 배정을 삭제할까요?`)) return;
     const email = button.dataset.removeTeacher;
     if (state.admins[email]) {
       const data = { role: "admin", updatedAt: serverTimestamp(), updatedBy: session.email };
       withSupplementalRoles(email, data);
-      await setDoc(doc(db, "access", email), data);
+      await waitForSessionOperation(setDoc(doc(db, "access", email), data), sessionOperation);
       state.admins[email] = {};
     } else if (state.coaches[email]) {
-      await setDoc(doc(db, "access", email), withSupplementalRoles(email, { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email }));
+      await waitForSessionOperation(setDoc(doc(db, "access", email), withSupplementalRoles(email, { role: "coach", department: state.coaches[email], updatedAt: serverTimestamp(), updatedBy: session.email })), sessionOperation);
     } else if (state.externals[email]) {
-      await setDoc(doc(db, "access", email), externalAccessData(email));
+      await waitForSessionOperation(setDoc(doc(db, "access", email), externalAccessData(email)), sessionOperation);
     } else {
-      await deleteDoc(doc(db, "access", email));
+      await waitForSessionOperation(deleteDoc(doc(db, "access", email)), sessionOperation);
       delete state.accountPeriods[email];
     }
     delete state.teachers[email];
@@ -2452,12 +2741,15 @@ function renderTeacherList() {
 }
 
 async function uploadStudents(students) {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   try {
-    const [previousStudents, previousContacts] = await Promise.all([
+    const [previousStudents, previousContacts] = await waitForSessionOperation(Promise.all([
       getDocs(collection(db, "students")),
       getDocs(collection(db, "contacts"))
-    ]);
+    ]), sessionOperation);
     const nextIds = new Set(students.map((student) => student.id));
     for (let start = 0; start < students.length; start += 200) {
       const batch = writeBatch(db);
@@ -2466,30 +2758,35 @@ async function uploadStudents(students) {
         batch.set(doc(db, "students", id), { name: student.name, grade: String(student.grade), classNo: String(student.classNo), number: String(student.number), departments });
         batch.set(doc(db, "contacts", id), { parentPhone: parentPhone || "" });
       });
-      await batch.commit();
+      await waitForSessionOperation(batch.commit(), sessionOperation);
     }
     const obsoleteRefs = [
       ...previousStudents.docs.filter((item) => !nextIds.has(item.id)).map((item) => item.ref),
       ...previousContacts.docs.filter((item) => !nextIds.has(item.id)).map((item) => item.ref)
     ];
-    await deleteDocumentRefs(obsoleteRefs);
+    await waitForSessionOperation(deleteDocumentRefs(obsoleteRefs), sessionOperation);
     contactsLoaded = false;
-    await loadCloudData();
+    await waitForSessionOperation(loadCloudData(), sessionOperation);
     refreshDepartments();
     renderAll();
     const removedStudents = previousStudents.docs.filter((item) => !nextIds.has(item.id)).length;
     alert(`학생 명단을 새 CSV 기준으로 교체했습니다.\n저장 ${students.length}명 · 기존 명단에서 삭제 ${removedStudents}명`);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     alert(`명단 저장 실패: ${readableError(error)}`);
   }
 }
 
 async function importCsv() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   const file = els.csvFileInput.files?.[0];
   if (!file) return alert("관리자 기기에서 CSV 파일을 선택해 주세요.");
   try {
-    const csvText = await readCsvText(file);
+    const csvText = await waitForSessionOperation(readCsvText(file), sessionOperation);
     const rows = parseCsv(csvText.replace(/^\uFEFF/, ""));
     const headers = rows.shift().map((header) => header.trim());
     const parsed = rows.map((row, index) => ({ row, line: index + 2 })).filter(({ row }) => row.some((value) => String(value).trim()));
@@ -2508,8 +2805,10 @@ async function importCsv() {
     if (duplicateIds.length) throw new Error(`${[...new Set(duplicateIds.map((student) => student.line))].join(", ")}행의 id 또는 학년·반·번호가 중복됩니다.`);
     if (!students.length) throw new Error("학생 정보가 없습니다.");
     if (!confirm(`현재 학생 ${state.students.length}명을 CSV의 ${students.length}명으로 전체 교체할까요?\nCSV에 없는 학생과 연락처는 삭제되며, 교사가 수정한 정보도 CSV 기준으로 덮어씁니다.\n기존 출결 기록은 유지됩니다.`)) return;
-    await uploadStudents(students);
+    await waitForSessionOperation(uploadStudents(students), sessionOperation);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     alert(`가져오기 실패: ${readableError(error)}`);
   }
 }
@@ -2519,36 +2818,48 @@ function sanitizeStudentId(value) {
 }
 
 async function deleteDocumentRefs(refs) {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   for (let start = 0; start < refs.length; start += 450) {
     const batch = writeBatch(db);
     refs.slice(start, start + 450).forEach((ref) => batch.delete(ref));
-    await batch.commit();
+    await waitForSessionOperation(batch.commit(), sessionOperation);
   }
 }
 
 async function deleteAllStudents() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!isAdmin()) return;
   if (!confirm("학생 명단과 학부모 연락처를 모두 삭제할까요?\n출결 기록은 삭제하지 않습니다.")) return;
   if (prompt("실수를 막기 위해 '전체삭제'를 입력해 주세요.") !== "전체삭제") return alert("전체 삭제를 취소했습니다.");
   els.deleteAllStudentsBtn.disabled = true;
   try {
-    const [studentsSnapshot, contactsSnapshot] = await Promise.all([
+    const [studentsSnapshot, contactsSnapshot] = await waitForSessionOperation(Promise.all([
       getDocs(collection(db, "students")),
       getDocs(collection(db, "contacts"))
-    ]);
-    await deleteDocumentRefs([...studentsSnapshot.docs.map((item) => item.ref), ...contactsSnapshot.docs.map((item) => item.ref)]);
+    ]), sessionOperation);
+    await waitForSessionOperation(deleteDocumentRefs([...studentsSnapshot.docs.map((item) => item.ref), ...contactsSnapshot.docs.map((item) => item.ref)]), sessionOperation);
     state.students = [];
     state.contacts = {};
     state.records = {};
     loadedRecordKeys.clear();
+    scopedRecordCache.clear();
+    recordRequestIds.clear();
     contactsLoaded = false;
     els.csvFileInput.value = "";
     refreshDepartments();
     renderAll();
     alert(`학생 명단 ${studentsSnapshot.size}명과 연락처를 모두 삭제했습니다. 기존 출결 기록은 유지됩니다.`);
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     alert(`학생 정보 전체 삭제 실패: ${readableError(error)}`);
   } finally {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     els.deleteAllStudentsBtn.disabled = false;
   }
 }
@@ -2686,6 +2997,9 @@ function scheduleChecks() {
 }
 
 async function checkDateRollover() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   const nextDate = todayKey();
   if (nextDate === activeAttendanceDate) return;
   if (dateRolloverPromise) return dateRolloverPromise;
@@ -2695,12 +3009,14 @@ async function checkDateRollover() {
     els.todayText.textContent = new Intl.DateTimeFormat(session?.role === "coach" ? coachLocale() : "ko-KR", { dateStyle: "full" }).format(new Date());
     if (!els.lookupDate.value || els.lookupDate.value === previousDate) els.lookupDate.value = nextDate;
     if (els.reviewDialog.open) els.reviewDialog.close();
-    await loadRecords(nextDate, true);
+    await waitForSessionOperation(loadRecords(nextDate, true), sessionOperation);
     renderAll();
   })();
   try {
-    await dateRolloverPromise;
+    await waitForSessionOperation(dateRolloverPromise, sessionOperation);
   } finally {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     dateRolloverPromise = null;
   }
 }
@@ -2760,6 +3076,9 @@ function messagingTokenOptions() {
 }
 
 async function registerPushToken() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   pushRegistrationStatus = "pending";
   updateNotificationPermissionUi();
   if (!messaging || !notificationRegistration || !session || !canReceiveNotifications()) {
@@ -2768,9 +3087,9 @@ async function registerPushToken() {
     return false;
   }
   try {
-    const token = await getToken(messaging, messagingTokenOptions());
+    const token = await waitForSessionOperation(getToken(messaging, messagingTokenOptions()), sessionOperation);
     if (!token) throw new Error("푸시 알림 토큰을 발급받지 못했습니다.");
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+    const digest = await waitForSessionOperation(crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)), sessionOperation);
     const tokenId = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
     const audiences = notificationAudiences();
     const language = session.availableRoles.includes("coach") ? coachLanguage : "ko";
@@ -2778,7 +3097,7 @@ async function registerPushToken() {
     const syncSignature = JSON.stringify({ tokenId, uid: auth.currentUser.uid, email: session.email, role, audiences, language });
     const previousSync = readPushTokenSync();
     if (previousSync?.signature !== syncSignature || Date.now() - Number(previousSync.syncedAt || 0) >= PUSH_TOKEN_SYNC_INTERVAL) {
-      await setDoc(doc(db, "notificationTokens", tokenId), {
+      await waitForSessionOperation(setDoc(doc(db, "notificationTokens", tokenId), {
         token,
         uid: auth.currentUser.uid,
         email: session.email,
@@ -2787,7 +3106,7 @@ async function registerPushToken() {
         language,
         active: true,
         updatedAt: serverTimestamp()
-      });
+      }), sessionOperation);
       localStorage.setItem(PUSH_TOKEN_SYNC_KEY, JSON.stringify({ signature: syncSignature, syncedAt: Date.now() }));
     }
     pushTokenActive = true;
@@ -2795,6 +3114,8 @@ async function registerPushToken() {
     updateNotificationPermissionUi();
     return true;
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     pushTokenActive = false;
     pushRegistrationStatus = "error";
     updateNotificationPermissionUi();
@@ -2808,20 +3129,25 @@ function readPushTokenSync() {
 }
 
 async function revokePushToken(showMessage = false) {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   const previousSync = readPushTokenSync();
   let tokenId = "";
   try {
     const signature = previousSync?.signature ? JSON.parse(previousSync.signature) : null;
     tokenId = String(signature?.tokenId || "");
   } catch {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     tokenId = "";
   }
   try {
     if (!tokenId && messaging && notificationRegistration && "Notification" in window && Notification.permission === "granted") {
-      const token = await getToken(messaging, messagingTokenOptions());
-      if (token) tokenId = await tokenDocumentId(token);
+      const token = await waitForSessionOperation(getToken(messaging, messagingTokenOptions()), sessionOperation);
+      if (token) tokenId = await waitForSessionOperation(tokenDocumentId(token), sessionOperation);
     }
-    if (tokenId && db) await deleteDoc(doc(db, "notificationTokens", tokenId));
+    if (tokenId && db) await waitForSessionOperation(deleteDoc(doc(db, "notificationTokens", tokenId)), sessionOperation);
     localStorage.removeItem(PUSH_TOKEN_SYNC_KEY);
     pushTokenActive = false;
     pushRegistrationStatus = "idle";
@@ -2829,6 +3155,8 @@ async function revokePushToken(showMessage = false) {
     if (showMessage) alert("이 기기의 출결 알림 등록을 해제했습니다. 브라우저 사이트 설정에서 알림 권한을 완전히 차단할 수도 있습니다.");
     return true;
   } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
     if (showMessage) alert(`알림 등록 해제 실패: ${readableError(error)}`);
     return false;
   }
@@ -2845,19 +3173,24 @@ async function tokenDocumentId(token) {
 }
 
 async function enableNotifications(showConfirmation = false) {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   if (!canReceiveNotifications()) return "denied";
   if (location.protocol === "file:") {
     if (showConfirmation) alert("체험판 파일에서는 알림을 켤 수 없습니다. 실제 배포 주소에서 설정해 주세요.");
     return "unavailable";
   }
   if (!("Notification" in window)) return alert("이 브라우저는 알림을 지원하지 않습니다.");
-  const permission = await Notification.requestPermission();
+  const permission = await waitForSessionOperation(Notification.requestPermission(), sessionOperation);
   if (permission === "granted") {
     try {
-      const registered = await registerPushToken();
+      const registered = await waitForSessionOperation(registerPushToken(), sessionOperation);
       if (!registered && showConfirmation) alert("푸시 알림 등록을 완료하지 못했습니다. Firebase Cloud Messaging 설정을 확인해 주세요.");
-      else if (showConfirmation) await notify("출결 알림이 켜졌습니다", "앱을 닫아도 예정된 출결 알림을 이 기기에서 표시합니다.");
+      else if (showConfirmation) await waitForSessionOperation(notify("출결 알림이 켜졌습니다", "앱을 닫아도 예정된 출결 알림을 이 기기에서 표시합니다."), sessionOperation);
     } catch (error) {
+    if (!isCurrentSessionOperation(sessionOperation)) return;
+
       if (showConfirmation) alert(`푸시 알림 등록 실패: ${readableError(error)}`);
     }
   } else if (showConfirmation) {
@@ -2930,6 +3263,9 @@ function updateNotificationBadge() {
 }
 
 async function openNotificationCenter() {
+  const sessionOperation = captureSessionOperation();
+  if (!sessionOperation) return;
+
   const items = alarms.notifications || [];
   els.notificationList.innerHTML = items.length ? items.map((item) => `<article class="notification-item ${item.read ? "" : "is-unread"}"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p><time>${new Intl.DateTimeFormat(session?.role === "coach" ? coachLocale() : "ko-KR", { dateStyle: "short", timeStyle: "short" }).format(new Date(item.time))}</time></article>`).join("") : `<p class="empty-notifications">${session?.role === "coach" ? coachText("noNotifications") : "도착한 알림이 없습니다."}</p>`;
   items.forEach((item) => { item.read = true; });

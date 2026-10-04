@@ -13,12 +13,14 @@ service cloud.firestore {
     function isAdmin() {
       return signedIn() && (
         email() == 'leens@nsworld.net'
-        || (exists(accessPath()) && get(accessPath()).data.role == 'admin')
+        || (activeAccess() && get(accessPath()).data.role == 'admin')
       );
     }
 
     function isTeacher() {
-      return signedIn() && email().matches('.*@nsworld[.]net$');
+      return signedIn()
+        && email().matches('.*@nsworld[.]net$')
+        && activeAccess();
     }
 
     function accessPath() {
@@ -28,12 +30,60 @@ service cloud.firestore {
     function isRegisteredAccount() {
       return signedIn() && (
         email() == 'leens@nsworld.net'
-        || exists(accessPath())
+        || activeAccess()
       );
     }
 
+    function paddedDatePart(value) {
+      return value < 10 ? '0' + string(value) : string(value);
+    }
+
+    function currentKoreaDate() {
+      let koreaNow = request.time + duration.value(9, 'h');
+      let date = koreaNow.date();
+      return string(date.year()) + '-'
+        + paddedDatePart(date.month()) + '-'
+        + paddedDatePart(date.day());
+    }
+
+    function validEmploymentDate(value) {
+      return value is string && value.matches(
+        '^([0-9]{4}-(01|03|05|07|08|10|12)-(0[1-9]|[12][0-9]|3[01])'
+        + '|[0-9]{4}-(04|06|09|11)-(0[1-9]|[12][0-9]|30)'
+        + '|[0-9]{4}-02-(0[1-9]|1[0-9]|2[0-8])'
+        + '|([0-9]{2}(0[48]|[2468][048]|[13579][26])|(0[48]|[2468][048]|[13579][26])00)-02-29)$'
+      );
+    }
+
+    function validEmploymentPeriod(data) {
+      let hasStart = data.keys().hasAny(['employmentStartDate']);
+      let hasEnd = data.keys().hasAny(['employmentEndDate']);
+      let start = hasStart ? data.employmentStartDate : '';
+      let end = hasEnd ? data.employmentEndDate : '';
+      return (!hasStart || validEmploymentDate(start))
+        && (!hasEnd || validEmploymentDate(end))
+        && (!(hasStart && hasEnd) || start <= end);
+    }
+
+    function employmentPeriodIsActive(data) {
+      let hasStart = data.keys().hasAny(['employmentStartDate']);
+      let hasEnd = data.keys().hasAny(['employmentEndDate']);
+      let start = hasStart ? data.employmentStartDate : '';
+      let end = hasEnd ? data.employmentEndDate : '';
+      let today = currentKoreaDate();
+      return validEmploymentPeriod(data)
+        && (!hasStart || start <= today)
+        && (!hasEnd || today <= end);
+    }
+
+    function activeAccess() {
+      return signedIn()
+        && exists(accessPath())
+        && employmentPeriodIsActive(get(accessPath()).data);
+    }
+
     function isCoach() {
-      return signedIn() && exists(accessPath()) && (
+      return activeAccess() && (
         get(accessPath()).data.role == 'coach'
         || (get(accessPath()).data.keys().hasAny(['coachDepartment'])
           && get(accessPath()).data.coachDepartment is string)
@@ -41,7 +91,7 @@ service cloud.firestore {
     }
 
     function isExternalInstructor() {
-      return signedIn() && exists(accessPath()) && (
+      return activeAccess() && (
         get(accessPath()).data.role == 'external'
         || (get(accessPath()).data.keys().hasAny(['externalCourse'])
           && get(accessPath()).data.externalCourse is string)
@@ -65,6 +115,41 @@ service cloud.firestore {
       return isHomeroomTeacher()
         && data.grade == get(accessPath()).data.grade
         && data.classNo == get(accessPath()).data.classNo;
+    }
+
+    function canUpdateAttendance(previous, proposed) {
+      let registeredTeacher = signedIn()
+        && email().matches('.*@nsworld[.]net$')
+        && exists(accessPath());
+      let account = registeredTeacher ? get(accessPath()).data : {};
+      return registeredTeacher
+        && account.role == 'teacher'
+        && employmentPeriodIsActive(account)
+        && previous.grade == account.grade
+        && previous.classNo == account.classNo
+        && proposed.grade == account.grade
+        && proposed.classNo == account.classNo
+        && proposed.studentId == previous.studentId
+        && proposed.date == previous.date
+        && proposed.departments == previous.departments;
+    }
+
+    // Evaluate access-period validation once per attendance read, including
+    // accounts that have more than one teaching role.
+    function canReadAttendance(data) {
+      let registered = signedIn() && exists(accessPath());
+      let account = registered ? get(accessPath()).data : {};
+      let role = account.get('role', '');
+      let department = role == 'coach' ? account.get('department', '') : account.get('coachDepartment', '');
+      return signedIn() && (email() == 'leens@nsworld.net'
+        || (registered && employmentPeriodIsActive(account) && (
+          role == 'admin'
+          || (role == 'teacher' && email().matches('.*@nsworld[.]net$')
+            && data.grade == account.get('grade', '') && data.classNo == account.get('classNo', ''))
+          || role == 'external' || account.get('externalCourse', null) is string
+          || (account.get('externalClasses', []) is list && account.get('externalClasses', []).size() > 0)
+          || ((role == 'coach' || account.get('coachDepartment', null) is string) && department in data.departments)
+        )));
     }
 
     function validStudent(data) {
@@ -103,6 +188,7 @@ service cloud.firestore {
     function validAccess(accountEmail, data) {
       return data.role in ['admin', 'teacher', 'coach', 'external']
         && data.updatedBy == email()
+        && validEmploymentPeriod(data)
         && (!data.keys().hasAny(['coachDepartment']) || data.coachDepartment is string)
         && (!data.keys().hasAny(['externalClasses']) || data.externalClasses is list)
         && (!data.keys().hasAny(['externalCourse']) || data.externalCourse is string)
@@ -121,7 +207,7 @@ service cloud.firestore {
     }
 
     match /settings/public {
-      allow read: if signedIn();
+      allow read: if isRegisteredAccount();
       allow write: if isAdmin();
     }
 
@@ -159,12 +245,16 @@ service cloud.firestore {
     }
 
     match /attendance/{recordId} {
-      allow read: if isAdmin()
-        || (ownsAttendance(resource.data))
-        || canReadAsExternalInstructor()
-        || (isCoach() && coachDepartment() in resource.data.departments);
-      allow create, update: if validAttendance(request.resource.data)
-        && (isAdmin() || ownsAttendance(request.resource.data));
+      allow read: if canReadAttendance(resource.data);
+      allow create: if validAttendance(request.resource.data)
+        && (isAdmin() || (ownsAttendance(request.resource.data)
+          && recordId == request.resource.data.date + '_' + request.resource.data.studentId
+          && exists(/databases/$(database)/documents/students/$(request.resource.data.studentId))
+          && get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.grade == request.resource.data.grade
+          && get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.classNo == request.resource.data.classNo
+          && get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.departments == request.resource.data.departments));
+      allow update: if validAttendance(request.resource.data)
+        && (isAdmin() || canUpdateAttendance(resource.data, request.resource.data));
       allow delete: if isAdmin() || ownsAttendance(resource.data);
     }
 

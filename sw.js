@@ -1,23 +1,27 @@
 const APP_URL = "./";
-const CACHE_NAME = "namsung-attendance-20260809-8";
+const CACHE_NAME = "namsung-attendance-20261003-4";
 const INDEX_FALLBACK = "./index.html";
-const MANUAL_FALLBACK = "./manual.html?v=20260809-8";
-const PRIVACY_FALLBACK = "./privacy.html?v=20260809-8";
+const MANUAL_FALLBACK = "./manual.html?v=20261003-4";
+const PRIVACY_FALLBACK = "./privacy.html?v=20261003-4";
 const APP_SHELL = [
   "./",
   INDEX_FALLBACK,
-  "./styles.css?v=20260809-8",
-  "./app.js?v=20260809-8",
+  "./styles.css?v=20261003-4",
+  "./app.js?v=20261003-4",
+  "./access-period.mjs?v=20261003-4",
+  "./session-cleanup.mjs?v=20261003-4",
+  "./student-classes.mjs?v=20261003-4",
+  "./attendance-payload.mjs?v=20261003-4",
   "./config.js",
   "./manifest.webmanifest",
   MANUAL_FALLBACK,
   PRIVACY_FALLBACK,
-  "./manual.js?v=20260809-8",
-  "./logo.svg?v=20260809-8",
-  "./icon-192.png?v=20260809-8",
-  "./icon-512.png?v=20260809-8",
-  "./icon-maskable-512.png?v=20260809-8",
-  "./apple-touch-icon.png?v=20260809-8"
+  "./manual.js?v=20261003-4",
+  "./logo.svg?v=20261003-4",
+  "./icon-192.png?v=20261003-4",
+  "./icon-512.png?v=20261003-4",
+  "./icon-maskable-512.png?v=20261003-4",
+  "./apple-touch-icon.png?v=20261003-4"
 ];
 
 self.addEventListener("install", (event) => {
@@ -26,7 +30,7 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(Promise.all([
-    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))),
+    caches.keys().then((keys) => Promise.all(keys.filter((key) => key.startsWith("namsung-attendance-") && key !== CACHE_NAME).map((key) => caches.delete(key)))),
     self.clients.claim()
   ]));
 });
