@@ -5,16 +5,17 @@ import path from 'node:path';
 
 const ORIGIN='https://firebasehosting.googleapis.com';
 const CONSOLE_LABEL='5d49e4';
-const RESOURCE_PREFIX='sites/namsung-check/versions/';
 const WINDOW_START='2026-10-04T10:35:23Z';
 const WINDOW_END='2026-10-04T10:35:28Z';
+const RELEASE_SEARCH_START='2026-10-04T10:35:08Z';
+const RELEASE_SEARCH_END='2026-10-04T10:35:43Z';
 const MAX_PAGES=3;
 const fail=code=>{throw new Error(code);};
 const digest=value=>crypto.createHash('sha256').update(value).digest('hex');
 const approvedManifest=new URL('./hosting-public-manifest.json',import.meta.url);
 const systemPaths=new Set(['/404.html','/.well-known/assetlinks.json','/.well-known/apple-app-site-association','/apple-app-site-association','/__/firebase/init.js','/__/firebase/init.json']);
 
-export function preflight(){return {site:'namsung-check',consolePrefix:CONSOLE_LABEL,createTimeStart:WINDOW_START,createTimeEndExclusive:WINDOW_END,expectedFiles:26};}
+export function preflight(){return {site:'namsung-check',channel:'live',consoleLabel:CONSOLE_LABEL,releaseTimeStart:RELEASE_SEARCH_START,releaseTimeEndExclusive:RELEASE_SEARCH_END,expectedFiles:26};}
 function safePath(raw,allowed){
   if(typeof raw!=='string'||raw.length>512)fail('INVALID_FILE_METADATA');
   if(allowed.has(raw)||systemPaths.has(raw))return raw;
@@ -45,28 +46,46 @@ async function getMetadata(url,token,fetchImpl){
 async function resolveVersion(token,fetchImpl){
   const candidates=[];const seenNames=new Set();const seenTokens=new Set();let pageToken='';
   for(let page=0;page<MAX_PAGES;page++){
-    const url=new URL('/v1beta1/sites/namsung-check/versions',ORIGIN);
+    // A site-wide releases list also includes previews. Pin the live channel.
+    const url=new URL('/v1beta1/sites/namsung-check/channels/live/releases',ORIGIN);
     url.searchParams.set('pageSize','100');
-    url.searchParams.set('filter','createTime >= "'+WINDOW_START+'" AND createTime < "'+WINDOW_END+'"');
-    url.searchParams.set('fields','versions(name,status,createTime,fileCount),nextPageToken');
+    url.searchParams.set('fields','releases(name,type,releaseTime,version(name,status,fileCount)),nextPageToken');
     if(pageToken)url.searchParams.set('pageToken',pageToken);
     const data=await getMetadata(url,token,fetchImpl);
-    if(!Array.isArray(data.versions)||data.versions.length>100||seenNames.size+data.versions.length>100)fail('INVALID_VERSION_LIST');
-    for(const item of data.versions){
-      if(typeof item.name!=='string'||!/^sites\/namsung-check\/versions\/[A-Za-z0-9_-]{6,80}$/.test(item.name)||seenNames.has(item.name))fail('INVALID_OR_DUPLICATE_VERSION_NAME');
-      seenNames.add(item.name);const time=Date.parse(item.createTime);
-      if(!Number.isFinite(time)||time<Date.parse(WINDOW_START)||time>=Date.parse(WINDOW_END))fail('VERSION_FILTER_MISMATCH_STOP');
-      if(item.name.slice(RESOURCE_PREFIX.length).startsWith(CONSOLE_LABEL))candidates.push(item);
+    if(!Array.isArray(data.releases)||data.releases.length>100||seenNames.size+data.releases.length>300)fail('INVALID_RELEASE_LIST');
+    for(const item of data.releases){
+      if(typeof item.name!=='string'||!/^sites\/namsung-check\/(channels\/live\/)?releases\/[A-Za-z0-9_-]{6,80}$/.test(item.name)||seenNames.has(item.name))fail('INVALID_OR_DUPLICATE_LIVE_RELEASE_NAME');
+      seenNames.add(item.name);const time=Date.parse(item.releaseTime);
+      if(!Number.isFinite(time))fail('INVALID_RELEASE_TIME');
+      if(time<Date.parse(RELEASE_SEARCH_START)||time>=Date.parse(RELEASE_SEARCH_END))continue;
+      if(item.type!=='DEPLOY')continue;
+      const version=item.version;
+      if(!version||typeof version.name!=='string'||!/^sites\/namsung-check\/versions\/[A-Za-z0-9_-]{6,80}$/.test(version.name))fail('INVALID_RELEASE_VERSION_NAME');
+      if(version.status!=='FINALIZED'||String(version.fileCount)!=='26')continue;
+      candidates.push({releaseName:item.name,releaseTime:item.releaseTime,versionName:version.name});
     }
     pageToken=data.nextPageToken||'';
     if(!pageToken)break;
-    if(typeof pageToken!=='string'||pageToken.length>2048||seenTokens.has(pageToken)||page===MAX_PAGES-1)fail('VERSION_PAGINATION_BOUNDARY_STOP');
+    if(typeof pageToken!=='string'||pageToken.length>2048||seenTokens.has(pageToken)||page===MAX_PAGES-1)fail('RELEASE_PAGINATION_BOUNDARY_STOP');
     seenTokens.add(pageToken);
   }
-  if(candidates.length!==1)fail(candidates.length?'AMBIGUOUS_TARGET_VERSION_STOP':'TARGET_VERSION_NOT_FOUND_STOP');
-  const version=candidates[0];
-  if(version.status!=='FINALIZED'||String(version.fileCount)!=='26')fail('VERSION_STATUS_OR_FILE_COUNT_MISMATCH');
-  return {name:version.name,createTime:version.createTime,fileCount:26};
+  if(candidates.length!==1)fail(candidates.length?'AMBIGUOUS_LIVE_RELEASE_STOP':'TARGET_LIVE_RELEASE_NOT_FOUND_STOP');
+  const candidate=candidates[0];const labelRelations=[];
+  for(const [kind,name]of [['version',candidate.versionName],['release',candidate.releaseName]]){
+    const id=name.split('/').at(-1);
+    if(id.startsWith(CONSOLE_LABEL))labelRelations.push(kind+'-prefix');
+    if(id.endsWith(CONSOLE_LABEL))labelRelations.push(kind+'-suffix');
+  }
+  const time=Date.parse(candidate.releaseTime);
+  const withinExactStep=time>=Date.parse(WINDOW_START)&&time<Date.parse(WINDOW_END);
+  // When neither ID matches the console label, accept only the unique release
+  // within the original exact CI step window. Margin-only matches fail closed.
+  if(!labelRelations.length&&!withinExactStep)fail('RELEASE_IDENTITY_EVIDENCE_INSUFFICIENT_STOP');
+  const url=new URL('/v1beta1/'+candidate.versionName,ORIGIN);
+  url.searchParams.set('fields','name,status,createTime,fileCount');
+  const version=await getMetadata(url,token,fetchImpl);
+  if(version.name!==candidate.versionName||version.status!=='FINALIZED'||String(version.fileCount)!=='26'||!Number.isFinite(Date.parse(version.createTime)))fail('SELECTED_RELEASE_VERSION_MISMATCH_STOP');
+  return {name:version.name,createTime:version.createTime,fileCount:26,releaseName:candidate.releaseName,releaseTime:candidate.releaseTime,consoleLabelRelations:labelRelations,identityEvidence:labelRelations.length?'unique-live-release-time-count-and-label':'unique-live-release-exact-step-time-and-count-console-label-unconfirmed'};
 }
 
 export async function diagnose({env,fetchImpl=fetch,manifest}){
@@ -96,7 +115,7 @@ export async function diagnose({env,fetchImpl=fetch,manifest}){
   if(rows.length!==26||[...allowed].some(name=>!seenPaths.has(name)))fail('VERSION_METADATA_INCOMPLETE_OR_PUBLIC_FILES_MISSING');
   // Only fully validated metadata is returned for printing. Unknown filenames
   // are masked to avoid accidentally disclosing credential identifiers or PII.
-  return {consoleLabel:CONSOLE_LABEL,versionResource:resource,versionCreateTime:version.createTime,metadataFiles:26,approvedPublicFiles:24,files:rows.sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0)};
+  return {consoleLabel:CONSOLE_LABEL,versionResource:resource,versionCreateTime:version.createTime,releaseResource:version.releaseName,releaseTime:version.releaseTime,consoleLabelRelations:version.consoleLabelRelations,identityEvidence:version.identityEvidence,metadataFiles:26,approvedPublicFiles:24,files:rows.sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0)};
 }
 
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
