@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "sourceSHA": "55eb8fb42ac6d46f92b15946413dfe2f6b014a12",
+  "sourceSHA": "b81e7efed7ea285b2a0d5eb5df4ea2005b888cc2",
   "publicFiles": [
     {
       "path": "access-period.mjs",
@@ -9,8 +9,8 @@
     },
     {
       "path": "app.js",
-      "bytes": 191059,
-      "sha256": "84131c376ef7b18b871b75cf3fbcc7d2c6d66339a517e23bb6b1ab1fa279b72d"
+      "bytes": 192553,
+      "sha256": "cfb94914a2f8d836d1eb72a41eaf12ffaa5e16bd015e22b756675a82c90bce61"
     },
     {
       "path": "apple-touch-icon.png",
@@ -74,8 +74,8 @@
     },
     {
       "path": "index.html",
-      "bytes": 34544,
-      "sha256": "0f8a0a295a6e45906dbde568884fe0ed74594381778eef01e6cd34931c7896c4"
+      "bytes": 34551,
+      "sha256": "19f1482e8a1bcf064429dbd1aa7c5b02fda4ee03f349fde39116284ddcafdb8a"
     },
     {
       "path": "logo.svg",
@@ -120,7 +120,7 @@
     {
       "path": "sw.js",
       "bytes": 3356,
-      "sha256": "f5515aca7e3fd972d9782ea874973fdbd467b631d66fc28d4c0968ea1cc88a6f"
+      "sha256": "d7c1558401c7ae89d6e932dbb1d54d8607e45f63a7b8da1c5ebf63e981691285"
     }
   ]
 }

@@ -186,6 +186,7 @@ async function init() {
   els.lookupMonth.value = todayKey().slice(0, 7);
   fillSchoolYearOptions();
   fillSelect(els.usageCheckDay, Array.from({ length: 28 }, (_, index) => `${index + 1}일`), "1일");
+  ensureAccessCatalogUi();
   bindEvents();
   setLoginState("checking", "로그인 환경을 확인하고 있습니다...");
   alarms.notifications ||= [];
@@ -297,7 +298,7 @@ function bindEvents() {
   });
   els.accountModeSelect.addEventListener("change", switchAccountMode);
   document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.view)));
-  els.accessCatalogRetryBtn.addEventListener("click", () => { void ensureAccessCatalog().catch(() => {}); });
+  els.accessCatalogRetryBtn?.addEventListener("click", () => { void ensureAccessCatalog().catch(() => {}); });
   document.querySelectorAll(".segment").forEach((segment) => segment.addEventListener("click", () => {
     activeFilter = segment.dataset.filter;
     document.querySelectorAll(".segment").forEach((item) => item.classList.toggle("is-active", item === segment));
@@ -1161,12 +1162,51 @@ function renderAccessCatalogPlaceholder(container) {
   return true;
 }
 
+function ensureAccessCatalogUi() {
+  // A previously cached HTML document may be running the current app.js.
+  const settingsView = document.getElementById("settingsView");
+  if (!settingsView) return;
+  let notice = settingsView.querySelector(".account-catalog-notice");
+  if (!notice) {
+    notice = document.createElement("div");
+    notice.className = "account-catalog-notice";
+    notice.hidden = true;
+    notice.style.display = "none";
+    settingsView.prepend(notice);
+  }
+  if (!els.accessCatalogStatus) {
+    els.accessCatalogStatus = document.createElement("p");
+    els.accessCatalogStatus.id = "accessCatalogStatus";
+    els.accessCatalogStatus.setAttribute("role", "status");
+    els.accessCatalogStatus.setAttribute("aria-live", "polite");
+    notice.append(els.accessCatalogStatus);
+  }
+  if (!els.accessCatalogRetryBtn) {
+    els.accessCatalogRetryBtn = document.createElement("button");
+    els.accessCatalogRetryBtn.id = "accessCatalogRetryBtn";
+    els.accessCatalogRetryBtn.type = "button";
+    els.accessCatalogRetryBtn.textContent = "다시 불러오기";
+    els.accessCatalogRetryBtn.hidden = true;
+    notice.append(els.accessCatalogRetryBtn);
+  }
+}
+
 function renderAccessCatalogState() {
+  ensureAccessCatalogUi();
   const admin = isAdmin();
-  els.accessCatalogStatus.hidden = !admin;
-  els.accessCatalogStatus.textContent = admin ? accessCatalogMessage() : "";
-  els.accessCatalogRetryBtn.hidden = !admin || accessCatalogStatus !== "error";
-  els.accessCatalogRetryBtn.disabled = !admin || accessCatalogStatus === "loading";
+  const notice = document.querySelector("#settingsView .account-catalog-notice");
+  if (notice) {
+    notice.hidden = !admin;
+    notice.style.display = admin ? "" : "none";
+  }
+  if (els.accessCatalogStatus) {
+    els.accessCatalogStatus.hidden = !admin;
+    els.accessCatalogStatus.textContent = admin ? accessCatalogMessage() : "";
+  }
+  if (els.accessCatalogRetryBtn) {
+    els.accessCatalogRetryBtn.hidden = !admin || accessCatalogStatus !== "error";
+    els.accessCatalogRetryBtn.disabled = !admin || accessCatalogStatus === "loading";
+  }
   setAccessCatalogControlsDisabled(!admin || !accessCatalogLoaded || accessCatalogStatus !== "ready");
   for (const container of [els.adminList, els.teacherList, els.coachList, els.externalList, els.employmentPeriodList]) {
     if (admin) renderAccessCatalogPlaceholder(container);

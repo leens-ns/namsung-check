@@ -1,13 +1,13 @@
 const APP_URL = "./";
-const CACHE_NAME = "namsung-attendance-20261004-5";
+const CACHE_NAME = "namsung-attendance-20261004-6";
 const INDEX_FALLBACK = "./index.html";
 const MANUAL_FALLBACK = "./manual.html?v=20261003-4";
 const PRIVACY_FALLBACK = "./privacy.html?v=20261003-4";
 const APP_SHELL = [
   "./",
   INDEX_FALLBACK,
-  "./styles.css?v=20261004-5",
-  "./app.js?v=20261004-5",
+  "./styles.css?v=20261004-6",
+  "./app.js?v=20261004-6",
   "./access-period.mjs?v=20261003-4",
   "./session-cleanup.mjs?v=20261003-4",
   "./student-classes.mjs?v=20261003-4",
