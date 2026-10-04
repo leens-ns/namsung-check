@@ -46,6 +46,23 @@ service cloud.firestore {
         + paddedDatePart(date.day());
     }
 
+    // Attendance writes use the server's current Korean weekday, not data.date.
+    function currentKoreaWeekday() {
+      return (request.time + duration.value(9, 'h')).dayOfWeek() % 7;
+    }
+
+    function attendanceDayIsAllowed() {
+      let settingsPath = /databases/$(database)/documents/settings/public;
+      let settings = exists(settingsPath) ? get(settingsPath).data : {};
+      let days = settings.get('attendanceDays', []);
+      let hasValidDays = days is list
+        && days.hasAny([1, 2, 3, 4, 5, '1', '2', '3', '4', '5']);
+      let weekday = currentKoreaWeekday();
+      return weekday in [1, 2, 3, 4, 5] && (hasValidDays
+        ? days.hasAny([weekday, string(weekday)])
+        : weekday in [1, 5]);
+    }
+
     function validEmploymentDate(value) {
       return value is string && value.matches(
         '^([0-9]{4}-(01|03|05|07|08|10|12)-(0[1-9]|[12][0-9]|3[01])'
@@ -246,16 +263,16 @@ service cloud.firestore {
 
     match /attendance/{recordId} {
       allow read: if canReadAttendance(resource.data);
-      allow create: if validAttendance(request.resource.data)
-        && (isAdmin() || (ownsAttendance(request.resource.data)
+      allow create: if signedIn() && validAttendance(request.resource.data)
+        && (isAdmin() || (ownsAttendance(request.resource.data) && attendanceDayIsAllowed()
           && recordId == request.resource.data.date + '_' + request.resource.data.studentId
           && exists(/databases/$(database)/documents/students/$(request.resource.data.studentId))
           && get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.grade == request.resource.data.grade
           && get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.classNo == request.resource.data.classNo
           && get(/databases/$(database)/documents/students/$(request.resource.data.studentId)).data.departments == request.resource.data.departments));
-      allow update: if validAttendance(request.resource.data)
-        && (isAdmin() || canUpdateAttendance(resource.data, request.resource.data));
-      allow delete: if isAdmin() || ownsAttendance(resource.data);
+      allow update: if signedIn() && validAttendance(request.resource.data)
+        && (isAdmin() || (canUpdateAttendance(resource.data, request.resource.data) && attendanceDayIsAllowed()));
+      allow delete: if isAdmin() || (ownsAttendance(resource.data) && attendanceDayIsAllowed());
     }
 
     match /notificationTokens/{tokenId} {

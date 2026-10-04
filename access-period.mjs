@@ -31,3 +31,17 @@ export function employmentAccessAllowed(user, email, employmentStatus, rootAdmin
   return user?.emailVerified === true
     && (email === rootAdminEmail || employmentStatus === "active");
 }
+
+// Match Firestore attendanceDays compatibility: numeric integer 1..5 or
+// canonical strings "1".."5" only; ignore invalid entries, default Mon/Fri.
+export function normalizeAttendanceDays(value) {
+  const days = (Array.isArray(value) ? value : []).filter(day =>
+    (typeof day === "number" && Number.isInteger(day) && day >= 1 && day <= 5)
+    || (typeof day === "string" && /^[1-5]$/.test(day))
+  ).map(Number);
+  return days.length ? [...new Set(days)].sort((a, b) => a - b) : [1, 5];
+}
+
+export function koreaWeekday(date = new Date()) {
+  return new Date(date.getTime() + 9 * 60 * 60 * 1000).getUTCDay();
+}

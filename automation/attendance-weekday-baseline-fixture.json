@@ -1,0 +1,9 @@
+{
+  "sourceSHA": "32da8032d24bb6c9eebf626c27dd3baa760c82b7",
+  "importLine": "import { employmentAccessAllowed, employmentPeriodStatus, koreaDateKey } from \"./access-period.mjs?v=20261003-4\";",
+  "functions": {
+    "canEdit": "function canEdit() { return session?.role === \"admin\" || session?.role === \"teacher\"; }",
+    "isAttendanceDay": "function isAttendanceDay(date = new Date()) { return state.settings.attendanceDays.includes(date.getDay()); }",
+    "canEnterAttendanceToday": "function canEnterAttendanceToday() { return canEdit() && isAttendanceDay(); }"
+  }
+}

@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { employmentAccessAllowed, employmentPeriodStatus, koreaDateKey } from "./access-period.mjs?v=20261003-4";
+import { employmentAccessAllowed, employmentPeriodStatus, koreaDateKey, koreaWeekday, normalizeAttendanceDays } from "./access-period.mjs?v=20261005-7";
 import { clearSensitiveSessionData } from "./session-cleanup.mjs?v=20261003-4";
 import { uniqueStudentClasses } from "./student-classes.mjs?v=20261003-4";
 import { buildAttendancePayload } from "./attendance-payload.mjs?v=20261003-4";
@@ -181,7 +181,7 @@ async function init() {
     location.replace(PRIMARY_APP_URL);
     return;
   }
-  els.todayText.textContent = new Intl.DateTimeFormat("ko-KR", { dateStyle: "full" }).format(new Date());
+  els.todayText.textContent = new Intl.DateTimeFormat("ko-KR", { dateStyle: "full", timeZone: "Asia/Seoul" }).format(new Date());
   els.lookupDate.value = todayKey();
   els.lookupMonth.value = todayKey().slice(0, 7);
   fillSchoolYearOptions();
@@ -1225,8 +1225,8 @@ function canAccessView(viewId) {
 }
 
 function canEdit() { return session?.role === "admin" || session?.role === "teacher"; }
-function isAttendanceDay(date = new Date()) { return state.settings.attendanceDays.includes(date.getDay()); }
-function canEnterAttendanceToday() { return canEdit() && isAttendanceDay(); }
+function isAttendanceDay(date = new Date()) { return normalizeAttendanceDays(state.settings.attendanceDays).includes(koreaWeekday(date)); }
+function canEnterAttendanceToday() { return canEdit() && (isAdmin() || isAttendanceDay()); }
 function isAdmin() { return session?.role === "admin"; }
 function hasHomeroom() { return Boolean(session && ["admin", "teacher"].includes(session.role) && session.grade && session.classNo); }
 function notificationAudiences() {
@@ -1315,7 +1315,7 @@ function applyCoachLanguage() {
     els.lookupTab.textContent = "출결 조회";
     els.manualLink.textContent = "사용 매뉴얼";
     els.mainTitle.textContent = "오늘 출결";
-    els.todayText.textContent = new Intl.DateTimeFormat("ko-KR", { dateStyle: "full" }).format(new Date());
+    els.todayText.textContent = new Intl.DateTimeFormat("ko-KR", { dateStyle: "full", timeZone: "Asia/Seoul" }).format(new Date());
     els.lookupDescription.textContent = "일별 상세 또는 월별·학년도별 학생 출결 합계를 확인합니다.";
     if (session?.role === "external") els.lookupDescription.textContent = "조회할 학년·반을 선택해 외부수업 대상 학생의 출석·결석을 확인합니다.";
     const modeLabels = { day: "일별", month: "월별", schoolYear: "학년도별" };
@@ -1349,7 +1349,7 @@ function applyCoachLanguage() {
   els.lookupTab.textContent = coachText("lookup");
   els.manualLink.textContent = coachText("manual");
   els.mainTitle.textContent = coachText("title");
-  els.todayText.textContent = new Intl.DateTimeFormat(coachLocale(), { dateStyle: "full" }).format(new Date());
+  els.todayText.textContent = new Intl.DateTimeFormat(coachLocale(), { dateStyle: "full", timeZone: "Asia/Seoul" }).format(new Date());
   els.lookupDescription.textContent = coachText("description");
   document.querySelectorAll("[data-lookup-mode]").forEach((button) => { button.textContent = coachText(button.dataset.lookupMode); });
   els.lookupDateLabel.textContent = coachText("lookupDate");
@@ -1504,10 +1504,7 @@ function renderAll() {
   renderStudents(); renderLookup(); renderCounts(); renderAdminList(); renderCoachList(); renderExternalList(); renderTeacherList(); renderDepartmentLists(); renderExternalCourseList();
 }
 
-function todayKey() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
+function todayKey() { return koreaDateKey(); }
 
 function getTodayRecord(studentId) {
   const date = todayKey();
@@ -1516,7 +1513,7 @@ function getTodayRecord(studentId) {
   return state.records[date][studentId];
 }
 
-function updateSaveState(students = getScopedStudents(), enabled = isAttendanceDay()) {
+function updateSaveState(students = getScopedStudents(), enabled = canEnterAttendanceToday()) {
   const records = students.map((student) => getTodayRecord(student.id));
   const pending = records.filter((record) => !record.saved).length;
   const unset = records.filter((record) => record.status === "unset").length;
@@ -1555,9 +1552,9 @@ function markStudentsPresent(overwrite) {
 
 function renderStudents() {
   if (!canEdit()) return;
-  const enabled = isAttendanceDay();
+  const enabled = canEnterAttendanceToday();
   const dayNames = state.settings.attendanceDays.map((day) => ["", "월", "화", "수", "목", "금"][day]).join("·");
-  els.attendanceDayNotice.textContent = enabled ? `오늘은 출결 입력일입니다. 입력 요일: ${dayNames}` : `오늘은 출결 입력일이 아닙니다. 입력 요일: ${dayNames}`;
+  els.attendanceDayNotice.textContent = isAdmin() && !isAttendanceDay() ? `관리자는 입력 요일과 관계없이 출결을 정정할 수 있습니다. 한국 시간 기준 입력 요일: ${dayNames}` : enabled ? `오늘은 출결 입력일입니다. 한국 시간 기준 입력 요일: ${dayNames}` : `오늘은 출결 입력일이 아닙니다. 한국 시간 기준 입력 요일: ${dayNames}`;
   els.attendanceDayNotice.classList.toggle("is-disabled", !enabled);
   const scopedStudents = getScopedStudents();
   const students = scopedStudents.filter((student) => {
@@ -2965,7 +2962,7 @@ function normalizeDepartments(value) {
 function normalizeSettings(settings) {
   const savedCourses = settings.afterschoolCourses || {};
   const currentNotificationSettings = Number(settings.notificationSettingsVersion || 0) >= 3;
-  const attendanceDays = [...new Set((Array.isArray(settings.attendanceDays) ? settings.attendanceDays : [1, 5]).map(Number).filter((day) => day >= 1 && day <= 5))].sort();
+  const attendanceDays = normalizeAttendanceDays(settings.attendanceDays);
   const maxClassesPerGrade = Math.min(10, Math.max(1, Math.trunc(Number(settings.maxClassesPerGrade) || 3)));
   const retentionMonths = [12, 24, 36, 60].includes(Number(settings.retentionMonths)) ? Number(settings.retentionMonths) : 24;
   const usageCheckDay = Math.min(28, Math.max(1, Math.trunc(Number(settings.usageCheckDay) || 1)));
@@ -3099,7 +3096,7 @@ async function checkDateRollover() {
   const previousDate = activeAttendanceDate;
   activeAttendanceDate = nextDate;
   dateRolloverPromise = (async () => {
-    els.todayText.textContent = new Intl.DateTimeFormat(session?.role === "coach" ? coachLocale() : "ko-KR", { dateStyle: "full" }).format(new Date());
+    els.todayText.textContent = new Intl.DateTimeFormat(session?.role === "coach" ? coachLocale() : "ko-KR", { dateStyle: "full", timeZone: "Asia/Seoul" }).format(new Date());
     if (!els.lookupDate.value || els.lookupDate.value === previousDate) els.lookupDate.value = nextDate;
     if (els.reviewDialog.open) els.reviewDialog.close();
     await waitForSessionOperation(loadRecords(nextDate, true), sessionOperation);
