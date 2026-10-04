@@ -16,3 +16,8 @@ local-data/
 firebase-debug.log
 .DS_Store
 *.swp
+
+# Explicit Hosting staging and generated auth files
+hosting-public/
+.hosting-public-build-*/
+gha-creds-*.json

@@ -19,6 +19,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          package-manager-cache: false
+      - name: Validate isolated Hosting file boundary
+        run: node --test automation/prepare-hosting.test.mjs
+      - name: Prepare explicit public Hosting files
+        run: node automation/prepare-hosting.mjs
       - id: auth
         uses: google-github-actions/auth@v3
         with:
@@ -27,10 +35,6 @@ jobs:
           service_account: github-attendance-reminder@namsung-check.iam.gserviceaccount.com
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/cloud-platform
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "20"
-          package-manager-cache: false
       - name: Install Firebase CLI
         run: npm install --prefix "$RUNNER_TEMP/firebase-cli" --no-save --no-package-lock firebase-tools@15.17.0
       - name: Deploy Firebase Hosting
@@ -40,6 +44,7 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/firebase-cli/node_modules
         run: |
           for attempt in 1 2 3; do
+            node automation/prepare-hosting.mjs --verify || exit 1
             echo "Firebase Hosting deploy attempt ${attempt}/3"
             if node automation/deploy-hosting.cjs; then
               exit 0
@@ -57,24 +62,24 @@ jobs:
         run: |
           node - <<'NODE'
           "use strict";
-          
+
           const accessToken = process.env.GOOGLE_ACCESS_TOKEN;
           if (!accessToken) {
             throw new Error("Google access token was not provided.");
           }
-          
+
           const api = require("firebase-tools/lib/apiv2");
           const auth = require("firebase-tools/lib/requireAuth");
           const ensureApiEnabled = require("firebase-tools/lib/ensureApiEnabled");
-          
+
           api.setAccessToken(accessToken);
           auth.requireAuth = async () => process.env.GOOGLE_SERVICE_ACCOUNT || null;
-          
+
           // The GitHub service account can deploy Firestore rules/indexes but does not
           // have Service Usage Viewer. Firestore is already enabled, so skip only the
           // preflight API enablement check that needs serviceusage.services.get.
           ensureApiEnabled.ensure = async () => undefined;
-          
+
           process.argv = [
             process.execPath,
             "firebase",
@@ -85,7 +90,7 @@ jobs:
             "namsung-check",
             "--non-interactive",
           ];
-          
+
           const firebasePackage = require("firebase-tools/package.json");
           require("firebase-tools/lib/bin/cli").cli(firebasePackage);
           NODE

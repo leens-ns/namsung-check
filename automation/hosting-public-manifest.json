@@ -1,0 +1,126 @@
+{
+  "formatVersion": 1,
+  "sourceSHA": "efd746ad47c37d2418e0b86b91dadffdfc410055",
+  "publicFiles": [
+    {
+      "path": "access-period.mjs",
+      "bytes": 1632,
+      "sha256": "377e772391746056d3dc3847cf479a61c8e2abc26db07cd0979ccaca216e40cb"
+    },
+    {
+      "path": "app.js",
+      "bytes": 188050,
+      "sha256": "695c3dd8889ee0d56cf7d6115406f843dd9f3dc7207cb22c79a496a8f95468f9"
+    },
+    {
+      "path": "apple-touch-icon.png",
+      "bytes": 7650,
+      "sha256": "f20542f514179f9d39796842251e1738c306c117eca132e0396f275e6474e8e1"
+    },
+    {
+      "path": "attendance-payload.mjs",
+      "bytes": 584,
+      "sha256": "3b22fa8ef7477e274d531fff82b97b2618d2be6446d54fbbdb25e9407b89be4c"
+    },
+    {
+      "path": "config.js",
+      "bytes": 555,
+      "sha256": "f56a8d96faf37c4082057e2bfc93051750bad7bd4b59938976ce0eaa460c1a9b"
+    },
+    {
+      "path": "demo-app.js",
+      "bytes": 71369,
+      "sha256": "c4774bf12b4e880e0cbcae162236fcbbe4d215f8f3b44101a0910e3595fbebda"
+    },
+    {
+      "path": "demo.html",
+      "bytes": 27236,
+      "sha256": "afec2fa7a873464571749c5fb8281e647a0b0c120c464c0cc858f5fd9e97ce04"
+    },
+    {
+      "path": "examples/coach-assignments-example.csv",
+      "bytes": 112,
+      "sha256": "29cda6b6a5aae20835c9aa372ccc119500b247244db80388868824943662e587"
+    },
+    {
+      "path": "examples/external-instructor-assignments-example.csv",
+      "bytes": 90,
+      "sha256": "fa97f805a012db3891b448bed76ed3a07bb1c147de7db9fc542d52e6930b3264"
+    },
+    {
+      "path": "examples/student-roster-example.csv",
+      "bytes": 196,
+      "sha256": "a1c58d02aa84a9cc9c63229c37575ab5cafddf69b8292741c14446b360d5e159"
+    },
+    {
+      "path": "examples/teacher-assignments-example.csv",
+      "bytes": 74,
+      "sha256": "3425ee3e9bca2112b93ae7f2c05b4ce4885141be4a25a028c7d1a8255344be8a"
+    },
+    {
+      "path": "icon-192.png",
+      "bytes": 7343,
+      "sha256": "e4f7c135c584ae75213d144fbd9448b42397b5b634eea7fd4027e5fe767815dc"
+    },
+    {
+      "path": "icon-512.png",
+      "bytes": 26114,
+      "sha256": "0a3222c33768d3eb44c3bfb869d31165bbe558fdbe9f474b95a2dbce09495a92"
+    },
+    {
+      "path": "icon-maskable-512.png",
+      "bytes": 21499,
+      "sha256": "0e06d3193c4f15cf865aa35a46e6f252adcca1d2fbdaaad53a3e81aa60b72568"
+    },
+    {
+      "path": "index.html",
+      "bytes": 34245,
+      "sha256": "78090274d98598f2ce4cd3d9695945e14318acc73c750f8ead0f8ec0d7b87578"
+    },
+    {
+      "path": "logo.svg",
+      "bytes": 970,
+      "sha256": "9312ab78b9eeb3990e12043125092d1aba327a6dc1c34c4061f95de5014887e7"
+    },
+    {
+      "path": "manifest.webmanifest",
+      "bytes": 883,
+      "sha256": "c0d8e6209870d60582118d35f091537695b57534216118ed9c471ca99f8ca061"
+    },
+    {
+      "path": "manual.html",
+      "bytes": 17002,
+      "sha256": "2de543a1cec9ca47c4de282e1c6e9765639a0f7478bd00da8d9ea2396f5a93ed"
+    },
+    {
+      "path": "manual.js",
+      "bytes": 11897,
+      "sha256": "9563aab8509323687e80e4ff4ad42ca0949b99ef61d28a056d0423600f935f19"
+    },
+    {
+      "path": "privacy.html",
+      "bytes": 4943,
+      "sha256": "d57c8e143267c9e6f019af7357f6bcd107dce08e0c08e048f83dd80b630b43cb"
+    },
+    {
+      "path": "session-cleanup.mjs",
+      "bytes": 1455,
+      "sha256": "fe4e9ae193542516e76b26a2b01754c77d5e50158fc9cf2430e01a40a24a2a83"
+    },
+    {
+      "path": "student-classes.mjs",
+      "bytes": 542,
+      "sha256": "de12e37875fcef91b33b3003b6e872e91ce6ff0029765c171926a5837fdfbb92"
+    },
+    {
+      "path": "styles.css",
+      "bytes": 40126,
+      "sha256": "88b3d70970ace58206a4c30dd1056f14efbb88b943a915a20fdcdd891c1ac448"
+    },
+    {
+      "path": "sw.js",
+      "bytes": 3356,
+      "sha256": "6b44c56d2e581209edd36aabb006868f55c9a73d306e993f64769c070c44a285"
+    }
+  ]
+}
