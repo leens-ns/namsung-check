@@ -121,6 +121,9 @@ let pushRegistrationStatus = "idle";
 let contactsLoaded = false;
 let accessCatalogLoaded = false;
 let accessCatalogPromise = null;
+let accessCatalogStatus = "idle";
+let accessCatalogRequestId = 0;
+const ACCESS_CATALOG_TIMEOUT = 15000;
 let attendanceClassInitialized = false;
 let lastLookupRefreshAt = 0;
 let lookupMode = "day";
@@ -150,6 +153,7 @@ let pendingConsentUser = null;
 let pendingConsentResolve = null;
 
 const els = Object.fromEntries([
+  "accessCatalogStatus", "accessCatalogRetryBtn",
   "loginScreen", "loginStatus", "googleSignInButton", "googleSetupNotice", "loginError", "installAppBtn", "installAppHeaderBtn", "notificationEnableHeaderBtn", "installDialog", "installDialogTitle", "installDialogBody", "runInstallBtn", "userPicture", "userName", "userEmail", "userRole", "accountModeControl", "accountModeSelect", "coachLanguageControl", "coachLanguageLabel", "coachLanguageSelect", "appPrivacyLink", "appCopyright",
   "logoutBtn", "todayText", "mainTitle", "manualLink", "notificationCenterBtn", "notificationButtonLabel", "notificationBadge", "notificationDialog", "notificationList", "clearNotificationsBtn", "disableNotificationsBtn", "attendanceTab", "lookupTab", "settingsTab", "attendanceDayNotice", "studentSearch", "classFilter", "studentGrid", "markUnsetPresentBtn", "markAllPresentBtn", "addStudentBtn", "currentRosterCount", "reviewBtn",
   "clearTodayBtn", "saveStatusText", "reviewDialog", "reviewList", "confirmSaveBtn", "alarmDialog", "alarmDialogTitle", "alarmDialogBody", "alarmConfirmBtn", "notificationDialogTitle", "notificationCloseBtn", "installCloseBtn", "lookupScope", "lookupScopeField", "lookupScopeLabel", "lookupDate", "lookupDateField", "lookupMonth", "lookupMonthField", "lookupSchoolYear", "lookupSchoolYearField", "lookupDepartment", "lookupDepartmentField", "lookupPeriodSummary",
@@ -293,6 +297,7 @@ function bindEvents() {
   });
   els.accountModeSelect.addEventListener("change", switchAccountMode);
   document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.view)));
+  els.accessCatalogRetryBtn.addEventListener("click", () => { void ensureAccessCatalog().catch(() => {}); });
   document.querySelectorAll(".segment").forEach((segment) => segment.addEventListener("click", () => {
     activeFilter = segment.dataset.filter;
     document.querySelectorAll(".segment").forEach((item) => item.classList.toggle("is-active", item === segment));
@@ -1108,20 +1113,64 @@ function switchView(viewId) {
   document.querySelectorAll(".view").forEach((view) => view.classList.toggle("is-visible", view.id === viewId));
   if (viewId === "lookupView" && isAdmin() && state.settings.contactVisible && !contactsLoaded) loadContacts().then(renderLookup).catch(() => {});
   if (viewId === "settingsView" && isAdmin() && !accessCatalogLoaded) {
-    setAccessCatalogControlsDisabled(true);
-    ensureAccessCatalog().then(() => {
-      renderAll();
-      setAccessCatalogControlsDisabled(false);
-    }).catch((error) => alert(`계정 목록 조회 실패: ${readableError(error)}\n잠시 후 관리자 설정을 다시 열어 주세요.`));
+    void ensureAccessCatalog().catch(() => {});
   }
+  if (viewId === "settingsView") renderAccessCatalogState();
 }
 
 function ensureAccessCatalog() {
   if (accessCatalogLoaded) return Promise.resolve();
-  if (!accessCatalogPromise) {
-    accessCatalogPromise = loadCoachList().finally(() => { accessCatalogPromise = null; });
-  }
+  if (accessCatalogPromise) return accessCatalogPromise;
+  const operation = captureSessionOperation();
+  if (!operation || !isAdmin()) return Promise.reject(new Error("SESSION_OPERATION_STALE"));
+  const requestId = ++accessCatalogRequestId;
+  const isCurrentRequest = () => isCurrentSessionOperation(operation) && isAdmin() && requestId === accessCatalogRequestId;
+  accessCatalogStatus = "loading";
+  renderAccessCatalogState();
+  const pending = withTimeout(loadCoachList({ operation, requestId }), ACCESS_CATALOG_TIMEOUT, "access/catalog-timeout")
+    .then(() => {
+      if (!isCurrentRequest()) throw new Error("SESSION_OPERATION_STALE");
+      renderAll();
+      renderAccessCatalogState();
+    }).catch((error) => {
+      if (isCurrentRequest()) {
+        // Invalidate an outstanding Firestore read before showing retry.
+        ++accessCatalogRequestId;
+        accessCatalogLoaded = false;
+        accessCatalogStatus = "error";
+        renderAccessCatalogState();
+      }
+      throw error;
+    }).finally(() => {
+      if (accessCatalogPromise === pending) accessCatalogPromise = null;
+    });
+  accessCatalogPromise = pending;
   return accessCatalogPromise;
+}
+
+function accessCatalogMessage() {
+  if (accessCatalogStatus === "loading") return "계정 목록을 불러오는 중입니다. 잠시 기다려 주세요.";
+  if (accessCatalogStatus === "error") return "계정 목록을 불러오지 못했습니다. 아래 ‘다시 불러오기’를 눌러 주세요.";
+  if (accessCatalogStatus === "ready") return "계정 목록을 불러왔습니다.";
+  return "관리자 설정을 열면 계정 목록을 불러옵니다.";
+}
+
+function renderAccessCatalogPlaceholder(container) {
+  if (accessCatalogLoaded && accessCatalogStatus === "ready") return false;
+  if (container) container.innerHTML = `<p class="note">${accessCatalogMessage()}</p>`;
+  return true;
+}
+
+function renderAccessCatalogState() {
+  const admin = isAdmin();
+  els.accessCatalogStatus.hidden = !admin;
+  els.accessCatalogStatus.textContent = admin ? accessCatalogMessage() : "";
+  els.accessCatalogRetryBtn.hidden = !admin || accessCatalogStatus !== "error";
+  els.accessCatalogRetryBtn.disabled = !admin || accessCatalogStatus === "loading";
+  setAccessCatalogControlsDisabled(!admin || !accessCatalogLoaded || accessCatalogStatus !== "ready");
+  for (const container of [els.adminList, els.teacherList, els.coachList, els.externalList, els.employmentPeriodList]) {
+    if (admin) renderAccessCatalogPlaceholder(container);
+  }
 }
 
 function setAccessCatalogControlsDisabled(disabled) {
@@ -1179,6 +1228,9 @@ function resetSessionCache() {
   contactsLoaded = false;
   accessCatalogLoaded = false;
   accessCatalogPromise = null;
+  accessCatalogStatus = "idle";
+  ++accessCatalogRequestId;
+  renderAccessCatalogState();
   attendanceClassInitialized = false;
   pushTokenActive = false;
   pushRegistrationStatus = "idle";
@@ -2013,6 +2065,7 @@ async function addAdmin() {
 
 function renderAdminList() {
   if (!isAdmin()) return;
+  if (renderAccessCatalogPlaceholder(els.adminList)) return;
   const entries = Object.keys(state.admins).sort((a, b) => a.localeCompare(b));
   els.adminList.innerHTML = entries.map((email) => {
     const fixed = email === ADMIN_EMAIL;
@@ -2075,6 +2128,7 @@ async function saveEmploymentPeriod() {
 
 function renderEmploymentPeriodList() {
   if (!isAdmin() || !els.employmentPeriodList) return;
+  if (renderAccessCatalogPlaceholder(els.employmentPeriodList)) return;
   const accountEmails = [...new Set([
     ...Object.keys(state.admins), ...Object.keys(state.teachers), ...Object.keys(state.coaches), ...Object.keys(state.externals)
   ])].sort((a, b) => a.localeCompare(b));
@@ -2205,40 +2259,36 @@ function normalizeCoachDepartment(course, day) {
   return "";
 }
 
-async function loadCoachList() {
-  const transitionId = authTransitionId;
-  const accountEmail = session?.email;
-  state.admins = { [ADMIN_EMAIL]: {} };
-  state.coaches = {};
-  state.teachers = {};
-  state.externals = {};
-  state.accessRoles = {};
-  state.accountPeriods = {};
+async function loadCoachList({ operation = captureSessionOperation(), requestId = accessCatalogRequestId } = {}) {
+  if (!operation || !isAdmin()) throw new Error("SESSION_OPERATION_STALE");
+  const catalog = { admins: { [ADMIN_EMAIL]: {} }, coaches: {}, teachers: {}, externals: {}, accessRoles: {}, accountPeriods: {} };
   const snapshot = await getDocs(collection(db, "access"));
-  if (transitionId !== authTransitionId || !session || session.email !== accountEmail || !isAdmin()) return;
+  if (!isCurrentSessionOperation(operation) || !isAdmin() || requestId !== accessCatalogRequestId) throw new Error("SESSION_OPERATION_STALE");
   snapshot.forEach((item) => {
     const data = item.data();
-    state.accessRoles[item.id] = data.role || "";
+    catalog.accessRoles[item.id] = data.role || "";
     const start = normalizeDateInput(data.employmentStartDate);
     const end = normalizeDateInput(data.employmentEndDate);
     if (start || end) {
-      state.accountPeriods[item.id] = { start, end };
+      catalog.accountPeriods[item.id] = { start, end };
     }
     if (item.data().role === "admin") {
       const assignment = item.data().grade && item.data().classNo
         ? { grade: String(item.data().grade), classNo: String(item.data().classNo) }
         : {};
-      state.admins[item.id] = assignment;
-      if (assignment.grade) state.teachers[item.id] = assignment;
+      catalog.admins[item.id] = assignment;
+      if (assignment.grade) catalog.teachers[item.id] = assignment;
     }
-    if (item.data().role === "coach" && item.data().department) state.coaches[item.id] = item.data().department;
-    if (item.data().coachDepartment) state.coaches[item.id] = item.data().coachDepartment;
-    if (item.data().role === "teacher") state.teachers[item.id] = { grade: String(item.data().grade), classNo: String(item.data().classNo) };
-    if (data.role === "external" || data.externalCourse || Array.isArray(data.externalClasses)) state.externals[item.id] = { course: String(data.externalCourse || "외부수업") };
+    if (item.data().role === "coach" && item.data().department) catalog.coaches[item.id] = item.data().department;
+    if (item.data().coachDepartment) catalog.coaches[item.id] = item.data().coachDepartment;
+    if (item.data().role === "teacher") catalog.teachers[item.id] = { grade: String(item.data().grade), classNo: String(item.data().classNo) };
+    if (data.role === "external" || data.externalCourse || Array.isArray(data.externalClasses)) catalog.externals[item.id] = { course: String(data.externalCourse || "외부수업") };
   });
+  Object.assign(state, catalog);
   const currentAssignment = state.admins[session.email] || state.teachers[session.email] || {};
   if (currentAssignment.grade && currentAssignment.classNo) syncCurrentHomeroom(session.email, currentAssignment.grade, currentAssignment.classNo);
   accessCatalogLoaded = true;
+  accessCatalogStatus = "ready";
   renderEmploymentPeriodList();
 }
 
@@ -2265,6 +2315,7 @@ function externalAccessData(email) {
 
 function renderCoachList() {
   if (!isAdmin()) return;
+  if (renderAccessCatalogPlaceholder(els.coachList)) return;
   const entries = Object.entries(state.coaches).sort(([a], [b]) => a.localeCompare(b));
   els.coachList.innerHTML = entries.length ? entries.map(([email, department]) => {
     const dualRole = state.admins[email] || state.teachers[email] || state.externals[email] ? " · 다른 권한 유지" : "";
@@ -2401,6 +2452,7 @@ async function importExternalsCsv() {
 
 function renderExternalList() {
   if (!isAdmin()) return;
+  if (renderAccessCatalogPlaceholder(els.externalList)) return;
   const entries = Object.entries(state.externals).sort(([a], [b]) => a.localeCompare(b));
   els.externalList.innerHTML = entries.length ? entries.map(([email, value]) => {
     const dualRole = state.admins[email] || state.teachers[email] || state.coaches[email] ? " · 다른 권한 유지" : "";
@@ -2711,6 +2763,7 @@ function parseTeacherAssignments(text) {
 
 function renderTeacherList() {
   if (!isAdmin()) return;
+  if (renderAccessCatalogPlaceholder(els.teacherList)) return;
   const entries = Object.entries(state.teachers).sort(([a], [b]) => a.localeCompare(b));
   els.teacherList.innerHTML = entries.length ? entries.map(([email, value]) => `<div class="coach-item"><div><strong>${escapeHtml(email)}</strong><span>${escapeHtml(value.grade)}학년 ${escapeHtml(value.classNo)}반${state.coaches[email] ? " · 방과후강사 겸임" : ""}${state.externals[email] ? " · 외부수업강사 겸임" : ""}</span></div><button type="button" data-remove-teacher="${escapeAttr(email)}">삭제</button></div>`).join("") : `<p class="note">배정된 담임교사가 없습니다.</p>`;
   els.teacherList.querySelectorAll("[data-remove-teacher]").forEach((button) => button.addEventListener("click", async () => {
