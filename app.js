@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { employmentAccessAllowed, employmentPeriodStatus, koreaDateKey, koreaWeekday, normalizeAttendanceDays } from "./access-period.mjs?v=20261113-1";
+import { employmentAccessAllowed, employmentPeriodStatus, koreaDateKey, koreaWeekday, normalizeAttendanceDays } from "./access-period.mjs?v=20261113-2";
 import { clearSensitiveSessionData } from "./session-cleanup.mjs?v=20261003-4";
 import { uniqueStudentClasses } from "./student-classes.mjs?v=20261003-4";
 import { buildAttendancePayload } from "./attendance-payload.mjs?v=20261003-4";
@@ -2176,15 +2176,20 @@ async function registerTeacherAccount() {
   const start = normalizeDateInput(document.getElementById("newTeacherStart").value);
   const end = normalizeDateInput(document.getElementById("newTeacherEnd").value);
   if (!/^[^\s@]+@nsworld\.net$/.test(email)) return alert("학교 이메일(@nsworld.net)을 입력해 주세요.");
-  if (!start || !end || start > end) return alert("근무 시작일과 만료일을 올바르게 입력해 주세요.");
+  if (start && end && start > end) return alert("근무 시작일은 만료일보다 늦을 수 없습니다.");
   const button = document.getElementById("registerTeacherBtn");
   button.disabled = true;
   try {
     const snapshot = await waitForSessionOperation(getDoc(doc(db, "access", email)), operation);
     const existing = snapshot.exists() ? snapshot.data() : {};
     if (existing.role === "teacher" || existing.role === "admin") return alert("이미 교사 또는 관리자로 등록된 계정입니다. 근무기간은 아래에서 수정해 주세요.");
-    if (!confirm(`${email}\n근무기간: ${start} ~ ${end}\n교사 계정을 등록할까요? 기존 강사 권한은 유지됩니다.`)) return;
-    const data = { role: "teacher", grade: "", classNo: "", employmentStartDate: start, employmentEndDate: end, updatedBy: session.email, updatedAt: serverTimestamp() };
+    const effectiveStart = start || existing.employmentStartDate || "";
+    const effectiveEnd = end || existing.employmentEndDate || "";
+    if (effectiveStart && effectiveEnd && effectiveStart > effectiveEnd) return alert("기존 근무기간과 입력한 날짜를 확인해 주세요. 시작일은 만료일보다 늦을 수 없습니다.");
+    if (!confirm(`${email}\n근무기간: ${effectiveStart || "시작일 미설정"} ~ ${effectiveEnd || "만료일 미설정"}\n교사 계정을 등록할까요? 기존 강사 권한은 유지됩니다.`)) return;
+    const data = { role: "teacher", grade: "", classNo: "", updatedBy: session.email, updatedAt: serverTimestamp() };
+    if (start) data.employmentStartDate = start;
+    if (end) data.employmentEndDate = end;
     if (existing.role === "coach" && existing.department) data.coachDepartment = existing.department;
     await waitForSessionOperation(setDoc(doc(db, "access", email), data, { merge: true }), operation);
     await waitForSessionOperation(loadCoachList(), operation);

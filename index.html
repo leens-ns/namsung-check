@@ -11,7 +11,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261003-4" />
     <link rel="icon" href="icon-192.png?v=20261003-4" type="image/png" />
-    <link rel="stylesheet" href="styles.css?v=20261113-1" />
+    <link rel="stylesheet" href="styles.css?v=20261113-2" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen" aria-labelledby="login-title">
@@ -202,11 +202,11 @@
               <h2>교사 계정 등록</h2>
               <div class="account-period-form">
                 <input id="newTeacherEmail" type="email" aria-label="새 교사 학교 이메일" placeholder="teacher@nsworld.net" />
-                <label>근무 시작일<input id="newTeacherStart" type="date" /></label>
-                <label>근무 만료일<input id="newTeacherEnd" type="date" /></label>
+                <label>근무 시작일 (선택)<input id="newTeacherStart" type="date" /></label>
+                <label>근무 만료일 (선택)<input id="newTeacherEnd" type="date" /></label>
                 <button id="registerTeacherBtn" class="primary" type="button">교사 등록</button>
               </div>
-              <p class="note">학급 배정 없이 등록할 수 있습니다. 담임교사는 아래 담임교사 학급 배정에서 학급을 지정해 주세요.</p>
+              <p class="note">이메일만으로 바로 등록할 수 있습니다. 날짜는 나중에 일괄 설정할 수 있으며, 만료일 미설정 계정은 관리자 해제 전까지 이용 가능합니다. 담임 학급은 아래에서 배정해 주세요.</p>
             </section>
 
             <section data-access-catalog>
@@ -573,6 +573,6 @@
     </dialog>
 
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=20261113-1"></script>
+    <script type="module" src="app.js?v=20261113-2"></script>
   </body>
 </html>

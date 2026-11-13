@@ -44,3 +44,12 @@ test('bulk period uses update only on selected accounts without changing roles o
   assert.equal(writes.length,1); assert.equal(writes[0][0].email,'existing@nsworld.net');
   assert.deepEqual(Object.keys(writes[0][1]).sort(),['employmentEndDate','employmentStartDate','updatedAt','updatedBy']);
 });
+test('email-only registration omits optional dates so rules allow creation and existing dates survive merge', async () => {
+  const {context,fields,writes}=setup();
+  fields.newTeacherStart.value=''; fields.newTeacherEnd.value='';
+  await context.registerTeacherAccount();
+  assert.equal(writes.length,1);
+  assert.equal('employmentStartDate' in writes[0][1],false);
+  assert.equal('employmentEndDate' in writes[0][1],false);
+  assert.equal(writes[0][2].merge,true);
+});
