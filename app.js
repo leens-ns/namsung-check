@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { employmentAccessAllowed, employmentPeriodStatus, koreaDateKey, koreaWeekday, normalizeAttendanceDays } from "./access-period.mjs?v=20261005-7";
+import { employmentAccessAllowed, employmentPeriodStatus, koreaDateKey, koreaWeekday, normalizeAttendanceDays } from "./access-period.mjs?v=20261113-1";
 import { clearSensitiveSessionData } from "./session-cleanup.mjs?v=20261003-4";
 import { uniqueStudentClasses } from "./student-classes.mjs?v=20261003-4";
 import { buildAttendancePayload } from "./attendance-payload.mjs?v=20261003-4";
@@ -354,6 +354,11 @@ function bindEvents() {
   els.testPopupBtn.addEventListener("click", () => showReviewAlarm("review"));
   els.addAdminBtn.addEventListener("click", addAdmin);
   els.saveEmploymentPeriodBtn.addEventListener("click", saveEmploymentPeriod);
+  document.getElementById("registerTeacherBtn").addEventListener("click", registerTeacherAccount);
+  document.getElementById("saveBulkPeriodsBtn").addEventListener("click", saveBulkEmploymentPeriods);
+  document.getElementById("selectAllPeriods").addEventListener("change", (event) => {
+    els.employmentPeriodList.querySelectorAll("[data-period-email]").forEach((input) => { input.checked = event.target.checked; });
+  });
   els.withdrawAccountBtn.addEventListener("click", withdrawAccount);
   els.addCoachBtn.addEventListener("click", addCoach);
   els.importCoachesBtn.addEventListener("click", importCoachesCsv);
@@ -2163,20 +2168,77 @@ async function saveEmploymentPeriod() {
   alert(`${email}의 근무기간을 저장했습니다.`);
 }
 
+async function registerTeacherAccount() {
+  if (!isAdmin()) return;
+  const operation = captureSessionOperation();
+  if (!operation) return;
+  const email = document.getElementById("newTeacherEmail").value.trim().toLowerCase();
+  const start = normalizeDateInput(document.getElementById("newTeacherStart").value);
+  const end = normalizeDateInput(document.getElementById("newTeacherEnd").value);
+  if (!/^[^\s@]+@nsworld\.net$/.test(email)) return alert("학교 이메일(@nsworld.net)을 입력해 주세요.");
+  if (!start || !end || start > end) return alert("근무 시작일과 만료일을 올바르게 입력해 주세요.");
+  const button = document.getElementById("registerTeacherBtn");
+  button.disabled = true;
+  try {
+    const snapshot = await waitForSessionOperation(getDoc(doc(db, "access", email)), operation);
+    const existing = snapshot.exists() ? snapshot.data() : {};
+    if (existing.role === "teacher" || existing.role === "admin") return alert("이미 교사 또는 관리자로 등록된 계정입니다. 근무기간은 아래에서 수정해 주세요.");
+    if (!confirm(`${email}\n근무기간: ${start} ~ ${end}\n교사 계정을 등록할까요? 기존 강사 권한은 유지됩니다.`)) return;
+    const data = { role: "teacher", grade: "", classNo: "", employmentStartDate: start, employmentEndDate: end, updatedBy: session.email, updatedAt: serverTimestamp() };
+    if (existing.role === "coach" && existing.department) data.coachDepartment = existing.department;
+    await waitForSessionOperation(setDoc(doc(db, "access", email), data, { merge: true }), operation);
+    await waitForSessionOperation(loadCoachList(), operation);
+    renderAll();
+    document.getElementById("newTeacherEmail").value = "";
+    alert("교사 계정을 등록했습니다.");
+  } catch (error) {
+    if (isCurrentSessionOperation(operation)) alert(`교사 등록 실패: ${readableError(error)}`);
+  } finally { button.disabled = false; }
+}
+
+async function saveBulkEmploymentPeriods() {
+  if (!isAdmin()) return;
+  const operation = captureSessionOperation();
+  if (!operation) return;
+  const emails = [...els.employmentPeriodList.querySelectorAll("[data-period-email]:checked")].map((input) => input.dataset.periodEmail);
+  const start = normalizeDateInput(els.employmentStartDateInput.value);
+  const end = normalizeDateInput(els.employmentEndDateInput.value);
+  if (!emails.length) return alert("근무기간을 설정할 계정을 선택해 주세요.");
+  if (!start || !end || start > end) return alert("위의 근무 시작일과 만료일을 올바르게 입력해 주세요.");
+  if (!confirm(`${emails.length}개 계정의 근무기간을 ${start} ~ ${end}로 변경할까요?\n\n${emails.join("\n")}`)) return;
+  const button = document.getElementById("saveBulkPeriodsBtn");
+  button.disabled = true;
+  try {
+    for (let offset = 0; offset < emails.length; offset += 400) {
+      const batch = writeBatch(db);
+      emails.slice(offset, offset + 400).forEach((email) => batch.update(doc(db, "access", email), {
+        employmentStartDate: start, employmentEndDate: end, updatedBy: session.email, updatedAt: serverTimestamp()
+      }));
+      await waitForSessionOperation(batch.commit(), operation);
+    }
+    await waitForSessionOperation(loadCoachList(), operation);
+    renderEmploymentPeriodList();
+    alert(`${emails.length}개 계정의 근무기간을 저장했습니다.`);
+  } catch (error) {
+    if (isCurrentSessionOperation(operation)) alert(`일괄 저장 실패: ${readableError(error)}\n목록을 새로 불러와 반영 여부를 확인해 주세요.`);
+  } finally { button.disabled = false; }
+}
+
 function renderEmploymentPeriodList() {
   if (!isAdmin() || !els.employmentPeriodList) return;
   if (renderAccessCatalogPlaceholder(els.employmentPeriodList)) return;
   const accountEmails = [...new Set([
-    ...Object.keys(state.admins), ...Object.keys(state.teachers), ...Object.keys(state.coaches), ...Object.keys(state.externals)
+    ...Object.keys(state.accessRoles)
   ])].sort((a, b) => a.localeCompare(b));
   const entries = accountEmails.map((email) => [email, state.accountPeriods[email] || {}]);
   els.employmentPeriodList.innerHTML = entries.length
     ? entries.map(([email, period]) => {
       const configured = Boolean(period.start && period.end);
       const periodText = configured ? `${period.start} ~ ${period.end}` : "근무기간 미설정";
-      return `<div class="account-period-item ${configured ? "" : "is-missing"}"><strong>${escapeHtml(email)}</strong><span>${escapeHtml(periodText)}</span></div>`;
+      return `<div class="account-period-item ${configured ? "" : "is-missing"}"><label class="period-account-select"><input type="checkbox" data-period-email="${escapeAttr(email)}" aria-label="${escapeAttr(email)} 선택" /><strong>${escapeHtml(email)}</strong></label><span>${escapeHtml(periodText)}</span></div>`;
     }).join("")
     : `<p class="note">등록된 계정이 없습니다.</p>`;
+  document.getElementById("selectAllPeriods").checked = false;
 }
 
 async function withdrawAccount() {
@@ -2318,7 +2380,7 @@ async function loadCoachList({ operation = captureSessionOperation(), requestId 
     }
     if (item.data().role === "coach" && item.data().department) catalog.coaches[item.id] = item.data().department;
     if (item.data().coachDepartment) catalog.coaches[item.id] = item.data().coachDepartment;
-    if (item.data().role === "teacher") catalog.teachers[item.id] = { grade: String(item.data().grade), classNo: String(item.data().classNo) };
+    if (item.data().role === "teacher" && data.grade && data.classNo) catalog.teachers[item.id] = { grade: String(data.grade), classNo: String(data.classNo) };
     if (data.role === "external" || data.externalCourse || Array.isArray(data.externalClasses)) catalog.externals[item.id] = { course: String(data.externalCourse || "외부수업") };
   });
   Object.assign(state, catalog);
